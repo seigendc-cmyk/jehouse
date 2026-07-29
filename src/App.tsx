@@ -71,6 +71,10 @@ const loadDesignStudio = () =>
   import('./designStudio/components/DesignStudioModal').then((module) => ({
     default: module.DesignStudioModal
   }));
+const loadBookTypography = () =>
+  import('./components/BookTypographyModal').then((module) => ({
+    default: module.BookTypographyModal
+  }));
 const loadGoogleFonts = () =>
   import('./components/GoogleFontsLoaderModal').then((module) => ({
     default: module.GoogleFontsLoaderModal
@@ -164,6 +168,7 @@ export default function App() {
   const [isEducationalStudioOpen, setIsEducationalStudioOpen] = useState<boolean>(false);
   const [isCompanyProfileOpen, setIsCompanyProfileOpen] = useState<boolean>(false);
   const [isDesignStudioOpen, setIsDesignStudioOpen] = useState<boolean>(false);
+  const [isTypographyOpen, setIsTypographyOpen] = useState<boolean>(false);
   const [isGoogleFontsOpen, setIsGoogleFontsOpen] = useState<boolean>(false);
   const [isImageGalleryOpen, setIsImageGalleryOpen] = useState<boolean>(false);
 
@@ -882,6 +887,7 @@ export default function App() {
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
         onOpenSeriesManager={() => setIsSeriesManagerOpen(true)}
+        onOpenTypography={() => setIsTypographyOpen(true)}
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
         onSaveToLocalDisk={() => {
           void import('./lib/exportUtils').then(({ saveToLocalDiskInDocuments }) =>
@@ -1208,8 +1214,26 @@ export default function App() {
         />
       )}
 
+      {isTypographyOpen && (
+        <OptionalWorkspace
+          label="Opening Book Typography"
+          loader={loadBookTypography}
+          props={{
+            project,
+            isOpen: true,
+            onClose: () => setIsTypographyOpen(false),
+            onApply: (typography: BookProject['typography']) =>
+              handleUpdateProject({ typography })
+          }}
+          onReturn={() => setIsTypographyOpen(false)}
+        />
+      )}
+
       <FocusMode
         chapter={activeChapter}
+        typography={project.typography}
+        trimSize={project.exportSettings.trimSize}
+        pageOrientation={project.exportSettings.pageOrientation}
         isOpen={isFocusMode}
         onClose={() => setIsFocusMode(false)}
         onUpdateChapter={handleUpdateChapter}

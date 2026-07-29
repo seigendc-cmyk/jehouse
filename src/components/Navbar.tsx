@@ -34,6 +34,7 @@ interface NavbarProps {
   onOpenExportModal: () => void;
   onOpenPrintPreview: () => void;
   onOpenSeriesManager: () => void;
+  onOpenTypography: () => void;
   onOpenCloudSync: () => void;
   onSaveToLocalDisk: () => void;
   onOpenSQLiteConsole?: () => void;
@@ -101,7 +102,7 @@ function RibbonGroup({ label, children }: { label: string; children: React.React
 export const Navbar: React.FC<NavbarProps> = ({
   project, activeTab = 'editor', onSelectTab, onUpdateProject,
   onOpenFocusMode, onOpenProofread, onOpenStoryContinuation, onOpenExportModal,
-  onOpenPrintPreview, onOpenSeriesManager, onOpenCloudSync, onSaveToLocalDisk,
+  onOpenPrintPreview, onOpenSeriesManager, onOpenTypography, onOpenCloudSync, onSaveToLocalDisk,
   onOpenSQLiteConsole, onOpenEducationalStudio, onOpenCompanyProfile,
   onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager,
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
@@ -211,6 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RibbonGroup label="Structure">
             <RibbonButton label="Chapters" icon={FileText} onClick={() => selectWorkspace('editor')} />
             <RibbonButton label="Series Manager" icon={BookMarked} onClick={onOpenSeriesManager} />
+            <RibbonButton label="Typography" icon={Type} onClick={() => onOpenTypography()} />
           </RibbonGroup>
           <RibbonGroup label="Book Parts">
             <RibbonButton label="Cover" icon={BookOpen} onClick={() => selectWorkspace('cover')} active={activeTab === 'cover'} />

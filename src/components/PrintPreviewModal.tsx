@@ -26,6 +26,11 @@ import {
 } from 'lucide-react';
 import { BookProject, TrimSize, PageOrientation, MarginPreset } from '../types';
 import { GOOGLE_FONTS } from '../lib/googleFonts';
+import {
+  getEffectiveTypography,
+  resolveProjectTypography,
+  resolveRunningHeaderText
+} from '../lib/bookTypography';
 import { 
   exportToPDF, 
   exportToEPUB, 
@@ -63,6 +68,12 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     marginPreset: selectedMarginPreset,
     trimSize: selectedTrimSize
   }, project.category);
+  const effectiveTypography = getEffectiveTypography({
+    typography: resolveProjectTypography(project),
+    pageSize: selectedTrimSize,
+    orientation: selectedOrientation
+  });
+  const isLegacyTypography = effectiveTypography.presetId === 'legacy';
 
   if (!isOpen) return null;
 
@@ -474,7 +485,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     paddingTop: activePreviewMargins.top,
                     paddingRight: activePreviewMargins.right,
                     paddingBottom: activePreviewMargins.bottom,
-                    paddingLeft: activePreviewMargins.left
+                    paddingLeft: activePreviewMargins.left,
+                    fontFamily: isLegacyTypography ? undefined : effectiveTypography.body.fontFamily,
+                    fontSize: isLegacyTypography ? undefined : `${effectiveTypography.body.fontSizePt}pt`,
+                    lineHeight: isLegacyTypography ? undefined : effectiveTypography.body.lineHeight,
+                    color: isLegacyTypography ? undefined : effectiveTypography.body.textColour
                   }}
                 >
                   
@@ -510,10 +525,34 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
                   {shouldShowChapterRunningHeader(
                     page.role,
-                    project.exportSettings.showRunningHeader
+                    project.exportSettings.showRunningHeader &&
+                      effectiveTypography.continuation.enabled &&
+                      !(
+                        page.role === 'chapter-opening' &&
+                        effectiveTypography.runningHeaders.suppressOnChapterOpening
+                      )
                   ) && (
-                    <div className="pb-2 mb-8 border-b-2 border-zinc-900 font-serif font-bold text-sm uppercase tracking-wider text-zinc-900 flex items-center justify-between">
-                      <span>{getChapterDisplayLabel(ch.number, ch.title)}</span>
+                    <div className={isLegacyTypography
+                      ? 'pb-2 mb-8 border-b-2 border-zinc-900 font-serif font-bold text-sm uppercase tracking-wider text-zinc-900 flex items-center justify-between'
+                      : 'pb-2 mb-8 uppercase tracking-wider flex items-center justify-between'} style={isLegacyTypography ? undefined : {
+                      fontFamily: effectiveTypography.continuation.fontFamily,
+                      fontSize: `${effectiveTypography.continuation.fontSizePt}pt`,
+                      fontWeight: effectiveTypography.continuation.fontWeight,
+                      color: effectiveTypography.continuation.fontColour,
+                      borderBottom: effectiveTypography.continuation.showDivider
+                        ? `${effectiveTypography.continuation.dividerThicknessPt}pt solid ${effectiveTypography.continuation.dividerColour}`
+                        : undefined
+                    }}>
+                      <span>{resolveRunningHeaderText(
+                        pageIndex % 2 === 0
+                          ? effectiveTypography.runningHeaders.oddPageSource
+                          : effectiveTypography.runningHeaders.evenPageSource,
+                        project,
+                        getChapterDisplayLabel(ch.number, ch.title),
+                        pageIndex % 2 === 0
+                          ? effectiveTypography.runningHeaders.customOddText
+                          : effectiveTypography.runningHeaders.customEvenText
+                      )}</span>
                       <span className="text-xs font-mono font-normal text-zinc-500 lowercase italic">(continued)</span>
                     </div>
                   )}
@@ -521,12 +560,35 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                   {/* Chapter Body Content */}
                   <div className="flex-1 space-y-4">
                     {page.role === 'chapter-opening' && (
-                    <div className="text-center mt-8 mb-10 pb-5 border-b-2 border-zinc-300">
-                      <span className="text-xl font-serif font-bold text-zinc-900 block mb-3">{displayParts.numberLabel}</span>
+                    <div className={isLegacyTypography ? 'text-center mt-8 mb-10 pb-5 border-b-2 border-zinc-300' : undefined} style={isLegacyTypography ? undefined : {
+                      textAlign: effectiveTypography.chapterOpening.alignment === 'centre' ? 'center' : effectiveTypography.chapterOpening.alignment,
+                      paddingTop: `${effectiveTypography.chapterOpening.topSpacingPt}pt`,
+                      marginBottom: `${effectiveTypography.chapterOpening.titleToBodySpacingPt}pt`,
+                      borderBottom: effectiveTypography.chapterOpening.showDivider
+                        ? `${effectiveTypography.chapterOpening.dividerThicknessPt}pt solid ${effectiveTypography.chapterOpening.dividerColour}`
+                        : undefined
+                    }}>
+                      <span className={isLegacyTypography ? 'text-xl font-serif font-bold text-zinc-900 block mb-3' : 'block'} style={isLegacyTypography ? undefined : {
+                        fontFamily: effectiveTypography.chapterOpening.numberFontFamily,
+                        fontSize: `${effectiveTypography.chapterOpening.numberFontSizePt}pt`,
+                        fontWeight: effectiveTypography.chapterOpening.numberWeight,
+                        color: effectiveTypography.chapterOpening.numberColour,
+                        marginBottom: `${effectiveTypography.chapterOpening.numberToTitleSpacingPt}pt`
+                      }}>{displayParts.numberLabel}</span>
                       {displayParts.titleLabel && (
-                        <h1 className="text-2xl font-serif font-bold">{displayParts.titleLabel}</h1>
+                        <h1 className={isLegacyTypography ? 'text-2xl font-serif font-bold' : undefined} style={isLegacyTypography ? undefined : {
+                          fontFamily: effectiveTypography.chapterOpening.titleFontFamily,
+                          fontSize: `${effectiveTypography.chapterOpening.titleFontSizePt}pt`,
+                          fontWeight: effectiveTypography.chapterOpening.titleWeight,
+                          color: effectiveTypography.chapterOpening.titleColour
+                        }}>{displayParts.titleLabel}</h1>
                       )}
-                      {ch.subtitle && <p className="text-sm font-serif italic text-zinc-600 mt-1">{ch.subtitle}</p>}
+                      {ch.subtitle && <p className={isLegacyTypography ? 'text-sm font-serif italic text-zinc-600 mt-1' : 'italic mt-1'} style={isLegacyTypography ? undefined : {
+                        fontFamily: effectiveTypography.chapterOpening.subtitleFontFamily,
+                        fontSize: `${effectiveTypography.chapterOpening.subtitleFontSizePt}pt`,
+                        fontWeight: effectiveTypography.chapterOpening.subtitleWeight,
+                        color: effectiveTypography.chapterOpening.subtitleColour
+                      }}>{ch.subtitle}</p>}
                     </div>
                     )}
 

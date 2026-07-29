@@ -276,6 +276,90 @@ export interface WatermarkConfig {
 
 export type PageOrientation = 'portrait' | 'landscape';
 
+export type TypographyPresetId =
+  | 'legacy'
+  | 'modern-bold'
+  | 'classic-literary'
+  | 'contemporary-minimal'
+  | 'academic'
+  | 'dramatic-fiction'
+  | 'custom';
+
+export type TypographyAlignment = 'left' | 'centre' | 'right';
+export type RunningHeaderSource =
+  | 'book-title'
+  | 'chapter-title'
+  | 'chapter-number-title'
+  | 'author'
+  | 'custom';
+
+export interface BookTypographySettings {
+  schemaVersion: 1;
+  presetId: TypographyPresetId;
+  body: {
+    fontFamily: string;
+    fontSizePt: number;
+    fontWeight: number;
+    lineHeight: number;
+    textColour: string;
+    paragraphSpacingBeforePt: number;
+    paragraphSpacingAfterPt: number;
+  };
+  chapterOpening: {
+    alignment: TypographyAlignment;
+    numberFontFamily: string;
+    numberFontSizePt: number;
+    numberWeight: number;
+    numberColour: string;
+    titleFontFamily: string;
+    titleFontSizePt: number;
+    titleWeight: number;
+    titleColour: string;
+    subtitleFontFamily: string;
+    subtitleFontSizePt: number;
+    subtitleWeight: number;
+    subtitleColour: string;
+    topSpacingPt: number;
+    numberToTitleSpacingPt: number;
+    titleToBodySpacingPt: number;
+    showDivider: boolean;
+    dividerColour: string;
+    dividerThicknessPt: number;
+    dividerWidthPercent: number;
+    suppressRunningHeader: boolean;
+  };
+  continuation: {
+    enabled: boolean;
+    alignment: TypographyAlignment | 'split';
+    fontFamily: string;
+    fontSizePt: number;
+    fontWeight: number;
+    fontColour: string;
+    showChapterNumber: boolean;
+    showChapterTitle: boolean;
+    showContinued: boolean;
+    showDivider: boolean;
+    dividerColour: string;
+    dividerThicknessPt: number;
+  };
+  paragraphs: {
+    firstParagraphAfterChapter: 'inherit' | 'no-indent' | 'block';
+    subsequentParagraphMode: 'inherit' | 'first-line' | 'block';
+    firstLineIndentPt: number;
+    leftIndentPt: number;
+    rightIndentPt: number;
+    hangingIndentPt: number;
+  };
+  runningHeaders: {
+    suppressOnChapterOpening: boolean;
+    suppressOnBlankPages: boolean;
+    oddPageSource: RunningHeaderSource;
+    evenPageSource: RunningHeaderSource;
+    customOddText?: string;
+    customEvenText?: string;
+  };
+}
+
 export type MarginPreset = 'auto' | 'compact' | 'standard' | 'generous' | 'custom';
 
 export interface CustomMargins {
@@ -376,6 +460,8 @@ export interface BookProject {
   chapters: Chapter[];
   watermark: WatermarkConfig;
   exportSettings: ExportSettings;
+  /** Versioned document typography. Optional only for pre-v2 projects read before migration. */
+  typography?: BookTypographySettings;
   headerFooter?: HeaderFooterConfig;
   
   // Asset Library

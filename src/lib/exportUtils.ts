@@ -1,5 +1,10 @@
 import { BookProject, ExportSettings, CustomMargins, MarginPreset } from '../types';
 import { getGoogleFontsHTMLForExport } from './googleFonts';
+import {
+  getEffectiveTypography,
+  resolveProjectTypography,
+  resolveRunningHeaderText
+} from './bookTypography';
 import { calculateTocData } from './tocUtils';
 import { generateIndexOfTerms } from './indexUtils';
 import {
@@ -162,6 +167,17 @@ export function exportToPDF(project: BookProject) {
     : (exportSettings.fontPairing === 'Modern Sans' ? 'Inter, system-ui, sans-serif'
        : exportSettings.fontPairing === 'Playfair Editorial' ? '"Playfair Display", Georgia, serif'
        : bodyFontFamily);
+  const effectiveTypography = getEffectiveTypography({
+    typography: resolveProjectTypography(project),
+    pageSize: exportSettings.trimSize,
+    orientation
+  });
+  const typographyBodyFamily = effectiveTypography.presetId === 'legacy'
+    ? bodyFontFamily
+    : effectiveTypography.body.fontFamily;
+  const typographyHeadingFamily = effectiveTypography.presetId === 'legacy'
+    ? headingFontFamily
+    : effectiveTypography.chapterOpening.titleFontFamily;
 
   const isHyphenationEnabled = exportSettings.enableHyphenation !== false && exportSettings.autoHyphenation !== false;
 
@@ -224,10 +240,11 @@ export function exportToPDF(project: BookProject) {
     }
 
     body {
-      font-family: ${bodyFontFamily};
+      font-family: ${typographyBodyFamily};
       color: #111;
-      line-height: 1.65;
-      font-size: 11pt;
+      line-height: ${effectiveTypography.body.lineHeight};
+      font-size: ${effectiveTypography.body.fontSizePt}pt;
+      color: ${effectiveTypography.body.textColour};
       margin: 0;
       padding: 0;
       background: #fff;
@@ -368,13 +385,14 @@ export function exportToPDF(project: BookProject) {
 
     /* Headings & Content */
     h1.chapter-title {
-      font-family: ${headingFontFamily};
-      font-size: 22pt;
-      font-weight: bold;
-      text-align: center;
-      margin-top: 3rem;
-      margin-bottom: 0.5rem;
-      border-bottom: 2px solid #111;
+      font-family: ${typographyHeadingFamily};
+      font-size: ${effectiveTypography.chapterOpening.numberFontSizePt}pt;
+      font-weight: ${effectiveTypography.chapterOpening.numberWeight};
+      color: ${effectiveTypography.chapterOpening.numberColour};
+      text-align: ${effectiveTypography.chapterOpening.alignment === 'centre' ? 'center' : effectiveTypography.chapterOpening.alignment};
+      margin-top: ${effectiveTypography.chapterOpening.topSpacingPt}pt;
+      margin-bottom: ${effectiveTypography.chapterOpening.titleToBodySpacingPt}pt;
+      ${effectiveTypography.chapterOpening.showDivider ? `border-bottom: ${effectiveTypography.chapterOpening.dividerThicknessPt}pt solid ${effectiveTypography.chapterOpening.dividerColour};` : ''}
       padding-bottom: 0.5rem;
     }
 
@@ -590,10 +608,15 @@ export function exportToPDF(project: BookProject) {
 
       if (block.type === 'pagebreak') return `
         <div class="page-break" style="page-break-before: always; break-before: page; height: 0; margin: 0; padding: 0;"></div>
-        <div class="continued-chapter-heading" style="font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #222; border-bottom: 2px solid #111; padding-bottom: 0.4rem; margin-top: 1.5rem; margin-bottom: 1.2rem; font-family: ${headingFontFamily}; page-break-after: avoid; break-after: avoid; display: flex; justify-content: space-between; align-items: center;">
-          <span>${displayParts.combinedLabel}</span>
-          <span style="font-size: 9pt; font-weight: normal; font-style: italic; color: #666; text-transform: none;">(Continued)</span>
-        </div>
+        ${effectiveTypography.continuation.enabled ? `<div class="continued-chapter-heading" style="font-size: ${effectiveTypography.continuation.fontSizePt}pt; font-weight: ${effectiveTypography.continuation.fontWeight}; text-transform: uppercase; letter-spacing: 0.05em; color: ${effectiveTypography.continuation.fontColour}; ${effectiveTypography.continuation.showDivider ? `border-bottom: ${effectiveTypography.continuation.dividerThicknessPt}pt solid ${effectiveTypography.continuation.dividerColour};` : ''} padding-bottom: 0.4rem; margin-top: 1.5rem; margin-bottom: 1.2rem; font-family: ${effectiveTypography.continuation.fontFamily}; page-break-after: avoid; break-after: avoid; display: flex; justify-content: space-between; align-items: center;">
+          <span>${resolveRunningHeaderText(
+            effectiveTypography.runningHeaders.oddPageSource,
+            project,
+            displayParts.combinedLabel,
+            effectiveTypography.runningHeaders.customOddText
+          )}</span>
+          ${effectiveTypography.continuation.showContinued ? '<span style="font-size: 9pt; font-weight: normal; font-style: italic; color: #666; text-transform: none;">(Continued)</span>' : ''}
+        </div>` : ''}
       `;
       if (block.type === 'heading') return `<h2 style="font-size: 14pt; margin-top: 1.5rem; margin-bottom: 0.5rem; text-indent: 0; font-family: ${headingFontFamily}; font-weight: bold; page-break-after: avoid; break-after: avoid;">${formatBlockText(block)}</h2>`;
       if (block.type === 'subheading') return `<h3 style="font-size: 12pt; margin-top: 1.2rem; margin-bottom: 0.4rem; text-indent: 0; font-family: ${headingFontFamily}; font-weight: 600; color: #333; page-break-after: avoid; break-after: avoid;">${formatBlockText(block)}</h3>`;
@@ -799,7 +822,7 @@ export function exportToPDF(project: BookProject) {
 
     return `
       <div class="page-break">
-        <h1 class="chapter-title">${displayParts.numberLabel}${displayParts.titleLabel ? `<br><span style="font-size: 18pt; font-weight: normal;">${displayParts.titleLabel}</span>` : ''}</h1>
+        <h1 class="chapter-title">${displayParts.numberLabel}${displayParts.titleLabel ? `<br><span style="font-family: ${effectiveTypography.chapterOpening.titleFontFamily}; font-size: ${effectiveTypography.chapterOpening.titleFontSizePt}pt; font-weight: ${effectiveTypography.chapterOpening.titleWeight}; color: ${effectiveTypography.chapterOpening.titleColour};">${displayParts.titleLabel}</span>` : ''}</h1>
         ${ch.subtitle ? `<h2 class="chapter-subtitle">${ch.subtitle}</h2>` : ''}
         ${blocksHtml}
         ${footnotesHtml}
@@ -911,6 +934,11 @@ export function exportToPDF(project: BookProject) {
  * Generate and download an EPUB / HTML Package file
  */
 export function exportToEPUB(project: BookProject) {
+  const typography = getEffectiveTypography({
+    typography: resolveProjectTypography(project),
+    pageSize: project.exportSettings.trimSize,
+    orientation: project.exportSettings.pageOrientation
+  });
   const embeddedImages: { id: string; src: string; caption?: string; chapterNumber: number; blockId: string }[] = [];
   const coverImageSrc = resolveImageSrc(project.cover?.artworkUrl);
 
@@ -980,8 +1008,9 @@ export function exportToEPUB(project: BookProject) {
   <meta charset="utf-8" />
   <title>${project.title}</title>
   <style>
-    body { font-family: serif; margin: 5%; color: #111; line-height: 1.6; }
+    body { font-family: ${typography.body.fontFamily}; font-size: ${typography.body.fontSizePt}pt; margin: 5%; color: ${typography.body.textColour}; line-height: ${typography.body.lineHeight}; }
     h1 { text-align: center; color: #ea580c; margin-bottom: 0.2em; }
+    .chapter > h2 { font-family: ${typography.chapterOpening.titleFontFamily}; font-size: ${typography.chapterOpening.titleFontSizePt}pt; font-weight: ${typography.chapterOpening.titleWeight}; color: ${typography.chapterOpening.titleColour}; text-align: ${typography.chapterOpening.alignment === 'centre' ? 'center' : typography.chapterOpening.alignment}; ${typography.chapterOpening.showDivider ? `border-bottom: ${typography.chapterOpening.dividerThicknessPt}pt solid ${typography.chapterOpening.dividerColour};` : ''} }
     .subtitle { text-align: center; font-style: italic; color: #666; margin-bottom: 2em; }
     .author { text-align: center; font-weight: bold; margin-bottom: 3em; }
     .cover-container { text-align: center; margin-bottom: 3em; }
@@ -1224,19 +1253,24 @@ export function exportToTxt(project: BookProject) {
  * Export project as a standalone HTML Web Edition (.html)
  */
 export function exportToHTML(project: BookProject) {
+  const typography = getEffectiveTypography({
+    typography: resolveProjectTypography(project),
+    pageSize: project.exportSettings.trimSize,
+    orientation: project.exportSettings.pageOrientation
+  });
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>${project.title}</title>
   <style>
-    body { font-family: Georgia, serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #222; line-height: 1.8; background: #fafafa; }
+    body { font-family: ${typography.body.fontFamily}; font-size: ${typography.body.fontSizePt}pt; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: ${typography.body.textColour}; line-height: ${typography.body.lineHeight}; background: #fafafa; }
     h1 { text-align: center; color: #111; margin-top: 2rem; }
     .subtitle { text-align: center; font-style: italic; color: #666; font-size: 1.2rem; }
     .series-badge { text-align: center; font-weight: bold; color: #f97316; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5rem; }
     .meta { text-align: center; font-size: 0.9rem; color: #888; border-bottom: 2px solid #ea580c; padding-bottom: 1rem; margin-bottom: 2rem; }
     .chapter { background: #fff; padding: 2.5rem; margin-bottom: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .chapter-title { color: #ea580c; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+    .chapter-title { font-family: ${typography.chapterOpening.titleFontFamily}; font-size: ${typography.chapterOpening.titleFontSizePt}pt; font-weight: ${typography.chapterOpening.titleWeight}; color: ${typography.chapterOpening.titleColour}; text-align: ${typography.chapterOpening.alignment === 'centre' ? 'center' : typography.chapterOpening.alignment}; ${typography.chapterOpening.showDivider ? `border-bottom: ${typography.chapterOpening.dividerThicknessPt}pt solid ${typography.chapterOpening.dividerColour};` : ''} padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
     .episode-tag { font-size: 0.85rem; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 1rem; }
     blockquote { border-left: 4px solid #ea580c; padding-left: 1rem; font-style: italic; color: #444; }
     pre { background: #18181b; color: #f4f4f5; padding: 1rem; border-radius: 6px; overflow-x: auto; font-family: monospace; }
@@ -1403,6 +1437,16 @@ export async function saveToLocalDiskInDocuments(project: BookProject): Promise<
  */
 export async function exportToWordDocx(project: BookProject): Promise<void> {
   const children: Paragraph[] = [];
+  const typography = getEffectiveTypography({
+    typography: resolveProjectTypography(project),
+    pageSize: project.exportSettings.trimSize,
+    orientation: project.exportSettings.pageOrientation
+  });
+  const chapterAlignment = typography.chapterOpening.alignment === 'centre'
+    ? AlignmentType.CENTER
+    : typography.chapterOpening.alignment === 'right'
+      ? AlignmentType.RIGHT
+      : AlignmentType.LEFT;
 
   // Title / Cover Heading
   children.push(
@@ -1524,10 +1568,22 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
   project.chapters.forEach((ch, idx) => {
     children.push(
       new Paragraph({
-        text: getChapterDisplayLabel(ch.number, ch.title),
+        children: [
+          new TextRun({
+            text: getChapterDisplayLabel(ch.number, ch.title),
+            font: typography.chapterOpening.titleFontFamily.split(',')[0].replaceAll('"', ''),
+            size: Math.round(typography.chapterOpening.titleFontSizePt * 2),
+            bold: typography.chapterOpening.titleWeight >= 600,
+            color: typography.chapterOpening.titleColour.replace('#', '')
+          })
+        ],
         heading: HeadingLevel.HEADING_1,
+        alignment: chapterAlignment,
         pageBreakBefore: idx > 0 || !!project.frontMatter.executiveSummaryContent,
-        spacing: { before: 360, after: 180 }
+        spacing: {
+          before: Math.round(typography.chapterOpening.topSpacingPt * 20),
+          after: Math.round(typography.chapterOpening.titleToBodySpacingPt * 20)
+        }
       })
     );
 

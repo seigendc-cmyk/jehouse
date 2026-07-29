@@ -4,6 +4,7 @@ import { isStoredProject, migrateStoredProject, wrapLegacyProject } from './proj
 import {
   LocalProjectRepository,
   MigrationReport,
+  PROJECT_SCHEMA_VERSION,
   ProjectSummary,
   ProjectVersion,
   SaveResult,
@@ -54,7 +55,7 @@ export class IndexedDbProjectRepository implements LocalProjectRepository {
     const now = new Date().toISOString();
     const created: StoredProject = {
       ...structuredClone(project),
-      schemaVersion: 1,
+      schemaVersion: PROJECT_SCHEMA_VERSION,
       localRevision: Math.max(1, project.localRevision),
       createdAt: project.createdAt || now,
       updatedAt: now,
@@ -87,7 +88,7 @@ export class IndexedDbProjectRepository implements LocalProjectRepository {
         const now = new Date().toISOString();
         const saved: StoredProject = {
           ...structuredClone(project),
-          schemaVersion: 1,
+          schemaVersion: PROJECT_SCHEMA_VERSION,
           localRevision: actualRevision + 1,
           createdAt: current?.createdAt ?? project.createdAt ?? now,
           updatedAt: now,

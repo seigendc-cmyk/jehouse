@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Minimize2, Volume2, VolumeX, Sun, Moon, Clock } from 'lucide-react';
-import { Chapter } from '../types';
+import { BookTypographySettings, Chapter, PageOrientation, TrimSize } from '../types';
 import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
+import { getEffectiveTypography, resolveProjectTypography } from '../lib/bookTypography';
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -10,6 +11,9 @@ interface FocusModeProps {
   onUpdateChapter: (updated: Chapter) => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  typography?: BookTypographySettings;
+  trimSize?: TrimSize;
+  pageOrientation?: PageOrientation;
 }
 
 export const FocusMode: React.FC<FocusModeProps> = ({
@@ -19,11 +23,25 @@ export const FocusMode: React.FC<FocusModeProps> = ({
   onUpdateChapter,
   darkMode,
   onToggleDarkMode,
+  typography,
+  trimSize = '6x9',
+  pageOrientation = 'portrait'
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [focusedBlockIdx, setFocusedBlockIdx] = useState(0);
 
   if (!isOpen) return null;
+  const effectiveTypography = getEffectiveTypography({
+    typography: resolveProjectTypography({ typography }),
+    pageSize: trimSize as TrimSize,
+    orientation: pageOrientation as PageOrientation
+  });
+  const typographyStyle = effectiveTypography.presetId === 'legacy' ? undefined : {
+    fontFamily: effectiveTypography.body.fontFamily,
+    fontSize: `${effectiveTypography.body.fontSizePt}pt`,
+    lineHeight: effectiveTypography.body.lineHeight,
+    color: darkMode ? undefined : effectiveTypography.body.textColour
+  };
 
   // Simple Web Audio API typewriter sound simulator
   const playTypewriterClick = () => {
@@ -96,9 +114,14 @@ export const FocusMode: React.FC<FocusModeProps> = ({
 
       {/* Main Centered Minimalist Typewriter Canvas */}
       <main className="flex-1 overflow-y-auto px-6 py-12 flex justify-center">
-        <div className="w-full max-w-2xl space-y-6 font-serif leading-loose text-lg">
+        <div className="w-full max-w-2xl space-y-6 font-serif leading-loose text-lg" style={typographyStyle}>
           
-          <h1 className="text-3xl font-black font-sans text-center tracking-tight mb-8">
+          <h1 className="text-3xl font-black font-sans text-center tracking-tight mb-8" style={effectiveTypography.presetId === 'legacy' ? undefined : {
+            fontFamily: effectiveTypography.chapterOpening.titleFontFamily,
+            fontSize: `${effectiveTypography.chapterOpening.titleFontSizePt}pt`,
+            fontWeight: effectiveTypography.chapterOpening.titleWeight,
+            textAlign: effectiveTypography.chapterOpening.alignment === 'centre' ? 'center' : effectiveTypography.chapterOpening.alignment
+          }}>
             {chapter.title}
           </h1>
 

@@ -90,6 +90,7 @@ describe('IndexedDbProjectRepository', () => {
     expect(first.projectsMigrated).toBe(1);
     expect(second.projectsMigrated).toBe(0);
     expect(stored?.project.title).toBe('Newer');
+    expect(stored?.project.typography?.presetId).toBe('legacy');
     expect(new Set(versions.map((version) => version.versionId)).size).toBe(versions.length);
     expect(localStorage.getItem('presscraft_legacy_projects_migrated_v1')).not.toBeNull();
   });
