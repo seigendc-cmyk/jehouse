@@ -68,7 +68,8 @@ describe('light shell policy', () => {
       './components/ImageGalleryModal.tsx',
       './components/TableOfContents.tsx',
       './components/PrintPreviewModal.tsx',
-      './components/FocusMode.tsx'
+      './components/FocusMode.tsx',
+      './lib/exportUtils.ts'
     ];
     const sources = await Promise.all(paths.map(readSource));
     for (const source of sources) {

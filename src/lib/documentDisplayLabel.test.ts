@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chapterTitleIncludesNumber,
+  getChapterDisplayParts,
   getChapterDisplayLabel,
   getDocumentDisplayLabel
 } from './documentDisplayLabel';
@@ -23,5 +24,15 @@ describe('canonical document display labels', () => {
   it('identifies when an editable stored title already carries the chapter number', () => {
     expect(chapterTitleIncludesNumber(1, 'Chapter 1: Opening')).toBe(true);
     expect(chapterTitleIncludesNumber(1, 'Opening')).toBe(false);
+  });
+
+  it('separates chapter-opening number and title without mutating a prefixed stored title', () => {
+    const storedTitle = 'Chapter 13: The Voice of Samuel Dube';
+    expect(getChapterDisplayParts(13, storedTitle)).toEqual({
+      numberLabel: 'Chapter 13',
+      titleLabel: 'The Voice of Samuel Dube',
+      combinedLabel: storedTitle
+    });
+    expect(storedTitle).toBe('Chapter 13: The Voice of Samuel Dube');
   });
 });

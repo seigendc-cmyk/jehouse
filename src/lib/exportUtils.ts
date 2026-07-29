@@ -3,6 +3,10 @@ import { getGoogleFontsHTMLForExport } from './googleFonts';
 import { calculateTocData } from './tocUtils';
 import { generateIndexOfTerms } from './indexUtils';
 import {
+  getChapterDisplayLabel,
+  getChapterDisplayParts
+} from './documentDisplayLabel';
+import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
   generateFullLaTeXDocument
@@ -551,7 +555,7 @@ export function exportToPDF(project: BookProject) {
       ${tocData.chapters.map((ch) => `
         <div style="margin-bottom: 0.9rem;">
           <div style="display: flex; justify-content: space-between; align-items: baseline; ${frontMatter.tocConfig?.style === 'academic' ? 'border-bottom: 1px solid #333;' : frontMatter.tocConfig?.style === 'clean' ? '' : 'border-bottom: 1px dotted #888;'}">
-            <span style="font-weight: bold; font-size: 11pt;">Chapter ${ch.number}: ${ch.title}</span>
+            <span style="font-weight: bold; font-size: 11pt;">${getChapterDisplayLabel(ch.number, ch.title)}</span>
             <span style="font-family: monospace; font-size: 10pt; font-weight: bold; margin-left: 1rem;">${ch.pageNumber}</span>
           </div>
           ${(frontMatter.tocConfig?.showChapterSubtitles ?? true) && ch.subtitle ? `
@@ -577,6 +581,7 @@ export function exportToPDF(project: BookProject) {
   <!-- Chapters -->
   ${chapters.map((ch) => {
     const footnotes: { ref: string; text: string }[] = [];
+    const displayParts = getChapterDisplayParts(ch.number, ch.title);
 
     const blocksHtml = ch.blocks.map((block) => {
       if (block.footnoteRef && block.footnoteText) {
@@ -586,7 +591,7 @@ export function exportToPDF(project: BookProject) {
       if (block.type === 'pagebreak') return `
         <div class="page-break" style="page-break-before: always; break-before: page; height: 0; margin: 0; padding: 0;"></div>
         <div class="continued-chapter-heading" style="font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #222; border-bottom: 2px solid #111; padding-bottom: 0.4rem; margin-top: 1.5rem; margin-bottom: 1.2rem; font-family: ${headingFontFamily}; page-break-after: avoid; break-after: avoid; display: flex; justify-content: space-between; align-items: center;">
-          <span>Chapter ${ch.number}: ${ch.title}</span>
+          <span>${displayParts.combinedLabel}</span>
           <span style="font-size: 9pt; font-weight: normal; font-style: italic; color: #666; text-transform: none;">(Continued)</span>
         </div>
       `;
@@ -794,7 +799,7 @@ export function exportToPDF(project: BookProject) {
 
     return `
       <div class="page-break">
-        <h1 class="chapter-title">Chapter ${ch.number}<br><span style="font-size: 18pt; font-weight: normal;">${ch.title}</span></h1>
+        <h1 class="chapter-title">${displayParts.numberLabel}${displayParts.titleLabel ? `<br><span style="font-size: 18pt; font-weight: normal;">${displayParts.titleLabel}</span>` : ''}</h1>
         ${ch.subtitle ? `<h2 class="chapter-subtitle">${ch.subtitle}</h2>` : ''}
         ${blocksHtml}
         ${footnotesHtml}
@@ -994,7 +999,7 @@ export function exportToEPUB(project: BookProject) {
   </div>
   ${processedChapters.map(ch => `
     <div class="chapter" id="chapter-${ch.number}">
-      <h2>Chapter ${ch.number}: ${ch.title}</h2>
+      <h2>${getChapterDisplayLabel(ch.number, ch.title)}</h2>
       ${ch.subtitle ? `<div class="subtitle">${ch.subtitle}</div>` : ''}
       ${ch.html}
     </div>
@@ -1127,7 +1132,7 @@ export function exportToMarkdown(project: BookProject) {
   }
 
   project.chapters.forEach((ch) => {
-    md += `## Chapter ${ch.number}: ${ch.title}\n`;
+    md += `## ${getChapterDisplayLabel(ch.number, ch.title)}\n`;
     if (ch.seasonNumber || ch.episodeNumber) {
       md += `*Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}*\n\n`;
     } else if (ch.subtitle) {
@@ -1252,7 +1257,7 @@ export function exportToHTML(project: BookProject) {
     html += `    <div style="line-height: 2;">\n`;
     toc.chapters.forEach((ch) => {
       html += `      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #fdba74; font-weight: bold;">\n`;
-      html += `        <span>Chapter ${ch.number}: ${ch.title}</span>\n`;
+      html += `        <span>${getChapterDisplayLabel(ch.number, ch.title)}</span>\n`;
       html += `        <span style="font-family: monospace; color: #c2410c;">Page ${ch.pageNumber}</span>\n`;
       html += `      </div>\n`;
       if ((project.frontMatter.tocConfig?.showChapterSubtitles ?? true) && ch.subtitle) {
@@ -1273,7 +1278,7 @@ export function exportToHTML(project: BookProject) {
 
   project.chapters.forEach((ch) => {
     html += `  <div class="chapter">\n`;
-    html += `    <h2 class="chapter-title">Chapter ${ch.number}: ${ch.title}</h2>\n`;
+    html += `    <h2 class="chapter-title">${getChapterDisplayLabel(ch.number, ch.title)}</h2>\n`;
     if (ch.seasonNumber || ch.episodeNumber) {
       html += `    <div class="episode-tag">Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}</div>\n`;
     }
@@ -1519,7 +1524,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
   project.chapters.forEach((ch, idx) => {
     children.push(
       new Paragraph({
-        text: `Chapter ${ch.number}: ${ch.title}`,
+        text: getChapterDisplayLabel(ch.number, ch.title),
         heading: HeadingLevel.HEADING_1,
         pageBreakBefore: idx > 0 || !!project.frontMatter.executiveSummaryContent,
         spacing: { before: 360, after: 180 }
@@ -1707,4 +1712,3 @@ export function exportToBibTeX(project: BookProject): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-

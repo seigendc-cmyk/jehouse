@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
+import {
+  getChapterDisplayLabel,
+  getChapterDisplayParts
+} from '../lib/documentDisplayLabel';
+import {
+  classifyChapterBlocks,
+  shouldShowChapterRunningHeader
+} from '../lib/chapterPageRoles';
 import { TableOfContents } from './TableOfContents';
 import { IndexOfTerms } from './IndexOfTerms';
 import { 
@@ -453,12 +460,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
 
           {/* CHAPTER PAGES PREVIEW */}
           {(activeViewTab === 'all' || activeViewTab === 'chapters') && (
-            project.chapters.map((ch) => (
+            project.chapters.map((ch) => {
+              const displayParts = getChapterDisplayParts(ch.number, ch.title);
+              return (
               <div key={ch.id} className="flex flex-col items-center gap-2">
                 <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">{getChapterDisplayLabel(ch.number, ch.title)}</span>
-                
+                {classifyChapterBlocks(ch.blocks).map((page, pageIndex) => (
                 <div 
+                  key={`${ch.id}-${pageIndex}`}
                   className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl flex flex-col justify-between relative transition-all`}
+                  data-page-role={page.role}
                   style={{
                     paddingTop: activePreviewMargins.top,
                     paddingRight: activePreviewMargins.right,
@@ -497,21 +508,27 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     </div>
                   )}
 
-                  {/* Running Header */}
-                  {project.exportSettings.showRunningHeader && (
-                    <div className="border-b border-zinc-200 pb-2 mb-8 flex items-center justify-between text-[11px] font-serif text-zinc-400 italic">
-                      <span>{project.title}</span>
+                  {shouldShowChapterRunningHeader(
+                    page.role,
+                    project.exportSettings.showRunningHeader
+                  ) && (
+                    <div className="pb-2 mb-8 border-b-2 border-zinc-900 font-serif font-bold text-sm uppercase tracking-wider text-zinc-900 flex items-center justify-between">
                       <span>{getChapterDisplayLabel(ch.number, ch.title)}</span>
+                      <span className="text-xs font-mono font-normal text-zinc-500 lowercase italic">(continued)</span>
                     </div>
                   )}
 
                   {/* Chapter Body Content */}
                   <div className="flex-1 space-y-4">
-                    <div className="text-center mb-8 pb-4 border-b border-zinc-300">
-                      <span className="text-xs font-mono font-bold uppercase tracking-widest text-orange-600 block mb-1">Chapter {ch.number}</span>
-                      <h1 className="text-2xl font-serif font-bold">{ch.title}</h1>
+                    {page.role === 'chapter-opening' && (
+                    <div className="text-center mt-8 mb-10 pb-5 border-b-2 border-zinc-300">
+                      <span className="text-xl font-serif font-bold text-zinc-900 block mb-3">{displayParts.numberLabel}</span>
+                      {displayParts.titleLabel && (
+                        <h1 className="text-2xl font-serif font-bold">{displayParts.titleLabel}</h1>
+                      )}
                       {ch.subtitle && <p className="text-sm font-serif italic text-zinc-600 mt-1">{ch.subtitle}</p>}
                     </div>
+                    )}
 
                     <div 
                       className="space-y-3 font-serif text-sm leading-relaxed text-zinc-800 text-justify"
@@ -520,7 +537,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                         WebkitHyphens: selectedHyphenation ? 'auto' : 'none'
                       }}
                     >
-                      {ch.blocks.map((block) => {
+                      {page.blocks.map((block) => {
                         if (block.type === 'heading') return <h2 key={block.id} className="text-lg font-bold font-serif text-zinc-900 mt-4 mb-2">{block.text}</h2>;
                         if (block.type === 'subheading') return <h3 key={block.id} className="text-base font-semibold font-serif text-zinc-800 mt-3 mb-1">{block.text}</h3>;
                         if (block.type === 'clause') return <div key={block.id} className="font-bold text-zinc-900 mt-3">{block.text}</div>;
@@ -575,15 +592,6 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             </div>
                           );
                         }
-                        if (block.type === 'pagebreak') return (
-                          <div key={block.id} className="my-6 space-y-3">
-                            <div className="border-t-2 border-dashed border-orange-400 text-center text-[10px] text-orange-500 uppercase tracking-widest font-mono py-1">--- PAGE BREAK • NEW PAGE ---</div>
-                            <div className="pb-2 border-b-2 border-zinc-900 font-serif font-bold text-sm uppercase tracking-wider text-zinc-900 flex items-center justify-between">
-                              <span>{getChapterDisplayLabel(ch.number, ch.title)}</span>
-                              <span className="text-xs font-mono font-normal text-zinc-500 lowercase italic">(continued)</span>
-                            </div>
-                          </div>
-                        );
                         return <p key={block.id} className="indent-6 my-1">{block.text}</p>;
                       })}
                     </div>
@@ -594,8 +602,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     - {ch.number + 2} -
                   </div>
                 </div>
+                ))}
               </div>
-            ))
+              );
+            })
           )}
 
         </div>
