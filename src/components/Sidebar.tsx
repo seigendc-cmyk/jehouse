@@ -38,6 +38,7 @@ interface SidebarProps {
   activeTab: SidebarTab;
   activeChapterId: string;
   onSelectTab: (tab: SidebarTab) => void;
+  onPreloadTab?: (tab: SidebarTab) => void;
   onSelectChapter: (chapterId: string) => void;
   onAddChapter: () => void;
   onDeleteChapter: (chapterId: string) => void;
@@ -65,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   activeChapterId,
   onSelectTab,
+  onPreloadTab,
   onSelectChapter,
   onAddChapter,
   onDeleteChapter,
@@ -250,6 +252,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="space-y-1">
             <button
               onClick={() => onSelectTab('cover')}
+              onMouseEnter={() => onPreloadTab?.('cover')}
+              onFocus={() => onPreloadTab?.('cover')}
               className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeTab === 'cover' 
                   ? 'bg-[#333333] text-[#FF6B00] font-bold' 
@@ -279,6 +283,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => onSelectTab('frontmatter')}
+              onMouseEnter={() => onPreloadTab?.('frontmatter')}
+              onFocus={() => onPreloadTab?.('frontmatter')}
               className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeTab === 'frontmatter' 
                   ? 'bg-[#333333] text-[#FF6B00] font-bold' 
@@ -461,6 +467,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => onSelectTab('exportSettings')}
+              onMouseEnter={() => onPreloadTab?.('exportSettings')}
+              onFocus={() => onPreloadTab?.('exportSettings')}
               className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeTab === 'exportSettings' 
                   ? 'bg-[#333333] text-[#FF6B00] font-bold' 

@@ -1,5 +1,4 @@
 import { getIDBItem } from '../lib/idbStorage';
-import { loadAllProjectsFromSQLite } from '../lib/sqliteDb';
 import { BookProject } from '../types';
 import type { IndexedDbProjectRepository } from './indexedDbProjectRepository';
 import {
@@ -202,6 +201,7 @@ async function collectSqliteCandidates(
     typeof localStorage !== 'undefined' ? localStorage.getItem(LEGACY_SQLITE_KEY) : null;
   if (!idbBinary && !localBinary) return;
   try {
+    const { loadAllProjectsFromSQLite } = await import('../lib/sqliteDb');
     const projects = await loadAllProjectsFromSQLite();
     addRawValue(projects, 'legacy-sqlite', LEGACY_SQLITE_KEY, candidates, report);
   } catch (error) {

@@ -4,29 +4,14 @@ import { createEmptyBookProject } from './data/createEmptyBookProject';
 import { Navbar } from './components/Navbar';
 import { Sidebar, SidebarTab } from './components/Sidebar';
 import { EditorCanvas } from './components/EditorCanvas';
-import { CoverEditor } from './components/CoverEditor';
-import { FrontMatterEditor } from './components/FrontMatterEditor';
 import { WatermarkEditor } from './components/WatermarkEditor';
-import { ExportSettingsTab } from './components/ExportSettingsTab';
-import { ExportModal } from './components/ExportModal';
-import { PrintPreviewModal } from './components/PrintPreviewModal';
-import { SeriesManagerModal } from './components/SeriesManagerModal';
 import { ProofreadDrawer } from './components/ProofreadDrawer';
 import { StoryContinuationModal } from './components/StoryContinuationModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
-import { SQLiteConsoleModal } from './components/SQLiteConsoleModal';
-import { CartoonBookGeneratorModal } from './cartoonBook';
-import { ProposalStudioModal } from './proposalStudio';
-import { EducationalStudioModal } from './educationalBooks';
-import { CompanyProfileStudioModal } from './companyProfile';
-import { DesignStudioModal } from './designStudio';
-import { GoogleFontsLoaderModal } from './components/GoogleFontsLoaderModal';
-import { ImageGalleryModal } from './components/ImageGalleryModal';
+import { OptionalWorkspace } from './components/OptionalWorkspace';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { WelcomePage } from './components/WelcomePage';
 import { FocusMode } from './components/FocusMode';
-import { saveToLocalDiskInDocuments } from './lib/exportUtils';
-import { loadProjectFromSQLite } from './lib/sqliteDb';
 import { localProjectRepository } from './persistence/indexedDbProjectRepository';
 import {
   createInitialSaveState,
@@ -41,6 +26,58 @@ import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { applyUpdateWhenSafe } from './pwa/updatePolicy';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
+const loadCoverEditor = () =>
+  import('./components/CoverEditor').then((module) => ({ default: module.CoverEditor }));
+const loadFrontMatterEditor = () =>
+  import('./components/FrontMatterEditor').then((module) => ({
+    default: module.FrontMatterEditor
+  }));
+const loadExportSettings = () =>
+  import('./components/ExportSettingsTab').then((module) => ({
+    default: module.ExportSettingsTab
+  }));
+const loadExportModal = () =>
+  import('./components/ExportModal').then((module) => ({ default: module.ExportModal }));
+const loadPrintPreview = () =>
+  import('./components/PrintPreviewModal').then((module) => ({
+    default: module.PrintPreviewModal
+  }));
+const loadSeriesManager = () =>
+  import('./components/SeriesManagerModal').then((module) => ({
+    default: module.SeriesManagerModal
+  }));
+const loadSQLiteConsole = () =>
+  import('./components/SQLiteConsoleModal').then((module) => ({
+    default: module.SQLiteConsoleModal
+  }));
+const loadCartoonStudio = () =>
+  import('./cartoonBook/components/CartoonBookGeneratorModal').then((module) => ({
+    default: module.CartoonBookGeneratorModal
+  }));
+const loadProposalStudio = () =>
+  import('./proposalStudio/components/ProposalStudioModal').then((module) => ({
+    default: module.ProposalStudioModal
+  }));
+const loadEducationalStudio = () =>
+  import('./educationalBooks/components/EducationalStudioModal').then((module) => ({
+    default: module.EducationalStudioModal
+  }));
+const loadCompanyProfileStudio = () =>
+  import('./companyProfile/components/CompanyProfileStudioModal').then((module) => ({
+    default: module.CompanyProfileStudioModal
+  }));
+const loadDesignStudio = () =>
+  import('./designStudio/components/DesignStudioModal').then((module) => ({
+    default: module.DesignStudioModal
+  }));
+const loadGoogleFonts = () =>
+  import('./components/GoogleFontsLoaderModal').then((module) => ({
+    default: module.GoogleFontsLoaderModal
+  }));
+const loadImageGallery = () =>
+  import('./components/ImageGalleryModal').then((module) => ({
+    default: module.ImageGalleryModal
+  }));
 
 export default function App() {
   const [projects, setProjects] = useState<BookProject[]>([]);
@@ -856,7 +893,11 @@ export default function App() {
         onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
         onOpenSeriesManager={() => setIsSeriesManagerOpen(true)}
         onOpenCloudSync={() => setIsCloudSyncOpen(true)}
-        onSaveToLocalDisk={() => saveToLocalDiskInDocuments(project)}
+        onSaveToLocalDisk={() => {
+          void import('./lib/exportUtils').then(({ saveToLocalDiskInDocuments }) =>
+            saveToLocalDiskInDocuments(project)
+          );
+        }}
         onOpenSQLiteConsole={() => setIsSQLiteConsoleOpen(true)}
         onOpenCartoonGenerator={() => setIsCartoonGeneratorOpen(true)}
         onOpenProposalStudio={() => setIsProposalStudioOpen(true)}
@@ -887,6 +928,11 @@ export default function App() {
           activeTab={activeTab}
           activeChapterId={activeChapterId}
           onSelectTab={setActiveTab}
+          onPreloadTab={(tab) => {
+            if (tab === 'cover') void loadCoverEditor().catch(() => undefined);
+            if (tab === 'frontmatter') void loadFrontMatterEditor().catch(() => undefined);
+            if (tab === 'exportSettings') void loadExportSettings().catch(() => undefined);
+          }}
           onSelectChapter={setActiveChapterId}
           onAddChapter={handleAddChapter}
           onDeleteChapter={handleDeleteChapter}
@@ -941,44 +987,62 @@ export default function App() {
           )}
 
           {activeTab === 'cover' && (
-            <CoverEditor
-              cover={project.cover}
-              totalPages={project.chapters.length * 15}
-              onUpdateCover={(cover) => handleUpdateProject({ 
-                cover,
-                title: cover.title || project.title,
-                subtitle: cover.subtitle || project.subtitle,
-                author: cover.author || project.author,
-              })}
-              onOpenImageGallery={() => setIsImageGalleryOpen(true)}
+            <OptionalWorkspace
+              label="Loading Cover Studio"
+              loader={loadCoverEditor}
+              props={{
+                cover: project.cover,
+                totalPages: project.chapters.length * 15,
+                onUpdateCover: (cover: CoverConfig) =>
+                  handleUpdateProject({
+                    cover,
+                    title: cover.title || project.title,
+                    subtitle: cover.subtitle || project.subtitle,
+                    author: cover.author || project.author
+                  }),
+                onOpenImageGallery: () => setIsImageGalleryOpen(true)
+              }}
+              onReturn={() => setActiveTab('editor')}
             />
           )}
 
           {activeTab === 'frontmatter' && (
-            <FrontMatterEditor
-              frontMatter={project.frontMatter}
-              bookTitle={project.title}
-              bookSubtitle={project.subtitle}
-              bookAuthor={project.author}
-              chapters={project.chapters}
-              onUpdateFrontMatter={(frontMatter) => handleUpdateProject({ frontMatter })}
-              onUpdateProjectMetadata={(meta) => handleUpdateProject({
-                title: meta.title ?? project.title,
-                subtitle: meta.subtitle ?? project.subtitle,
-                author: meta.author ?? project.author,
-                frontMatter: {
-                  ...project.frontMatter,
-                  publisher: meta.publisher ?? project.frontMatter.publisher
-                },
-                cover: {
-                  ...project.cover,
-                  title: meta.title ?? project.cover.title,
-                  subtitle: meta.subtitle ?? project.cover.subtitle,
-                  author: meta.author ?? project.author,
-                  publisher: meta.publisher ?? project.cover.publisher
-                }
-              })}
-              onGenerateAIExecSummary={handleGenerateAIExecSummary}
+            <OptionalWorkspace
+              label="Loading Front Matter Studio"
+              loader={loadFrontMatterEditor}
+              props={{
+                frontMatter: project.frontMatter,
+                bookTitle: project.title,
+                bookSubtitle: project.subtitle,
+                bookAuthor: project.author,
+                chapters: project.chapters,
+                onUpdateFrontMatter: (frontMatter: FrontMatter) =>
+                  handleUpdateProject({ frontMatter }),
+                onUpdateProjectMetadata: (meta: {
+                  title?: string;
+                  subtitle?: string;
+                  author?: string;
+                  publisher?: string;
+                }) =>
+                  handleUpdateProject({
+                    title: meta.title ?? project.title,
+                    subtitle: meta.subtitle ?? project.subtitle,
+                    author: meta.author ?? project.author,
+                    frontMatter: {
+                      ...project.frontMatter,
+                      publisher: meta.publisher ?? project.frontMatter.publisher
+                    },
+                    cover: {
+                      ...project.cover,
+                      title: meta.title ?? project.cover.title,
+                      subtitle: meta.subtitle ?? project.cover.subtitle,
+                      author: meta.author ?? project.author,
+                      publisher: meta.publisher ?? project.cover.publisher
+                    }
+                  }),
+                onGenerateAIExecSummary: handleGenerateAIExecSummary
+              }}
+              onReturn={() => setActiveTab('editor')}
             />
           )}
 
@@ -990,11 +1054,18 @@ export default function App() {
           )}
 
           {activeTab === 'exportSettings' && (
-            <ExportSettingsTab
-              project={project}
-              onUpdateExportSettings={(exportSettings) => handleUpdateProject({ exportSettings })}
-              onUpdateBibliography={(bibliography) => handleUpdateProject({ bibliography })}
-              onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
+            <OptionalWorkspace
+              label="Preparing Export Tools"
+              loader={loadExportSettings}
+              props={{
+                project,
+                onUpdateExportSettings: (exportSettings: ExportSettings) =>
+                  handleUpdateProject({ exportSettings }),
+                onUpdateBibliography: (bibliography: BookProject['bibliography']) =>
+                  handleUpdateProject({ bibliography }),
+                onOpenPrintPreview: () => setIsPrintPreviewOpen(true)
+              }}
+              onReturn={() => setActiveTab('editor')}
             />
           )}
         </main>
@@ -1068,28 +1139,51 @@ export default function App() {
         onApplyContinuation={handleApplyStoryContinuation}
       />
 
-      <ExportModal
-        project={project}
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        onUpdateExportSettings={(exportSettings) => handleUpdateProject({ exportSettings })}
-        onImportProject={(importedProject) => handleCreateProject(importedProject)}
-        onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
-      />
+      {isExportModalOpen && (
+        <OptionalWorkspace
+          label="Preparing Export Tools"
+          loader={loadExportModal}
+          props={{
+            project,
+            isOpen: true,
+            onClose: () => setIsExportModalOpen(false),
+            onUpdateExportSettings: (exportSettings: ExportSettings) =>
+              handleUpdateProject({ exportSettings }),
+            onImportProject: (importedProject: BookProject) =>
+              handleCreateProject(importedProject),
+            onOpenPrintPreview: () => setIsPrintPreviewOpen(true)
+          }}
+          onReturn={() => setIsExportModalOpen(false)}
+        />
+      )}
 
-      <PrintPreviewModal
-        project={project}
-        isOpen={isPrintPreviewOpen}
-        onClose={() => setIsPrintPreviewOpen(false)}
-      />
+      {isPrintPreviewOpen && (
+        <OptionalWorkspace
+          label="Opening Print Preview"
+          loader={loadPrintPreview}
+          props={{
+            project,
+            isOpen: true,
+            onClose: () => setIsPrintPreviewOpen(false)
+          }}
+          onReturn={() => setIsPrintPreviewOpen(false)}
+        />
+      )}
 
-      <SeriesManagerModal
-        project={project}
-        isOpen={isSeriesManagerOpen}
-        onClose={() => setIsSeriesManagerOpen(false)}
-        onUpdateProject={handleUpdateProject}
-        onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
-      />
+      {isSeriesManagerOpen && (
+        <OptionalWorkspace
+          label="Opening Series Manager"
+          loader={loadSeriesManager}
+          props={{
+            project,
+            isOpen: true,
+            onClose: () => setIsSeriesManagerOpen(false),
+            onUpdateProject: handleUpdateProject,
+            onOpenPrintPreview: () => setIsPrintPreviewOpen(true)
+          }}
+          onReturn={() => setIsSeriesManagerOpen(false)}
+        />
+      )}
 
       <FocusMode
         chapter={activeChapter}
@@ -1109,81 +1203,137 @@ export default function App() {
         onSaveNow={() => void saveCoordinatorRef.current?.saveNow()}
       />
 
-      <SQLiteConsoleModal
-        isOpen={isSQLiteConsoleOpen}
-        onClose={() => setIsSQLiteConsoleOpen(false)}
-        onRefreshProject={async () => {
-          const reloaded = await loadProjectFromSQLite();
-          if (reloaded) handleUpdateProjectInList(reloaded);
-        }}
-      />
-
-
-      <CartoonBookGeneratorModal
-        isOpen={isCartoonGeneratorOpen}
-        onClose={() => setIsCartoonGeneratorOpen(false)}
-        onImportToBookStudio={(importedChapter) => {
-          handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
-          setActiveChapterId(importedChapter.id);
-        }}
-      />
-
-      <ProposalStudioModal
-        isOpen={isProposalStudioOpen}
-        onClose={() => setIsProposalStudioOpen(false)}
-        onImportToBookStudio={(importedChapter) => {
-          handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
-          setActiveChapterId(importedChapter.id);
-        }}
-      />
-
-      <EducationalStudioModal
-        isOpen={isEducationalStudioOpen}
-        onClose={() => setIsEducationalStudioOpen(false)}
-      />
-
-      <CompanyProfileStudioModal
-        isOpen={isCompanyProfileOpen}
-        onClose={() => setIsCompanyProfileOpen(false)}
-        onImportToBookStudio={(importedChapter) => {
-          handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
-          setActiveChapterId(importedChapter.id);
-        }}
-      />
-
-      <DesignStudioModal
-        isOpen={isDesignStudioOpen}
-        onClose={() => setIsDesignStudioOpen(false)}
-        onImportToBookStudio={(importedChapter) => {
-          handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
-          setActiveChapterId(importedChapter.id);
-        }}
-      />
-
-      <GoogleFontsLoaderModal
-        isOpen={isGoogleFontsOpen}
-        onClose={() => setIsGoogleFontsOpen(false)}
-        activeSerifFont={project.exportSettings.googleSerifFont || 'EB Garamond'}
-        activeSansFont={project.exportSettings.googleSansFont || 'Inter'}
-        onSelectFonts={(serifFont, sansFont) => {
-          handleUpdateProject({
-            exportSettings: {
-              ...project.exportSettings,
-              googleSerifFont: serifFont,
-              googleSansFont: sansFont
+      {isSQLiteConsoleOpen && (
+        <OptionalWorkspace
+          label="Opening SQLite Inspector"
+          loader={loadSQLiteConsole}
+          props={{
+            isOpen: true,
+            onClose: () => setIsSQLiteConsoleOpen(false),
+            onRefreshProject: async () => {
+              const { loadProjectFromSQLite } = await import('./lib/sqliteDb');
+              const reloaded = await loadProjectFromSQLite();
+              if (reloaded) handleUpdateProjectInList(reloaded);
             }
-          });
-        }}
-      />
+          }}
+          onReturn={() => setIsSQLiteConsoleOpen(false)}
+        />
+      )}
 
-      <ImageGalleryModal
-        isOpen={isImageGalleryOpen}
-        onClose={() => setIsImageGalleryOpen(false)}
-        project={project}
-        onUpdateProject={handleUpdateProject}
-        onInsertImageToChapter={handleInsertImageToChapter}
-        activeChapterId={activeChapterId}
-      />
+      {isCartoonGeneratorOpen && (
+        <OptionalWorkspace
+          label="Opening Cartoon Book Studio"
+          loader={loadCartoonStudio}
+          props={{
+            isOpen: true,
+            onClose: () => setIsCartoonGeneratorOpen(false),
+            onImportToBookStudio: (importedChapter: Chapter) => {
+              handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
+              setActiveChapterId(importedChapter.id);
+            }
+          }}
+          onReturn={() => setIsCartoonGeneratorOpen(false)}
+        />
+      )}
+
+      {isProposalStudioOpen && (
+        <OptionalWorkspace
+          label="Opening Proposal Studio"
+          loader={loadProposalStudio}
+          props={{
+            isOpen: true,
+            onClose: () => setIsProposalStudioOpen(false),
+            onImportToBookStudio: (importedChapter: Chapter) => {
+              handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
+              setActiveChapterId(importedChapter.id);
+            }
+          }}
+          onReturn={() => setIsProposalStudioOpen(false)}
+        />
+      )}
+
+      {isEducationalStudioOpen && (
+        <OptionalWorkspace
+          label="Opening Educational Studio"
+          loader={loadEducationalStudio}
+          props={{
+            isOpen: true,
+            onClose: () => setIsEducationalStudioOpen(false)
+          }}
+          onReturn={() => setIsEducationalStudioOpen(false)}
+        />
+      )}
+
+      {isCompanyProfileOpen && (
+        <OptionalWorkspace
+          label="Opening Company Profile Studio"
+          loader={loadCompanyProfileStudio}
+          props={{
+            isOpen: true,
+            onClose: () => setIsCompanyProfileOpen(false),
+            onImportToBookStudio: (importedChapter: Chapter) => {
+              handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
+              setActiveChapterId(importedChapter.id);
+            }
+          }}
+          onReturn={() => setIsCompanyProfileOpen(false)}
+        />
+      )}
+
+      {isDesignStudioOpen && (
+        <OptionalWorkspace
+          label="Opening Design Studio"
+          loader={loadDesignStudio}
+          props={{
+            isOpen: true,
+            onClose: () => setIsDesignStudioOpen(false),
+            onImportToBookStudio: (importedChapter: Chapter) => {
+              handleUpdateProject({ chapters: [...project.chapters, importedChapter] });
+              setActiveChapterId(importedChapter.id);
+            }
+          }}
+          onReturn={() => setIsDesignStudioOpen(false)}
+        />
+      )}
+
+      {isGoogleFontsOpen && (
+        <OptionalWorkspace
+          label="Opening Font Library"
+          loader={loadGoogleFonts}
+          props={{
+            isOpen: true,
+            onClose: () => setIsGoogleFontsOpen(false),
+            activeSerifFont: project.exportSettings.googleSerifFont || 'EB Garamond',
+            activeSansFont: project.exportSettings.googleSansFont || 'Inter',
+            onSelectFonts: (serifFont: string, sansFont: string) => {
+              handleUpdateProject({
+                exportSettings: {
+                  ...project.exportSettings,
+                  googleSerifFont: serifFont,
+                  googleSansFont: sansFont
+                }
+              });
+            }
+          }}
+          onReturn={() => setIsGoogleFontsOpen(false)}
+        />
+      )}
+
+      {isImageGalleryOpen && (
+        <OptionalWorkspace
+          label="Opening Image Gallery"
+          loader={loadImageGallery}
+          props={{
+            isOpen: true,
+            onClose: () => setIsImageGalleryOpen(false),
+            project,
+            onUpdateProject: handleUpdateProject,
+            onInsertImageToChapter: handleInsertImageToChapter,
+            activeChapterId
+          }}
+          onReturn={() => setIsImageGalleryOpen(false)}
+        />
+      )}
 
       <ProjectManagerModal
         isOpen={isProjectManagerOpen}

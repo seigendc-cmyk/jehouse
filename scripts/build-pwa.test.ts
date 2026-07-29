@@ -20,13 +20,19 @@ describe('native PWA asset generation', () => {
     await mkdir(path.join(root, 'assets'));
     await writeFile(path.join(root, 'index.html'), '<main>PressCraft</main>');
     await writeFile(path.join(root, 'assets', 'z.js'), 'console.log("z")');
+    await writeFile(path.join(root, 'assets', 'optional-workspace.js'), 'export default true');
     await writeFile(path.join(root, 'assets', 'a.css'), 'body{}');
 
     const first = await createAssetManifest(root);
     const second = await createAssetManifest(root);
 
     expect(first).toEqual(second);
-    expect(first.map(({ url }) => url)).toEqual(['/assets/a.css', '/assets/z.js', '/index.html']);
+    expect(first.map(({ url }) => url)).toEqual([
+      '/assets/a.css',
+      '/assets/optional-workspace.js',
+      '/assets/z.js',
+      '/index.html'
+    ]);
     expect(JSON.stringify(first)).not.toContain(root);
     expect(createBuildRevision(first)).toBe(createBuildRevision(second));
   });

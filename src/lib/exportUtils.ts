@@ -2,6 +2,11 @@ import { BookProject, ExportSettings, CustomMargins, MarginPreset } from '../typ
 import { getGoogleFontsHTMLForExport } from './googleFonts';
 import { calculateTocData } from './tocUtils';
 import { generateIndexOfTerms } from './indexUtils';
+import {
+  DEFAULT_SAMPLE_BIBLIOGRAPHY,
+  generateBibTeXString,
+  generateFullLaTeXDocument
+} from './bibtexUtils';
 import { 
   Document, 
   Packer, 
@@ -1670,41 +1675,36 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
  * Export full manuscript + bibliography as standalone LaTeX (.tex) file
  */
 export function exportToLaTeX(project: BookProject): void {
-  import('./bibtexUtils').then(({ generateFullLaTeXDocument }) => {
-    const texContent = generateFullLaTeXDocument(project);
-    const blob = new Blob([texContent], { type: 'text/x-tex;charset=utf-8;' });
-    const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'manuscript';
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${cleanTitle}_manuscript.tex`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  });
+  const texContent = generateFullLaTeXDocument(project);
+  const blob = new Blob([texContent], { type: 'text/x-tex;charset=utf-8;' });
+  const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'manuscript';
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${cleanTitle}_manuscript.tex`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 /**
  * Export bibliography citations as BibTeX (.bib) file
  */
 export function exportToBibTeX(project: BookProject): void {
-  import('./bibtexUtils').then(({ generateBibTeXString, DEFAULT_SAMPLE_BIBLIOGRAPHY }) => {
-    const entries = project.bibliography && project.bibliography.length > 0
-      ? project.bibliography
-      : DEFAULT_SAMPLE_BIBLIOGRAPHY;
-    const bibContent = generateBibTeXString(entries);
-    const blob = new Blob([bibContent], { type: 'text/plain;charset=utf-8;' });
-    const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'references';
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${cleanTitle}_references.bib`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  });
+  const entries = project.bibliography && project.bibliography.length > 0
+    ? project.bibliography
+    : DEFAULT_SAMPLE_BIBLIOGRAPHY;
+  const bibContent = generateBibTeXString(entries);
+  const blob = new Blob([bibContent], { type: 'text/plain;charset=utf-8;' });
+  const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'references';
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${cleanTitle}_references.bib`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
-
 

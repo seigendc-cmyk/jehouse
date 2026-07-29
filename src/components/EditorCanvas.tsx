@@ -50,15 +50,19 @@ import {
   Check,
   CheckCircle2
 } from 'lucide-react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
 import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange } from '../types';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
-import { GraphBlock } from './blocks/GraphBlock';
 import { TableBlock } from './blocks/TableBlock';
 import { CaptionBlock } from './blocks/CaptionBlock';
 import { GitCompare, CheckCheck, XCircle, EyeOff } from 'lucide-react';
+
+const GraphBlock = React.lazy(() =>
+  import('./blocks/GraphBlock').then((module) => ({ default: module.GraphBlock }))
+);
+const EquationRenderer = React.lazy(() =>
+  import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
+);
 
 interface EditorCanvasProps {
   chapter: Chapter;
@@ -378,15 +382,6 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const [moved] = updatedBlocks.splice(idx, 1);
     updatedBlocks.splice(idx + 1, 0, moved);
     onUpdateChapter({ ...chapter, blocks: updatedBlocks });
-  };
-
-  // Helper renderer for LaTeX formula
-  const renderLaTeX = (formula: string) => {
-    try {
-      return { __html: katex.renderToString(formula || 'E = mc^2', { displayMode: true, throwOnError: false }) };
-    } catch (e) {
-      return { __html: `<span class="text-red-500 font-mono">${formula}</span>` };
-    }
   };
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
@@ -1371,10 +1366,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
                       {/* Graph / Chart Block */}
                       {block.type === 'graph' && (
-                        <GraphBlock
-                          data={block.graphData}
-                          onChange={(graphData) => updateBlock(block.id, { graphData })}
-                        />
+                        <React.Suspense fallback={<div role="status" className="p-4 text-xs text-zinc-500">Preparing chart tools…</div>}>
+                          <GraphBlock
+                            data={block.graphData}
+                            onChange={(graphData) => updateBlock(block.id, { graphData })}
+                          />
+                        </React.Suspense>
                       )}
 
                       {/* Scientific Table Block */}
@@ -1407,7 +1404,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                             placeholder="e.g. \\int_{a}^{b} f(x) dx = F(b) - F(a)"
                           />
                           <div className="p-3 bg-white dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800 text-center overflow-x-auto">
-                            <div dangerouslySetInnerHTML={renderLaTeX(block.latexFormula || 'E = mc^2')} />
+                            <React.Suspense fallback={<div role="status" className="text-xs text-zinc-500">Preparing equation renderer…</div>}>
+                              <EquationRenderer formula={block.latexFormula || 'E = mc^2'} />
+                            </React.Suspense>
                           </div>
                         </div>
                       )}
