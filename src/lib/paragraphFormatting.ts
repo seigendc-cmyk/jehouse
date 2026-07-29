@@ -27,6 +27,7 @@ export function resolveParagraphFormatting(block:ContentBlock,previousBlock:Cont
  const p=t.paragraphs,o=block.paragraphFormatting??{}; const body=block.type==='paragraph';
  let suppress=body&&index===0&&p.firstParagraphAfterChapter==='no-indent';
  if(body&&previousBlock&&(previousBlock.type==='heading'||previousBlock.type==='subheading'||previousBlock.type==='clause')&&p.suppressIndentAfterHeading)suppress=true;
+ if(body&&previousBlock?.type==='scene-break'&&p.suppressIndentAfterSceneBreak)suppress=true;
  if(body&&previousBlock?.type==='image'&&p.suppressIndentAfterImage)suppress=true;
  const mode=o.mode&&o.mode!=='inherit'?o.mode:(suppress?'none':p.defaultMode);
  const hanging=clamp(o.hangingIndentPt??p.hangingIndentPt,0,72);

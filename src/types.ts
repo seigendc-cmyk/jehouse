@@ -35,6 +35,7 @@ export type BlockType =
   | 'quiz'
   | 'callout'
   | 'quote'
+  | 'scene-break'
   | 'pagebreak'
   | 'spreadsheet'
   | 'graph'
@@ -122,6 +123,7 @@ export interface ContentBlock {
   /** Explicit colour for the complete block. Omit to inherit from book typography. */
   textColour?: string;
   paragraphFormatting?: BlockParagraphFormatting;
+  sceneBreak?: SceneBreakSettings;
 
   
   // Review Mode / Track Changes
@@ -157,6 +159,16 @@ export interface ContentBlock {
   
   footnoteRef?: string; // e.g., "1" or "a"
   footnoteText?: string; // e.g., "See Smith et al., 2024, p. 142."
+}
+
+export type SceneBreakStyle = 'asterisms'|'dots'|'rule'|'ornament'|'whitespace'|'custom';
+export interface SceneBreakSettings {
+  style: SceneBreakStyle;
+  customText?: string;
+  alignment: TypographyAlignment;
+  spacingBeforePt: number;
+  spacingAfterPt: number;
+  keepWithNext: boolean;
 }
 
 export interface Chapter {

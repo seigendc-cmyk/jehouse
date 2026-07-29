@@ -5,6 +5,7 @@ import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 import { getEffectiveTypography, resolveProjectTypography } from '../lib/bookTypography';
 import { resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign } from '../lib/sceneBreak';
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -132,6 +133,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
 
           {chapter.blocks.map((block, idx) => {
             const isFocused = focusedBlockIdx === idx;
+            if(block.type==='scene-break'){const s=resolveSceneBreak(block);return <div key={block.id} role="separator" aria-label="Scene break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`,breakAfter:s.keepWithNext?'avoid':undefined}}>{s.style==='rule'?<hr />:<span aria-hidden={s.style!=='custom'}>{s.style==='whitespace'?'':sceneBreakMark(s)}</span>}</div>;}
 
             return (
               <div 

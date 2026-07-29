@@ -13,6 +13,7 @@ import {
 } from './documentDisplayLabel';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from './bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, resolveParagraphFormatting } from './paragraphFormatting';
+import { resolveSceneBreak, sceneBreakHtml, sceneBreakMark } from './sceneBreak';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -606,6 +607,7 @@ export function exportToPDF(project: BookProject) {
     const displayParts = getChapterDisplayParts(ch.number, ch.title);
 
     const blocksHtml = ch.blocks.map((block, blockIndex) => {
+      if (block.type === 'scene-break') return sceneBreakHtml(block);
       if (block.footnoteRef && block.footnoteText) {
         footnotes.push({ ref: block.footnoteRef, text: block.footnoteText });
       }
@@ -972,6 +974,7 @@ export function exportToEPUB(project: BookProject) {
     });
 
     const chapterHtml = blocksWithImages.map((b, blockIndex) => {
+      if (b.type === 'scene-break') return sceneBreakHtml(b);
       if (b.type === 'image' || b.imageUrl) {
         const src = resolveImageSrc(b);
         const caption = b.imageCaption || '';
@@ -1187,6 +1190,7 @@ export function exportToMarkdown(project: BookProject) {
       else if (block.type === 'code') md += `\`\`\`${block.codeLanguage || ''}\n${block.codeSnippet || block.text}\n\`\`\`\n\n`;
       else if (block.type === 'latex') md += `$$\n${block.latexFormula || block.text}\n$$\n\n`;
       else if (block.type === 'pagebreak') md += `\n---\n\n`;
+      else if (block.type === 'scene-break') md += `\n${sceneBreakMark(resolveSceneBreak(block)) || '***'}\n\n`;
       else if (block.type === 'image') {
         const imgSrc = resolveImageSrc(block);
         md += `![${block.imageCaption || 'Image'}](${imgSrc})\n`;
@@ -1328,7 +1332,8 @@ export function exportToHTML(project: BookProject) {
     ch.blocks.forEach((block) => {
       const colour = resolveBlockTextColour(block, palette);
       const blockIndex=ch.blocks.indexOf(block),pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
-      if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
+      if (block.type === 'scene-break') html += `    ${sceneBreakHtml(block)}\n`;
+      else if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
       else if (block.type === 'subheading') html += `    <h4 style="color: ${colour}">${block.text}</h4>\n`;
       else if (block.type === 'quote') html += `    <blockquote style="color: ${colour}">${block.text}</blockquote>\n`;
       else if (block.type === 'callout') html += `    <div style="background: #f0f4f8; border-left: 4px solid #0284c7; padding: 0.8rem; margin: 1rem 0; border-radius: 4px;">${block.text}</div>\n`;
@@ -1629,7 +1634,15 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
       const pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography);
       const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
       const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
-      if (block.type === 'heading') {
+      if (block.type === 'scene-break') {
+        const s=resolveSceneBreak(block);
+        children.push(new Paragraph({
+          children:[new TextRun({text:s.style==='rule'?'────────':sceneBreakMark(s)})],
+          alignment:s.alignment==='centre'?AlignmentType.CENTER:s.alignment==='right'?AlignmentType.RIGHT:AlignmentType.LEFT,
+          spacing:{before:Math.round(s.spacingBeforePt*20),after:Math.round(s.spacingAfterPt*20)},
+          keepNext:s.keepWithNext
+        }));
+      } else if (block.type === 'heading') {
         children.push(
           new Paragraph({
             children: [new TextRun({text:block.text,bold:true,color:blockColour})],

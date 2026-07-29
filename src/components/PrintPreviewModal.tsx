@@ -33,6 +33,7 @@ import {
 } from '../lib/bookTypography';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from '../lib/bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign } from '../lib/sceneBreak';
 import { 
   exportToPDF, 
   exportToEPUB, 
@@ -603,6 +604,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       }}
                     >
                       {page.blocks.map((block) => {
+                        if(block.type==='scene-break'){const s=resolveSceneBreak(block);return <div key={block.id} role="separator" aria-label="Scene break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`,breakAfter:s.keepWithNext?'avoid':undefined}}>{s.style==='rule'?<hr />:<span aria-hidden={s.style!=='custom'}>{s.style==='whitespace'?'':sceneBreakMark(s)}</span>}</div>;}
                         const index=page.blocks.indexOf(block); const ps=paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(page.blocks,index),isFirstQualifyingParagraph(page.blocks,index)?0:index,effectiveTypography));
                         if (block.type === 'heading') return <h2 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-lg font-bold font-serif">{block.text}</h2>;
                         if (block.type === 'subheading') return <h3 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-base font-semibold font-serif">{block.text}</h3>;

@@ -4,6 +4,7 @@ import { sampleBookTemplate } from '../templates/sampleBookTemplate';
 import { setIDBItem } from '../lib/idbStorage';
 import { IndexedDbProjectRepository } from './indexedDbProjectRepository';
 import { stableProjectHash, wrapLegacyProject } from './projectSchema';
+import { createSceneBreakBlock } from '../lib/sceneBreak';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -117,6 +118,16 @@ describe('IndexedDbProjectRepository', () => {
     const reopened = await repository.getProject(source.projectId);
     expect(reopened?.project.typography?.paragraphs.firstLineIndentPt).toBe(22);
     expect(reopened?.project.chapters[0].blocks[0].paragraphFormatting).toEqual({mode:'hanging',hangingIndentPt:18});
+  });
+
+  it('reopens semantic scene-break metadata offline', async () => {
+    const repository=new IndexedDbProjectRepository();
+    const source=wrapLegacyProject(project('scene-break-offline-test','Scene copy'));
+    const scene=createSceneBreakBlock(); scene.sceneBreak!.style='ornament';
+    source.project.chapters[0].blocks.push(scene);
+    await repository.saveProject(source,0);
+    const reopened=await repository.getProject(source.projectId);
+    expect(reopened?.project.chapters[0].blocks.at(-1)).toMatchObject({id:scene.id,type:'scene-break',text:'',sceneBreak:{style:'ornament'}});
   });
 
   it('uses a deterministic content hash independent of object key order', () => {

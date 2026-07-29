@@ -54,6 +54,7 @@ import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrient
 import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 import { resolveProjectTypography } from '../lib/bookTypography';
+import { createSceneBreakBlock, DEFAULT_SCENE_BREAK, resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign, sanitizeSceneBreakText } from '../lib/sceneBreak';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
@@ -296,6 +297,10 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         e.preventDefault();
         duplicateBlock(activeBlockId);
       }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Enter' && !isTyping && activeBlockId) {
+        e.preventDefault();
+        addBlock(activeBlockId,'scene-break');
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -338,7 +343,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   // Add a new content block after target ID with Review Mode tracking flag
   const addBlock = (afterId: string, type: BlockType = 'paragraph') => {
-    const newBlock: ContentBlock = {
+    const newBlock: ContentBlock = type==='scene-break'?createSceneBreakBlock():{
       id: `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       type,
       text: type === 'paragraph' ? '' : type === 'heading' ? 'New Section Heading' : 'New Content Block',
@@ -543,7 +548,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       <div className="bg-[#222222] border-b border-[#333333] px-4 py-1.5 flex flex-wrap items-center gap-1.5 text-xs select-none sticky top-0 z-20 shadow-xs">
         
         {/* Block Type Selector */}
-        {activeBlock && (
+        {activeBlock && activeBlock.type!=='scene-break' && (
           <select
             value={activeBlock.type}
             onChange={(e) => updateBlock(activeBlock.id, { type: e.target.value as BlockType })}
@@ -555,6 +560,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="clause">Clause / Section</option>
             <option value="item">ListItem</option>
             <option value="quote">Block Quote</option>
+            <option value="scene-break">Scene Break</option>
             <option value="callout">Callout Box</option>
             <option value="spreadsheet">Spreadsheet Matrix</option>
             <option value="graph">Interactive Graph / Chart</option>
@@ -568,7 +574,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="image">Image Attachment</option>
           </select>
         )}
-        {activeBlock && (
+        {activeBlock && activeBlock.type!=='scene-break' && (
           <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block.">
             <span className="text-[10px] text-gray-300">Paragraph Formatting — Entire Block</span>
             <select aria-label="Paragraph mode" value={activeBlock.paragraphFormatting?.mode??'inherit'} onChange={e=>updateBlock(activeBlock.id,{paragraphFormatting:{...activeBlock.paragraphFormatting,mode:e.target.value as any}})} className="bg-[#1a1a1a] text-xs text-white"><option value="inherit">Inherit</option><option value="first-line">First line</option><option value="block">Block</option><option value="hanging">Hanging</option><option value="none">None</option></select>
@@ -576,7 +582,19 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <button type="button" onClick={()=>updateBlock(activeBlock.id,{paragraphFormatting:undefined})} className="px-1 text-[10px] text-gray-300">Clear</button>
           </div>
         )}
-        {activeBlock && (
+        {activeBlock?.type==='scene-break'&&(
+          <div className="flex flex-wrap items-center gap-1 rounded border border-[#444] px-2 py-1 text-[10px] text-gray-200" aria-label="Scene Break Settings">
+            <strong>Scene Break Settings</strong>
+            <select aria-label="Scene break style" value={resolveSceneBreak(activeBlock).style} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),style:e.target.value as any}})} className="bg-[#1a1a1a]"><option value="asterisms">Asterisms</option><option value="dots">Dots</option><option value="rule">Thin Rule</option><option value="ornament">Ornament</option><option value="whitespace">Whitespace</option><option value="custom">Custom</option></select>
+            <select aria-label="Scene break alignment" value={resolveSceneBreak(activeBlock).alignment} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),alignment:e.target.value as any}})} className="bg-[#1a1a1a]"><option value="left">Left</option><option value="centre">Centre</option><option value="right">Right</option></select>
+            {resolveSceneBreak(activeBlock).style==='custom'&&<input aria-label="Custom scene break text" maxLength={24} value={resolveSceneBreak(activeBlock).customText??''} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),customText:sanitizeSceneBreakText(e.target.value)}})} className="bg-[#1a1a1a] px-1" />}
+            <label>Before (pt)<input aria-label="Scene break spacing before points" type="number" min="0" max="72" value={resolveSceneBreak(activeBlock).spacingBeforePt} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),spacingBeforePt:Number(e.target.value)}})} className="w-12 bg-[#1a1a1a]" /></label>
+            <label>After (pt)<input aria-label="Scene break spacing after points" type="number" min="0" max="72" value={resolveSceneBreak(activeBlock).spacingAfterPt} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),spacingAfterPt:Number(e.target.value)}})} className="w-12 bg-[#1a1a1a]" /></label>
+            <label><input type="checkbox" checked={resolveSceneBreak(activeBlock).keepWithNext} onChange={e=>updateBlock(activeBlock.id,{sceneBreak:{...resolveSceneBreak(activeBlock),keepWithNext:e.target.checked}})} /> Keep with next</label>
+            <button type="button" onClick={()=>updateBlock(activeBlock.id,{sceneBreak:{...DEFAULT_SCENE_BREAK}})}>Reset</button>
+          </div>
+        )}
+        {activeBlock && activeBlock.type!=='scene-break' && (
           <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block. Partial-text colour requires rich-text support and is not available.">
             <span className="text-[10px] text-gray-300">Text Colour — Entire Block</span>
             <input aria-label="Text Colour — Entire Block" type="color" value={normalizeHexColour(activeBlock.textColour ?? '') ?? resolveBlockTextColour(activeBlock, activePalette)} onChange={e=>updateBlock(activeBlock.id,{textColour:e.target.value})} className="h-6 w-7" />
@@ -864,6 +882,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           <Scissors className="w-3 h-3 text-rose-400" />
           <span>+ Page Break</span>
         </button>
+        <button onClick={()=>activeBlockId&&addBlock(activeBlockId,'scene-break')} className="p-1.5 rounded hover:bg-[#333333] text-gray-300" title="Insert Scene Break (Ctrl+Shift+Enter)" aria-label="Insert Scene Break"><Minus className="w-4 h-4" /></button>
 
         {/* Insert Elements Quick Actions */}
         <button
@@ -1365,6 +1384,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           placeholder="Type paragraph text here..."
                         />
                       )}
+
+                      {/* Page Break Block */}
+                      {block.type === 'scene-break' && (()=>{const s=resolveSceneBreak(block);return <div role="separator" aria-label="Scene Break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`}} className="relative rounded border border-dashed border-orange-300 bg-orange-50/30 py-2 text-zinc-700"><span className="absolute left-2 top-1 text-[9px] font-bold uppercase text-orange-600">Scene Break</span>{s.style==='rule'?<hr className="mx-auto w-2/3 border-zinc-500" />:<span aria-hidden="true">{s.style==='whitespace'?'Whitespace scene break':sceneBreakMark(s)}</span>}</div>})()}
 
                       {/* Page Break Block */}
                       {block.type === 'pagebreak' && (
