@@ -50,7 +50,8 @@ import {
   Check,
   CheckCircle2
 } from 'lucide-react';
-import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange } from '../types';
+import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange, BookColourSettings, BookTypographySettings } from '../types';
+import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
@@ -89,6 +90,8 @@ interface EditorCanvasProps {
   onTriggerProofread: () => void;
   onTriggerStoryContinuation: () => void;
   onOpenImageGallery?: () => void;
+  typography?: BookTypographySettings;
+  colourSettings?: BookColourSettings;
 }
 
 const FONT_FAMILIES = [
@@ -132,6 +135,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   onTriggerProofread,
   onTriggerStoryContinuation,
   onOpenImageGallery,
+  typography,
+  colourSettings,
 }) => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(chapter.blocks[0]?.id || null);
   const [showRulers, setShowRulers] = useState<boolean>(true);
@@ -389,6 +394,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   };
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
+  const activePalette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
 
   const defaultSizeForType = (type: BlockType): number => {
     switch (type) {
@@ -554,6 +560,13 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="quiz">Interactive Quiz</option>
             <option value="image">Image Attachment</option>
           </select>
+        )}
+        {activeBlock && (
+          <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block. Partial-text colour requires rich-text support and is not available.">
+            <span className="text-[10px] text-gray-300">Text Colour — Entire Block</span>
+            <input aria-label="Text Colour — Entire Block" type="color" value={normalizeHexColour(activeBlock.textColour ?? '') ?? resolveBlockTextColour(activeBlock, activePalette)} onChange={e=>updateBlock(activeBlock.id,{textColour:e.target.value})} className="h-6 w-7" />
+            <button type="button" onClick={()=>updateBlock(activeBlock.id,{textColour:undefined})} className="px-1 text-[10px] text-gray-300">Inherit</button>
+          </div>
         )}
 
         <div className="h-4 w-px bg-[#444] mx-1" />
@@ -1269,7 +1282,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                             fontSize: `${block.fontSize || 26}px`,
                             fontWeight: block.bold ? 900 : 800,
                             fontStyle: block.italic ? 'italic' : 'normal',
-                            textAlign: block.align || 'left'
+                            textAlign: block.align || 'left',
+                            color: resolveBlockTextColour(block, activePalette)
                           }}
                           className="w-full tracking-tight text-zinc-900 dark:text-zinc-100 bg-transparent border-none focus:outline-hidden"
                           placeholder="Heading 1..."
@@ -1287,7 +1301,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                             fontSize: `${block.fontSize || 20}px`,
                             fontWeight: block.bold ? 800 : 700,
                             fontStyle: block.italic ? 'italic' : 'normal',
-                            textAlign: block.align || 'left'
+                            textAlign: block.align || 'left',
+                            color: resolveBlockTextColour(block, activePalette)
                           }}
                           className="w-full text-zinc-800 dark:text-zinc-200 bg-transparent border-none focus:outline-hidden"
                           placeholder="Subheading 2..."
@@ -1303,7 +1318,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           style={{
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 15}px`,
-                            textAlign: block.align || 'left'
+                            textAlign: block.align || 'left',
+                            color: resolveBlockTextColour(block, activePalette)
                           }}
                           className="w-full font-bold text-orange-600 dark:text-orange-400 bg-transparent border-none focus:outline-hidden uppercase tracking-wider"
                           placeholder="Clause Title..."
@@ -1324,6 +1340,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                             fontWeight: block.bold ? 'bold' : 'normal',
                             fontStyle: block.italic ? 'italic' : 'normal',
                             textDecoration: `${block.underline ? 'underline ' : ''}${block.strikethrough ? 'line-through' : ''}`,
+                            color: resolveBlockTextColour(block, activePalette)
                           }}
                           className="w-full bg-transparent border-none focus:outline-hidden resize-none leading-relaxed text-zinc-800 dark:text-zinc-200 font-serif"
                           placeholder="Type paragraph text here..."

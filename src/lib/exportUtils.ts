@@ -11,6 +11,7 @@ import {
   getChapterDisplayLabel,
   getChapterDisplayParts
 } from './documentDisplayLabel';
+import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from './bookColours';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -172,6 +173,7 @@ export function exportToPDF(project: BookProject) {
     pageSize: exportSettings.trimSize,
     orientation
   });
+  const colourPalette = resolveActivePalette(resolveColourSettings(project));
   const typographyBodyFamily = effectiveTypography.presetId === 'legacy'
     ? bodyFontFamily
     : effectiveTypography.body.fontFamily;
@@ -189,6 +191,7 @@ export function exportToPDF(project: BookProject) {
     if (block.italic) text = `<em>${text}</em>`;
     if (block.underline) text = `<u>${text}</u>`;
     if (block.strikethrough) text = `<s style="text-decoration: line-through;">${text}</s>`;
+    text = `<span style="color: ${resolveBlockTextColour(block, colourPalette)};">${text}</span>`;
     if (block.footnoteRef) {
       text += `<sup style="font-size: 8pt; color: #ea580c; font-weight: bold; margin-left: 2px;">[${block.footnoteRef}]</sup>`;
     }
@@ -939,6 +942,7 @@ export function exportToEPUB(project: BookProject) {
     pageSize: project.exportSettings.trimSize,
     orientation: project.exportSettings.pageOrientation
   });
+  const palette = resolveActivePalette(resolveColourSettings(project));
   const embeddedImages: { id: string; src: string; caption?: string; chapterNumber: number; blockId: string }[] = [];
   const coverImageSrc = resolveImageSrc(project.cover?.artworkUrl);
 
@@ -974,11 +978,12 @@ export function exportToEPUB(project: BookProject) {
   ${caption ? `<div class="epub-caption" style="font-size: 0.85em; color: #666; font-style: italic; margin-top: 0.4em;">${caption}</div>` : ''}
 </div>`;
       }
-      if (b.type === 'heading') return `<h2>${b.text}</h2>`;
-      if (b.type === 'subheading') return `<h3>${b.text}</h3>`;
-      if (b.type === 'quote') return `<blockquote>${b.text}</blockquote>`;
+      const colour = resolveBlockTextColour(b, palette);
+      if (b.type === 'heading') return `<h2 style="color: ${colour}">${b.text}</h2>`;
+      if (b.type === 'subheading') return `<h3 style="color: ${colour}">${b.text}</h3>`;
+      if (b.type === 'quote') return `<blockquote style="color: ${colour}">${b.text}</blockquote>`;
       if (b.type === 'code') return `<pre><code>${b.codeSnippet || b.text}</code></pre>`;
-      return `<p>${b.text}</p>`;
+      return `<p style="color: ${colour}">${b.text}</p>`;
     }).join('\n');
 
     const chapterText = blocksWithImages.map((b) => {
@@ -1258,6 +1263,7 @@ export function exportToHTML(project: BookProject) {
     pageSize: project.exportSettings.trimSize,
     orientation: project.exportSettings.pageOrientation
   });
+  const palette = resolveActivePalette(resolveColourSettings(project));
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1317,9 +1323,10 @@ export function exportToHTML(project: BookProject) {
       html += `    <div class="episode-tag">Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}</div>\n`;
     }
     ch.blocks.forEach((block) => {
-      if (block.type === 'heading') html += `    <h3>${block.text}</h3>\n`;
-      else if (block.type === 'subheading') html += `    <h4>${block.text}</h4>\n`;
-      else if (block.type === 'quote') html += `    <blockquote>${block.text}</blockquote>\n`;
+      const colour = resolveBlockTextColour(block, palette);
+      if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
+      else if (block.type === 'subheading') html += `    <h4 style="color: ${colour}">${block.text}</h4>\n`;
+      else if (block.type === 'quote') html += `    <blockquote style="color: ${colour}">${block.text}</blockquote>\n`;
       else if (block.type === 'callout') html += `    <div style="background: #f0f4f8; border-left: 4px solid #0284c7; padding: 0.8rem; margin: 1rem 0; border-radius: 4px;">${block.text}</div>\n`;
       else if (block.type === 'code') html += `    <pre><code>${block.codeSnippet || block.text}</code></pre>\n`;
       else if (block.type === 'image') {
@@ -1368,7 +1375,7 @@ export function exportToHTML(project: BookProject) {
         html += `    <div style="padding-left: ${1.5 + (block.indentLevel || 0) * 1.2}rem; margin: 0.3rem 0;">• ${block.text}</div>\n`;
       }
       else if (block.type === 'pagebreak') html += `    <hr>\n`;
-      else html += `    <p>${block.text}</p>\n`;
+      else html += `    <p style="color: ${colour}">${block.text}</p>\n`;
     });
     html += `  </div>\n`;
   });
@@ -1442,6 +1449,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
     pageSize: project.exportSettings.trimSize,
     orientation: project.exportSettings.pageOrientation
   });
+  const palette = resolveActivePalette(resolveColourSettings(project));
   const chapterAlignment = typography.chapterOpening.alignment === 'centre'
     ? AlignmentType.CENTER
     : typography.chapterOpening.alignment === 'right'
@@ -1613,10 +1621,11 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
     }
 
     ch.blocks.forEach((block) => {
+      const blockColour = resolveBlockTextColour(block, palette).replace('#', '').toUpperCase();
       if (block.type === 'heading') {
         children.push(
           new Paragraph({
-            text: block.text,
+            children: [new TextRun({text:block.text,bold:true,color:blockColour})],
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 240, after: 120 }
           })
@@ -1624,7 +1633,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
       } else if (block.type === 'subheading') {
         children.push(
           new Paragraph({
-            text: block.text,
+            children: [new TextRun({text:block.text,bold:true,color:blockColour})],
             heading: HeadingLevel.HEADING_3,
             spacing: { before: 180, after: 100 }
           })
@@ -1633,7 +1642,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
         children.push(
           new Paragraph({
             children: [
-              new TextRun({ text: block.text, bold: true, size: 22 })
+              new TextRun({ text: block.text, bold: true, size: 22, color: blockColour })
             ],
             spacing: { before: 140, after: 100 }
           })
@@ -1642,7 +1651,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
         children.push(
           new Paragraph({
             children: [
-              new TextRun({ text: block.text, italics: true, size: 22 })
+              new TextRun({ text: block.text, italics: true, size: 22, color: blockColour })
             ],
             indent: { left: 720, right: 720 },
             alignment: AlignmentType.CENTER,
@@ -1699,7 +1708,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
         children.push(
           new Paragraph({
             children: [
-              new TextRun({ text: block.text, size: 24 })
+              new TextRun({ text: block.text, size: 24, color: blockColour })
             ],
             spacing: { after: 140 },
             alignment: AlignmentType.JUSTIFIED

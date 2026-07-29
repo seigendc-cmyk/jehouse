@@ -972,6 +972,8 @@ export default function App() {
           {activeTab === 'editor' && (
             <EditorCanvas
               chapter={activeChapter}
+              typography={project.typography}
+              colourSettings={project.colourSettings}
               watermark={project.watermark}
               trimSize={project.exportSettings.trimSize}
               headerFooter={project.headerFooter}
@@ -1222,8 +1224,8 @@ export default function App() {
             project,
             isOpen: true,
             onClose: () => setIsTypographyOpen(false),
-            onApply: (typography: BookProject['typography']) =>
-              handleUpdateProject({ typography })
+            onApply: (typography: BookProject['typography'], colourSettings: BookProject['colourSettings']) =>
+              handleUpdateProject({ typography, colourSettings })
           }}
           onReturn={() => setIsTypographyOpen(false)}
         />
@@ -1232,6 +1234,7 @@ export default function App() {
       <FocusMode
         chapter={activeChapter}
         typography={project.typography}
+        colourSettings={project.colourSettings}
         trimSize={project.exportSettings.trimSize}
         pageOrientation={project.exportSettings.pageOrientation}
         isOpen={isFocusMode}

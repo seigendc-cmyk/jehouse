@@ -1,5 +1,6 @@
 import { BookCategory, BookProject } from '../types';
 import { getDefaultTypography } from '../lib/bookTypography';
+import { createColourSettings } from '../lib/bookColours';
 
 export interface EmptyBookProjectOptions {
   title?: string;
@@ -17,6 +18,7 @@ export function createEmptyBookProject(
   const author = options.author?.trim() ?? '';
 
   const category = options.category ?? 'Fiction & Literature';
+  const typography = getDefaultTypography(category);
   return {
     id,
     title,
@@ -104,7 +106,8 @@ export function createEmptyBookProject(
       enableHyphenation: true,
       autoHyphenation: true
     },
-    typography: getDefaultTypography(category),
+    typography,
+    colourSettings: createColourSettings(typography),
     headerFooter: {
       enabled: true,
       headerLeftText: '',

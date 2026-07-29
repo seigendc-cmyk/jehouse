@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Minimize2, Volume2, VolumeX, Sun, Moon, Clock } from 'lucide-react';
-import { BookTypographySettings, Chapter, PageOrientation, TrimSize } from '../types';
+import { BookColourSettings, BookTypographySettings, Chapter, PageOrientation, TrimSize } from '../types';
 import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 import { getEffectiveTypography, resolveProjectTypography } from '../lib/bookTypography';
+import { resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -14,6 +15,7 @@ interface FocusModeProps {
   typography?: BookTypographySettings;
   trimSize?: TrimSize;
   pageOrientation?: PageOrientation;
+  colourSettings?: BookColourSettings;
 }
 
 export const FocusMode: React.FC<FocusModeProps> = ({
@@ -25,7 +27,8 @@ export const FocusMode: React.FC<FocusModeProps> = ({
   onToggleDarkMode,
   typography,
   trimSize = '6x9',
-  pageOrientation = 'portrait'
+  pageOrientation = 'portrait',
+  colourSettings
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [focusedBlockIdx, setFocusedBlockIdx] = useState(0);
@@ -42,6 +45,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
     lineHeight: effectiveTypography.body.lineHeight,
     color: darkMode ? undefined : effectiveTypography.body.textColour
   };
+  const palette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
 
   // Simple Web Audio API typewriter sound simulator
   const playTypewriterClick = () => {
@@ -133,6 +137,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
                 key={block.id} 
                 className={`transition-opacity duration-300 ${isFocused ? 'opacity-100' : 'opacity-35 hover:opacity-75'}`}
                 onClick={() => setFocusedBlockIdx(idx)}
+                style={darkMode ? undefined : {color:resolveBlockTextColour(block,palette)}}
               >
                 {block.type === 'heading' ? (
                   <input

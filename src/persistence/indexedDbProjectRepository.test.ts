@@ -91,8 +91,21 @@ describe('IndexedDbProjectRepository', () => {
     expect(second.projectsMigrated).toBe(0);
     expect(stored?.project.title).toBe('Newer');
     expect(stored?.project.typography?.presetId).toBe('legacy');
+    expect(stored?.project.colourSettings?.activePaletteId).toBe('legacy-derived');
     expect(new Set(versions.map((version) => version.versionId)).size).toBe(versions.length);
     expect(localStorage.getItem('presscraft_legacy_projects_migrated_v1')).not.toBeNull();
+  });
+
+  it('reopens persisted palette metadata and whole-block colour offline', async () => {
+    const repository = new IndexedDbProjectRepository();
+    const source = wrapLegacyProject(project('colour-offline-test', 'Colour copy'));
+    source.project.chapters[0].blocks[0].textColour = '#123456';
+    source.project.colourSettings!.recentColours = ['#123456'];
+    const saved = await repository.saveProject(source, 0);
+    expect(saved.status).toBe('created');
+    const reopened = await repository.getProject(source.projectId);
+    expect(reopened?.project.chapters[0].blocks[0].textColour).toBe('#123456');
+    expect(reopened?.project.colourSettings?.recentColours).toEqual(['#123456']);
   });
 
   it('uses a deterministic content hash independent of object key order', () => {

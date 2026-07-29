@@ -31,6 +31,7 @@ import {
   resolveProjectTypography,
   resolveRunningHeaderText
 } from '../lib/bookTypography';
+import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from '../lib/bookColours';
 import { 
   exportToPDF, 
   exportToEPUB, 
@@ -73,6 +74,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
     pageSize: selectedTrimSize,
     orientation: selectedOrientation
   });
+  const colourPalette = resolveActivePalette(resolveColourSettings(project));
   const isLegacyTypography = effectiveTypography.presetId === 'legacy';
 
   if (!isOpen) return null;
@@ -600,10 +602,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       }}
                     >
                       {page.blocks.map((block) => {
-                        if (block.type === 'heading') return <h2 key={block.id} className="text-lg font-bold font-serif text-zinc-900 mt-4 mb-2">{block.text}</h2>;
-                        if (block.type === 'subheading') return <h3 key={block.id} className="text-base font-semibold font-serif text-zinc-800 mt-3 mb-1">{block.text}</h3>;
-                        if (block.type === 'clause') return <div key={block.id} className="font-bold text-zinc-900 mt-3">{block.text}</div>;
-                        if (block.type === 'quote') return <blockquote key={block.id} className="border-l-2 border-orange-500 pl-4 my-3 italic text-zinc-600 text-center">{block.text}</blockquote>;
+                        if (block.type === 'heading') return <h2 key={block.id} style={{color:resolveBlockTextColour(block,colourPalette)}} className="text-lg font-bold font-serif mt-4 mb-2">{block.text}</h2>;
+                        if (block.type === 'subheading') return <h3 key={block.id} style={{color:resolveBlockTextColour(block,colourPalette)}} className="text-base font-semibold font-serif mt-3 mb-1">{block.text}</h3>;
+                        if (block.type === 'clause') return <div key={block.id} style={{color:resolveBlockTextColour(block,colourPalette)}} className="font-bold mt-3">{block.text}</div>;
+                        if (block.type === 'quote') return <blockquote key={block.id} style={{color:resolveBlockTextColour(block,colourPalette),borderColor:colourPalette.colours.accent}} className="border-l-2 pl-4 my-3 italic text-center">{block.text}</blockquote>;
                         if (block.type === 'code') return <pre key={block.id} className="bg-zinc-900 text-zinc-100 p-3 rounded text-xs font-mono my-3 overflow-x-auto">{block.codeSnippet || block.text}</pre>;
                         if (block.type === 'image' && block.imageUrl) {
                           const caption = block.imageCaption || block.text;

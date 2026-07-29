@@ -119,6 +119,8 @@ export interface ContentBlock {
   fontSize?: number; // Custom font size in px e.g. 14, 16, 18, 24, 32
   fontFamily?: string; // Custom font family name
   lineHeight?: number; // Custom line height multiplier e.g. 1.4, 1.6
+  /** Explicit colour for the complete block. Omit to inherit from book typography. */
+  textColour?: string;
 
   
   // Review Mode / Track Changes
@@ -360,6 +362,26 @@ export interface BookTypographySettings {
   };
 }
 
+export type BookColourRole =
+  | 'bodyText' | 'primaryHeading' | 'secondaryHeading' | 'chapterNumber'
+  | 'chapterTitle' | 'chapterSubtitle' | 'continuationHeader' | 'runningHeader'
+  | 'divider' | 'quote' | 'caption' | 'mutedText' | 'hyperlink' | 'accent'
+  | 'pageBackground';
+
+export interface BookColourPalette {
+  id: string;
+  name: string;
+  source: 'built-in' | 'custom';
+  colours: Record<BookColourRole, string>;
+}
+
+export interface BookColourSettings {
+  schemaVersion: 1;
+  activePaletteId: string;
+  customPalettes: BookColourPalette[];
+  recentColours: string[];
+}
+
 export type MarginPreset = 'auto' | 'compact' | 'standard' | 'generous' | 'custom';
 
 export interface CustomMargins {
@@ -462,6 +484,8 @@ export interface BookProject {
   exportSettings: ExportSettings;
   /** Versioned document typography. Optional only for pre-v2 projects read before migration. */
   typography?: BookTypographySettings;
+  /** Versioned publication colour metadata. Optional only for projects awaiting migration. */
+  colourSettings?: BookColourSettings;
   headerFooter?: HeaderFooterConfig;
   
   // Asset Library

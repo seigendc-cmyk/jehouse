@@ -33,7 +33,7 @@ describe('authoritative book typography', () => {
       syncStatus: 'local-only'
     });
 
-    expect(migrated?.schemaVersion).toBe(2);
+    expect(migrated?.schemaVersion).toBe(3);
     expect(migrated?.project.typography?.presetId).toBe('legacy');
     expect(migrated?.project.chapters).toEqual(before.chapters);
     expect(migrated?.project.exportSettings.trimSize).toBe(before.exportSettings.trimSize);
@@ -118,8 +118,8 @@ describe('authoritative book typography', () => {
     ]);
     expect(workspace).toContain('const [draft, setDraft]');
     expect(workspace).toContain('Static sample preview');
-    expect(workspace).toContain('onApply(structuredClone(draft))');
-    expect(app).toContain('handleUpdateProject({ typography })');
+    expect(workspace).toContain('onApply(structuredClone(draft), structuredClone(colourDraft))');
+    expect(app).toContain('handleUpdateProject({ typography, colourSettings })');
   });
 
   it('shares effective typography across preview and PDF, EPUB, HTML and DOCX exports', async () => {

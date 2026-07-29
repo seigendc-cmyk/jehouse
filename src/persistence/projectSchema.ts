@@ -1,6 +1,7 @@
 import { BookProject } from '../types';
 import { PROJECT_SCHEMA_VERSION, StoredProject, SyncStatus } from './types';
 import { getLegacyTypography } from '../lib/bookTypography';
+import { createColourSettings } from '../lib/bookColours';
 
 const VALID_SYNC_STATUSES = new Set<SyncStatus>([
   'local-only',
@@ -72,6 +73,17 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
             : { ...migrated.project, typography: getLegacyTypography() }
         };
         break;
+      case 2: {
+        const typography = migrated.project.typography ?? getLegacyTypography();
+        migrated = {
+          ...migrated,
+          schemaVersion: 3,
+          project: migrated.project.colourSettings
+            ? migrated.project
+            : { ...migrated.project, typography, colourSettings: createColourSettings(typography) }
+        };
+        break;
+      }
       default:
         return null;
     }
@@ -95,9 +107,10 @@ export function wrapLegacyProject(
     schemaVersion: PROJECT_SCHEMA_VERSION,
     projectId: project.id,
     localRevision: Math.max(0, options.localRevision ?? 0),
-    project: structuredClone(
-      project.typography ? project : { ...project, typography: getLegacyTypography() }
-    ),
+    project: structuredClone((() => {
+      const typography = project.typography ?? getLegacyTypography();
+      return {...project, typography, colourSettings: project.colourSettings ?? createColourSettings(typography)};
+    })()),
     createdAt: options.createdAt ?? legacySavedAt,
     updatedAt: options.updatedAt ?? legacySavedAt,
     lastSavedAt: legacySavedAt,

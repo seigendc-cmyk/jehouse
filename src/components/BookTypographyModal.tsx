@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookProject, BookTypographySettings, TypographyPresetId } from '../types';
+import { BookColourRole, BookColourSettings, BookProject, BookTypographySettings, TypographyPresetId } from '../types';
 import {
   BOOK_TYPOGRAPHY_PRESETS,
   cloneTypographyPreset,
@@ -8,12 +8,13 @@ import {
   resolveProjectTypography
 } from '../lib/bookTypography';
 import { Check, RotateCcw, Type, X } from 'lucide-react';
+import { addRecentColour, applyPaletteToTypography, BOOK_COLOUR_PALETTES, clonePalette, contrastRatio, contrastStatus, createColourSettings, createCustomPalette, normalizeHexColour, resolveActivePalette, resolveColourSettings } from '../lib/bookColours';
 
 interface BookTypographyModalProps {
   project: BookProject;
   isOpen: boolean;
   onClose: () => void;
-  onApply: (typography: BookTypographySettings) => void;
+  onApply: (typography: BookTypographySettings, colourSettings: BookColourSettings) => void;
 }
 
 const presetNames: Record<TypographyPresetId, string> = {
@@ -34,9 +35,15 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
 }) => {
   const current = useMemo(() => resolveProjectTypography(project), [project]);
   const [draft, setDraft] = useState<BookTypographySettings>(current);
+  const currentColours = useMemo(() => resolveColourSettings(project), [project]);
+  const [colourDraft, setColourDraft] = useState<BookColourSettings>(currentColours);
+  const [target, setTarget] = useState<BookColourRole>('chapterTitle');
+  const [hex, setHex] = useState('#111111');
   useEffect(() => {
-    if (isOpen) setDraft(current);
-  }, [current, isOpen]);
+    if (isOpen) { setDraft(current); setColourDraft(currentColours); }
+  }, [current, currentColours, isOpen]);
+  const activePalette = resolveActivePalette(colourDraft);
+  const ratio = contrastRatio(activePalette.colours[target], activePalette.colours.pageBackground);
 
   const effective = getEffectiveTypography({
     typography: draft,
@@ -89,6 +96,40 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
                   : 'Changing an individual setting creates a Custom configuration.'}
               </p>
             </section>
+            <fieldset className="space-y-3 rounded-xl border p-4">
+              <legend className="px-1 text-sm font-bold">Colour Palette</legend>
+              <label className="text-xs">Book palette
+                <select value={colourDraft.activePaletteId} onChange={(e) => setColourDraft(v=>({...v,activePaletteId:e.target.value}))} className="mt-1 w-full rounded border px-2 py-1.5">
+                  {Object.values(BOOK_COLOUR_PALETTES).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                  {colourDraft.customPalettes.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+              <div className="grid grid-cols-5 gap-2" aria-label={`${activePalette.name} colours`}>
+                {Object.entries(activePalette.colours).slice(0,10).map(([name,value])=><button key={name} type="button" aria-label={`${name} ${value}`} title={`${name}: ${value}`} onClick={()=>{setTarget(name as BookColourRole);setHex(value);}} className="h-8 rounded border focus:ring-2" style={{backgroundColor:value}} />)}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={()=>setDraft(v=>applyPaletteToTypography(v,activePalette))} className="rounded border px-3 py-1.5 text-xs font-bold">Apply Palette to Book Styles</button>
+                <button type="button" onClick={()=>setColourDraft(v=>{const custom=createCustomPalette(activePalette);return {...v,activePaletteId:custom.id,customPalettes:[...v.customPalettes,custom]};})} className="rounded border px-3 py-1.5 text-xs font-bold">Duplicate Palette</button>
+                <button type="button" onClick={()=>{const custom=createCustomPalette(clonePalette(activePalette),'Custom Palette');setColourDraft(v=>({...v,activePaletteId:custom.id,customPalettes:[...v.customPalettes,custom]}));}} className="rounded border px-3 py-1.5 text-xs font-bold">Create Custom</button>
+                {activePalette.source==='custom'&&<button type="button" onClick={()=>{const name=window.prompt('Palette name',activePalette.name)?.trim();if(name)setColourDraft(v=>({...v,customPalettes:v.customPalettes.map(p=>p.id===activePalette.id?{...p,name}:p)}));}} className="rounded border px-3 py-1.5 text-xs font-bold">Rename Custom</button>}
+                {activePalette.source==='custom'&&activePalette.id!=='legacy-derived'&&<button type="button" onClick={()=>setColourDraft(v=>({...v,activePaletteId:'legacy-derived',customPalettes:v.customPalettes.filter(p=>p.id!==activePalette.id)}))} className="rounded border px-3 py-1.5 text-xs font-bold">Delete Custom</button>}
+                <button type="button" onClick={()=>setColourDraft(createColourSettings(current))} className="rounded border px-3 py-1.5 text-xs font-bold">Restore Built-in Defaults</button>
+              </div>
+              <p className="text-xs text-zinc-600">Block-specific colours remain unchanged.</p>
+            </fieldset>
+            <fieldset className="space-y-3 rounded-xl border p-4">
+              <legend className="px-1 text-sm font-bold">Style Colour</legend>
+              <label className="text-xs">Applying colour to
+                <select value={target} onChange={e=>{const role=e.target.value as BookColourRole;setTarget(role);setHex(activePalette.colours[role]);}} className="mt-1 w-full rounded border px-2 py-1.5">
+                  {Object.keys(activePalette.colours).filter(x=>x!=='pageBackground').map(role=><option key={role} value={role}>{role.replace(/([A-Z])/g,' $1')}</option>)}
+                </select>
+              </label>
+              <div className="flex gap-2"><input type="color" value={normalizeHexColour(hex)??'#111111'} onChange={e=>setHex(e.target.value)} aria-label="Style colour" /><input value={hex} onChange={e=>setHex(e.target.value)} className="w-32 rounded border px-2 font-mono" aria-invalid={!normalizeHexColour(hex)} />
+                <button type="button" disabled={!normalizeHexColour(hex)} onClick={()=>{const n=normalizeHexColour(hex)!;setColourDraft(v=>{let palettes=v.customPalettes;let p=resolveActivePalette(v);if(p.source==='built-in'){p=createCustomPalette(p,`${p.name} Custom`);palettes=[...palettes,p];}p.colours[target]=n;palettes=palettes.map(x=>x.id===p.id?p:x);return {...v,activePaletteId:p.id,customPalettes:palettes,recentColours:addRecentColour(v.recentColours,n)};});}} className="rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">Apply</button>
+              </div>
+              <div className="flex gap-1">{colourDraft.recentColours.map(c=><button type="button" key={c} aria-label={`Recent colour ${c}`} onClick={()=>setHex(c)} className="h-7 w-7 rounded border" style={{backgroundColor:c}} />)}</div>
+              <p aria-live="polite" className="text-xs">{contrastStatus(ratio)} contrast{ratio ? ` (${ratio.toFixed(2)}:1)` : ''}. Printed output may vary by printer, paper and ink.</p>
+            </fieldset>
 
             <fieldset className="grid grid-cols-2 gap-3 rounded-xl border p-4">
               <legend className="px-1 text-sm font-bold">Body Text</legend>
@@ -169,7 +210,7 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
 
           <section className="overflow-y-auto bg-slate-100 p-6" aria-label="Typography preview">
             <p className="mb-3 text-xs text-zinc-600">Static sample preview; the manuscript is not changed until Apply to Book.</p>
-            <article className="mx-auto min-h-[560px] max-w-md bg-white p-10 shadow-lg" style={{ color: effective.body.textColour, fontFamily: effective.body.fontFamily, fontSize: `${effective.body.fontSizePt}pt`, lineHeight: effective.body.lineHeight }}>
+            <article className="mx-auto min-h-[560px] max-w-md bg-white p-10 shadow-lg" style={{ color: activePalette.colours.bodyText, fontFamily: effective.body.fontFamily, fontSize: `${effective.body.fontSizePt}pt`, lineHeight: effective.body.lineHeight }}>
               <header style={{ textAlign: effective.chapterOpening.alignment === 'centre' ? 'center' : effective.chapterOpening.alignment, paddingTop: `${effective.chapterOpening.topSpacingPt}pt`, marginBottom: `${effective.chapterOpening.titleToBodySpacingPt}pt` }}>
                 <div style={{ fontFamily: effective.chapterOpening.numberFontFamily, fontSize: `${effective.chapterOpening.numberFontSizePt}pt`, fontWeight: effective.chapterOpening.numberWeight, color: effective.chapterOpening.numberColour }}>Chapter Seven</div>
                 <h3 style={{ margin: `${effective.chapterOpening.numberToTitleSpacingPt}pt 0 0`, fontFamily: effective.chapterOpening.titleFontFamily, fontSize: `${effective.chapterOpening.titleFontSizePt}pt`, fontWeight: effective.chapterOpening.titleWeight, color: effective.chapterOpening.titleColour }}>The Turning Point</h3>
@@ -178,15 +219,19 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
               </header>
               <p>The morning arrived without ceremony, laying a pale ribbon of light across the floorboards.</p>
               <p>Beyond the window, the city continued as though nothing important had happened.</p>
+              <h4 style={{color:activePalette.colours.primaryHeading}}>A Primary Heading</h4>
+              <blockquote style={{color:activePalette.colours.quote,borderLeft:`3px solid ${activePalette.colours.accent}`,paddingLeft:12}}>A quiet sentence held apart from the story.</blockquote>
+              <small style={{color:activePalette.colours.caption}}>Figure 1. A sample caption</small>
+              <p><a style={{color:activePalette.colours.hyperlink}}>A sample hyperlink</a></p>
               {effective.continuation.enabled && <div style={{ display: 'flex', justifyContent: effective.continuation.alignment === 'split' ? 'space-between' : effective.continuation.alignment, marginTop: '36pt', borderBottom: effective.continuation.showDivider ? `${effective.continuation.dividerThicknessPt}pt solid ${effective.continuation.dividerColour}` : undefined, fontFamily: effective.continuation.fontFamily, fontSize: `${effective.continuation.fontSizePt}pt`, fontWeight: effective.continuation.fontWeight, color: effective.continuation.fontColour }}><span>Chapter Seven — The Turning Point</span>{effective.continuation.showContinued && <span>Continued</span>}</div>}
             </article>
           </section>
         </div>
 
         <footer className="flex flex-wrap justify-end gap-2 border-t px-5 py-4">
-          <button onClick={() => setDraft(current)} className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold"><RotateCcw className="h-4 w-4" /> Reset to Current</button>
+          <button onClick={() => {setDraft(current);setColourDraft(currentColours);}} className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold"><RotateCcw className="h-4 w-4" /> Reset to Current</button>
           <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-bold">Cancel</button>
-          <button onClick={() => { onApply(structuredClone(draft)); onClose(); }} className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white"><Check className="h-4 w-4" /> Apply to Book</button>
+          <button onClick={() => { onApply(structuredClone(draft), structuredClone(colourDraft)); onClose(); }} className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white"><Check className="h-4 w-4" /> Apply to Book</button>
         </footer>
       </div>
     </div>
