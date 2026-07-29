@@ -6,6 +6,7 @@ import {
   TrimSize,
   TypographyPresetId
 } from '../types';
+import { cloneParagraphPreset } from './paragraphFormatting';
 
 const base = (
   presetId: TypographyPresetId,
@@ -60,12 +61,24 @@ const base = (
     dividerThicknessPt: 1.5
   },
   paragraphs: {
+    schemaVersion: 1,
+    presetId: 'legacy',
+    defaultMode: 'none',
     firstParagraphAfterChapter: 'inherit',
     subsequentParagraphMode: 'inherit',
     firstLineIndentPt: 0,
     leftIndentPt: 0,
     rightIndentPt: 0,
-    hangingIndentPt: 0
+    hangingIndentPt: 0,
+    spacingBeforePt: 0,
+    spacingAfterPt: 8,
+    lineHeight: 1.65,
+    suppressIndentAfterHeading: false,
+    suppressIndentAfterSceneBreak: false,
+    suppressIndentAfterImage: false,
+    widowOrphanEnabled: false,
+    minimumLines: 2,
+    keepWithNextForHeadings: true
   },
   runningHeaders: {
     suppressOnChapterOpening: true,
@@ -79,6 +92,7 @@ const base = (
 const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySettings> = {
   legacy: base('legacy'),
   'modern-bold': base('modern-bold', {
+    paragraphs: cloneParagraphPreset('fiction-standard'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
       numberFontFamily: 'system-ui, sans-serif',
@@ -101,6 +115,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'classic-literary': base('classic-literary', {
+    paragraphs: cloneParagraphPreset('literary'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
       numberFontFamily: '"EB Garamond", serif',
@@ -118,6 +133,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'contemporary-minimal': base('contemporary-minimal', {
+    paragraphs: cloneParagraphPreset('block-paragraph'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
       alignment: 'left',
@@ -135,6 +151,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   academic: base('academic', {
+    paragraphs: cloneParagraphPreset('academic'),
     body: {
       ...base('legacy').body,
       fontFamily: '"EB Garamond", serif',
@@ -156,6 +173,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'dramatic-fiction': base('dramatic-fiction', {
+    paragraphs: cloneParagraphPreset('fiction-standard'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
       numberFontSizePt: 34,
@@ -195,7 +213,12 @@ export function getDefaultTypography(category: BookCategory): BookTypographySett
 }
 
 export function resolveProjectTypography(project: Pick<BookProject, 'typography'>): BookTypographySettings {
-  return project.typography ? structuredClone(project.typography) : getLegacyTypography();
+  if (!project.typography) return getLegacyTypography();
+  const legacy = getLegacyTypography();
+  return {
+    ...structuredClone(project.typography),
+    paragraphs: {...legacy.paragraphs, ...structuredClone(project.typography.paragraphs)}
+  };
 }
 
 export function markTypographyCustom(

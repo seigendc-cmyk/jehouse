@@ -52,6 +52,8 @@ import {
 } from 'lucide-react';
 import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange, BookColourSettings, BookTypographySettings } from '../types';
 import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
+import { paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { resolveProjectTypography } from '../lib/bookTypography';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
@@ -395,6 +397,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
   const activePalette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
+  const resolvedTypography = resolveProjectTypography({typography});
 
   const defaultSizeForType = (type: BlockType): number => {
     switch (type) {
@@ -560,6 +563,14 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="quiz">Interactive Quiz</option>
             <option value="image">Image Attachment</option>
           </select>
+        )}
+        {activeBlock && (
+          <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block.">
+            <span className="text-[10px] text-gray-300">Paragraph Formatting — Entire Block</span>
+            <select aria-label="Paragraph mode" value={activeBlock.paragraphFormatting?.mode??'inherit'} onChange={e=>updateBlock(activeBlock.id,{paragraphFormatting:{...activeBlock.paragraphFormatting,mode:e.target.value as any}})} className="bg-[#1a1a1a] text-xs text-white"><option value="inherit">Inherit</option><option value="first-line">First line</option><option value="block">Block</option><option value="hanging">Hanging</option><option value="none">None</option></select>
+            {([['firstLineIndentPt','First-line indent',72],['leftIndentPt','Left indent',144],['rightIndentPt','Right indent',144],['hangingIndentPt','Hanging indent',72],['spacingBeforePt','Spacing before',72],['spacingAfterPt','Spacing after',72],['lineHeight','Line spacing',3]] as const).map(([field,label,max])=><input key={field} aria-label={`${label} (${field==='lineHeight'?'ratio':'pt'})`} title={`${label} (${field==='lineHeight'?'ratio':'pt'})`} type="number" min={field==='lineHeight'?0.8:0} max={max} step={field==='lineHeight'?0.05:1} value={activeBlock.paragraphFormatting?.[field]??''} placeholder={label.split(' ')[0]} onChange={e=>updateBlock(activeBlock.id,{paragraphFormatting:{...activeBlock.paragraphFormatting,[field]:e.target.value===''?undefined:Number(e.target.value)}})} className="w-14 bg-[#1a1a1a] px-1 text-[10px] text-white" />)}
+            <button type="button" onClick={()=>updateBlock(activeBlock.id,{paragraphFormatting:undefined})} className="px-1 text-[10px] text-gray-300">Clear</button>
+          </div>
         )}
         {activeBlock && (
           <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block. Partial-text colour requires rich-text support and is not available.">
@@ -1278,6 +1289,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
+                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 26}px`,
                             fontWeight: block.bold ? 900 : 800,
@@ -1297,6 +1309,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
+                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 20}px`,
                             fontWeight: block.bold ? 800 : 700,
@@ -1316,6 +1329,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
+                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 15}px`,
                             textAlign: block.align || 'left',
@@ -1333,6 +1347,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           rows={Math.max(2, Math.ceil(block.text.length / 80))}
                           style={{
+                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 16}px`,
                             paddingLeft: `${(block.indentLevel || 0) * 1.5}rem`,

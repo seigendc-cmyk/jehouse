@@ -9,6 +9,7 @@ import {
 } from '../lib/bookTypography';
 import { Check, RotateCcw, Type, X } from 'lucide-react';
 import { addRecentColour, applyPaletteToTypography, BOOK_COLOUR_PALETTES, clonePalette, contrastRatio, contrastStatus, createColourSettings, createCustomPalette, normalizeHexColour, resolveActivePalette, resolveColourSettings } from '../lib/bookColours';
+import { cloneParagraphPreset, PARAGRAPH_PRESETS, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 
 interface BookTypographyModalProps {
   project: BookProject;
@@ -170,11 +171,21 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
 
             <fieldset className="grid grid-cols-2 gap-3 rounded-xl border p-4">
               <legend className="px-1 text-sm font-bold">Paragraph Rules</legend>
+              <label className="col-span-2 text-xs">Paragraph preset
+                <select value={draft.paragraphs.presetId} onChange={e=>{const id=e.target.value as keyof typeof PARAGRAPH_PRESETS;setDraft(v=>({...v,presetId:'custom',paragraphs:cloneParagraphPreset(id)}));}} className="mt-1 w-full rounded border px-2 py-1.5">
+                  {Object.entries(PARAGRAPH_PRESETS).map(([id,p])=><option key={id} value={id}>{id.replace(/-/g,' ')}</option>)}
+                  <option value="custom" disabled>Custom</option>
+                </select>
+              </label>
               <label className="text-xs" title="Controls only the first paragraph after a chapter heading.">First paragraph
                 <select value={draft.paragraphs.firstParagraphAfterChapter} onChange={(e) => edit(v => { v.paragraphs.firstParagraphAfterChapter = e.target.value as BookTypographySettings['paragraphs']['firstParagraphAfterChapter']; })} className="mt-1 w-full rounded border px-2 py-1.5">
                   <option value="inherit">Inherit</option><option value="no-indent">No indent</option><option value="block">Block</option>
                 </select>
               </label>
+              {([['firstLineIndentPt','First-line indent'],['leftIndentPt','Left indent'],['rightIndentPt','Right indent'],['hangingIndentPt','Hanging indent'],['spacingBeforePt','Spacing before'],['spacingAfterPt','Spacing after']] as const).map(([field,label])=><label key={field} className="text-xs">{label} (pt)<input type="number" min="0" max={field.includes('left')||field.includes('right')?144:72} value={draft.paragraphs[field]} onChange={e=>edit(v=>{v.paragraphs[field]=Number(e.target.value);v.paragraphs.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1.5" /></label>)}
+              <label className="text-xs">Line height<input type="number" min=".8" max="3" step=".05" value={draft.paragraphs.lineHeight} onChange={e=>edit(v=>{v.paragraphs.lineHeight=Number(e.target.value);v.paragraphs.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1.5" /></label>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.suppressIndentAfterHeading} onChange={e=>edit(v=>{v.paragraphs.suppressIndentAfterHeading=e.target.checked;})}/>No indent after heading</label>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.suppressIndentAfterImage} onChange={e=>edit(v=>{v.paragraphs.suppressIndentAfterImage=e.target.checked;})}/>No indent after image or figure</label>
               <label className="text-xs">Subsequent paragraphs
                 <select value={draft.paragraphs.subsequentParagraphMode} onChange={(e) => edit(v => { v.paragraphs.subsequentParagraphMode = e.target.value as BookTypographySettings['paragraphs']['subsequentParagraphMode']; })} className="mt-1 w-full rounded border px-2 py-1.5">
                   <option value="inherit">Inherit</option><option value="first-line">First-line</option><option value="block">Block</option>
@@ -219,6 +230,7 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
               </header>
               <p>The morning arrived without ceremony, laying a pale ribbon of light across the floorboards.</p>
               <p>Beyond the window, the city continued as though nothing important had happened.</p>
+              {(() => { const samples=[{id:'p1',type:'paragraph' as const,text:''},{id:'p2',type:'paragraph' as const,text:''}]; return samples.map((b,i)=><p key={b.id} style={paragraphCss(resolveParagraphFormatting(b,samples[i-1],i,effective))}>{i===0?'First paragraph after the chapter opening begins flush left.':'The following paragraph demonstrates the inherited first-line rhythm.'}</p>); })()}
               <h4 style={{color:activePalette.colours.primaryHeading}}>A Primary Heading</h4>
               <blockquote style={{color:activePalette.colours.quote,borderLeft:`3px solid ${activePalette.colours.accent}`,paddingLeft:12}}>A quiet sentence held apart from the story.</blockquote>
               <small style={{color:activePalette.colours.caption}}>Figure 1. A sample caption</small>

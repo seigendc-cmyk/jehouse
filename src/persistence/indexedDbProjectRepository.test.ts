@@ -108,6 +108,17 @@ describe('IndexedDbProjectRepository', () => {
     expect(reopened?.project.colourSettings?.recentColours).toEqual(['#123456']);
   });
 
+  it('reopens project paragraph settings and whole-block overrides offline', async () => {
+    const repository = new IndexedDbProjectRepository();
+    const source = wrapLegacyProject(project('paragraph-offline-test', 'Paragraph copy'));
+    source.project.typography!.paragraphs.firstLineIndentPt = 22;
+    source.project.chapters[0].blocks[0].paragraphFormatting = {mode:'hanging',hangingIndentPt:18};
+    await repository.saveProject(source, 0);
+    const reopened = await repository.getProject(source.projectId);
+    expect(reopened?.project.typography?.paragraphs.firstLineIndentPt).toBe(22);
+    expect(reopened?.project.chapters[0].blocks[0].paragraphFormatting).toEqual({mode:'hanging',hangingIndentPt:18});
+  });
+
   it('uses a deterministic content hash independent of object key order', () => {
     const original = project('hash-test', 'Hash');
     const reordered = {

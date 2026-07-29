@@ -121,6 +121,7 @@ export interface ContentBlock {
   lineHeight?: number; // Custom line height multiplier e.g. 1.4, 1.6
   /** Explicit colour for the complete block. Omit to inherit from book typography. */
   textColour?: string;
+  paragraphFormatting?: BlockParagraphFormatting;
 
   
   // Review Mode / Track Changes
@@ -345,12 +346,24 @@ export interface BookTypographySettings {
     dividerThicknessPt: number;
   };
   paragraphs: {
+    schemaVersion: 1;
+    presetId: ParagraphPresetId;
+    defaultMode: ParagraphMode;
     firstParagraphAfterChapter: 'inherit' | 'no-indent' | 'block';
     subsequentParagraphMode: 'inherit' | 'first-line' | 'block';
     firstLineIndentPt: number;
     leftIndentPt: number;
     rightIndentPt: number;
     hangingIndentPt: number;
+    spacingBeforePt: number;
+    spacingAfterPt: number;
+    lineHeight: number;
+    suppressIndentAfterHeading: boolean;
+    suppressIndentAfterSceneBreak: boolean;
+    suppressIndentAfterImage: boolean;
+    widowOrphanEnabled: boolean;
+    minimumLines: number;
+    keepWithNextForHeadings: boolean;
   };
   runningHeaders: {
     suppressOnChapterOpening: boolean;
@@ -360,6 +373,19 @@ export interface BookTypographySettings {
     customOddText?: string;
     customEvenText?: string;
   };
+}
+
+export type ParagraphMode = 'inherit' | 'first-line' | 'block' | 'none' | 'hanging';
+export type ParagraphPresetId = 'legacy' | 'fiction-standard' | 'literary' | 'block-paragraph' | 'academic' | 'compact' | 'custom';
+export interface BlockParagraphFormatting {
+  mode?: ParagraphMode;
+  firstLineIndentPt?: number;
+  leftIndentPt?: number;
+  rightIndentPt?: number;
+  hangingIndentPt?: number;
+  spacingBeforePt?: number;
+  spacingAfterPt?: number;
+  lineHeight?: number;
 }
 
 export type BookColourRole =

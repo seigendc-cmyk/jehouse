@@ -12,6 +12,7 @@ import {
   getChapterDisplayParts
 } from './documentDisplayLabel';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from './bookColours';
+import { resolveParagraphFormatting } from './paragraphFormatting';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -604,7 +605,7 @@ export function exportToPDF(project: BookProject) {
     const footnotes: { ref: string; text: string }[] = [];
     const displayParts = getChapterDisplayParts(ch.number, ch.title);
 
-    const blocksHtml = ch.blocks.map((block) => {
+    const blocksHtml = ch.blocks.map((block, blockIndex) => {
       if (block.footnoteRef && block.footnoteText) {
         footnotes.push({ ref: block.footnoteRef, text: block.footnoteText });
       }
@@ -810,7 +811,8 @@ export function exportToPDF(project: BookProject) {
       `;
 
       const alignStyle = block.align ? `text-align: ${block.align};` : 'text-align: justify;';
-      const indentStyle = block.indentLevel ? `padding-left: ${block.indentLevel * 1.5}rem; text-indent: 0;` : '';
+      const pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,effectiveTypography);
+      const indentStyle = `padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;text-indent:${pf.firstLineIndentPt}pt;margin-top:${pf.spacingBeforePt}pt;margin-bottom:${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};widows:${pf.widows};orphans:${pf.orphans};`;
       const fontSizeStyle = block.fontSize ? `font-size: ${block.fontSize}px;` : '';
       const fontStyleClass = block.fontStyle === 'sans' ? 'font-family: sans-serif;' : block.fontStyle === 'mono' ? 'font-family: monospace;' : '';
 
@@ -969,7 +971,7 @@ export function exportToEPUB(project: BookProject) {
       return b;
     });
 
-    const chapterHtml = blocksWithImages.map((b) => {
+    const chapterHtml = blocksWithImages.map((b, blockIndex) => {
       if (b.type === 'image' || b.imageUrl) {
         const src = resolveImageSrc(b);
         const caption = b.imageCaption || '';
@@ -979,11 +981,12 @@ export function exportToEPUB(project: BookProject) {
 </div>`;
       }
       const colour = resolveBlockTextColour(b, palette);
-      if (b.type === 'heading') return `<h2 style="color: ${colour}">${b.text}</h2>`;
+      const pf=resolveParagraphFormatting(b,blocksWithImages[blockIndex-1],blockIndex,typography); const ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
+      if (b.type === 'heading') return `<h2 style="color: ${colour};${ps}">${b.text}</h2>`;
       if (b.type === 'subheading') return `<h3 style="color: ${colour}">${b.text}</h3>`;
       if (b.type === 'quote') return `<blockquote style="color: ${colour}">${b.text}</blockquote>`;
       if (b.type === 'code') return `<pre><code>${b.codeSnippet || b.text}</code></pre>`;
-      return `<p style="color: ${colour}">${b.text}</p>`;
+      return `<p style="color: ${colour};${ps}">${b.text}</p>`;
     }).join('\n');
 
     const chapterText = blocksWithImages.map((b) => {
@@ -1324,6 +1327,7 @@ export function exportToHTML(project: BookProject) {
     }
     ch.blocks.forEach((block) => {
       const colour = resolveBlockTextColour(block, palette);
+      const blockIndex=ch.blocks.indexOf(block),pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,typography),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
       else if (block.type === 'subheading') html += `    <h4 style="color: ${colour}">${block.text}</h4>\n`;
       else if (block.type === 'quote') html += `    <blockquote style="color: ${colour}">${block.text}</blockquote>\n`;
@@ -1375,7 +1379,7 @@ export function exportToHTML(project: BookProject) {
         html += `    <div style="padding-left: ${1.5 + (block.indentLevel || 0) * 1.2}rem; margin: 0.3rem 0;">• ${block.text}</div>\n`;
       }
       else if (block.type === 'pagebreak') html += `    <hr>\n`;
-      else html += `    <p style="color: ${colour}">${block.text}</p>\n`;
+      else html += `    <p style="color: ${colour};${ps}">${block.text}</p>\n`;
     });
     html += `  </div>\n`;
   });
@@ -1620,13 +1624,17 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
       );
     }
 
-    ch.blocks.forEach((block) => {
+    ch.blocks.forEach((block, blockIndex) => {
       const blockColour = resolveBlockTextColour(block, palette).replace('#', '').toUpperCase();
+      const pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,typography);
+      const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
+      const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
       if (block.type === 'heading') {
         children.push(
           new Paragraph({
             children: [new TextRun({text:block.text,bold:true,color:blockColour})],
             heading: HeadingLevel.HEADING_2,
+            indent: paragraphIndent,
             spacing: { before: 240, after: 120 }
           })
         );
@@ -1635,6 +1643,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
           new Paragraph({
             children: [new TextRun({text:block.text,bold:true,color:blockColour})],
             heading: HeadingLevel.HEADING_3,
+            indent: paragraphIndent,
             spacing: { before: 180, after: 100 }
           })
         );
@@ -1710,7 +1719,8 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
             children: [
               new TextRun({ text: block.text, size: 24, color: blockColour })
             ],
-            spacing: { after: 140 },
+            spacing: paragraphSpacing,
+            indent: paragraphIndent,
             alignment: AlignmentType.JUSTIFIED
           })
         );
