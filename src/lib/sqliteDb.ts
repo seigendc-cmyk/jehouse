@@ -286,6 +286,29 @@ export async function loadProjectFromSQLite(projectId?: string): Promise<BookPro
 }
 
 /**
+ * Reads every legacy/derived project currently represented in SQLite.
+ * This is used only for migration and recovery; SQLite is not authoritative.
+ */
+export async function loadAllProjectsFromSQLite(): Promise<BookProject[]> {
+  const db = await initSQLiteDB();
+  if (!db) return [];
+  const ids: string[] = [];
+  const statement = db.prepare('SELECT id FROM projects ORDER BY rowid ASC;');
+  while (statement.step()) {
+    const row = statement.getAsObject();
+    if (typeof row.id === 'string') ids.push(row.id);
+  }
+  statement.free();
+
+  const projects: BookProject[] = [];
+  for (const id of ids) {
+    const project = await loadProjectFromSQLite(id);
+    if (project) projects.push(project);
+  }
+  return projects;
+}
+
+/**
  * Execute raw SQL query for SQLite inspector / developer tool
  */
 export async function executeRawSQL(sqlQuery: string): Promise<{ columns: string[]; rows: any[][]; error?: string }> {

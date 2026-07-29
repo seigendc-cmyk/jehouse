@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookProject, Chapter, ContentBlock, CoverConfig, FrontMatter, WatermarkConfig, ExportSettings, ProofreadIssue, ProjectAsset, UITheme } from './types';
 import { initialBookProject } from './data/initialBook';
 import { Navbar } from './components/Navbar';
@@ -25,9 +25,9 @@ import { ImageGalleryModal } from './components/ImageGalleryModal';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { FocusMode } from './components/FocusMode';
 import { saveToLocalDiskInDocuments } from './lib/exportUtils';
-import { initSQLiteDB, saveProjectToSQLite, loadProjectFromSQLite } from './lib/sqliteDb';
-import { safeSaveItem, safeLoadItem } from './lib/idbStorage';
-import { syncProjectToCloud, fetchUserCloudProjects } from './lib/firebase';
+import { loadProjectFromSQLite } from './lib/sqliteDb';
+import { syncProjectToCloud } from './lib/firebase';
+import { localProjectRepository } from './persistence/indexedDbProjectRepository';
 
 
 export default function App() {
@@ -48,6 +48,7 @@ export default function App() {
       return initialBookProject.id;
     }
   });
+  const localRevisions = useRef<Map<string, number>>(new Map());
 
   // Current Active Project Derived State
   const project = projects.find(p => p.id === activeProjectId) || projects[0] || initialBookProject;
@@ -132,38 +133,29 @@ export default function App() {
     setDeferredPwaPrompt(null);
   };
 
-  // 2. Load projects from IndexedDB or Cloud on mount
+  // 2. Open the authoritative local repository and migrate legacy stores.
   useEffect(() => {
     let isMounted = true;
     (async () => {
       try {
-        const idbProjects = await safeLoadItem<BookProject[]>('presscraft_all_projects');
-        if (idbProjects && Array.isArray(idbProjects) && idbProjects.length > 0 && isMounted) {
-          setProjects(idbProjects);
-        } else {
-          const singleIdbProject = await safeLoadItem<BookProject>('presscraft_book_project');
-          if (singleIdbProject && isMounted) {
-            setProjects([singleIdbProject]);
-          }
-        }
+        await localProjectRepository.migrateLegacyData();
+        const summaries = await localProjectRepository.listProjects();
+        const storedProjects = (
+          await Promise.all(
+            summaries.map((summary) => localProjectRepository.getProject(summary.projectId))
+          )
+        ).filter((record) => record !== null);
 
-        // Try fetching cloud synced projects from Firebase if online
-        if (navigator.onLine) {
-          const cloudProjects = await fetchUserCloudProjects();
-          if (cloudProjects.length > 0 && isMounted) {
-            setProjects((prev) => {
-              const merged = [...prev];
-              cloudProjects.forEach((cp) => {
-                const idx = merged.findIndex((p) => p.id === cp.id);
-                if (idx >= 0) {
-                  merged[idx] = cp;
-                } else {
-                  merged.push(cp);
-                }
-              });
-              return merged;
-            });
-          }
+        if (storedProjects.length > 0 && isMounted) {
+          localRevisions.current = new Map(
+            storedProjects.map((record) => [record.projectId, record.localRevision])
+          );
+          setProjects(storedProjects.map((record) => record.project));
+          const preferredId = localStorage.getItem('presscraft_active_project_id');
+          const nextActiveId = storedProjects.some((record) => record.projectId === preferredId)
+            ? preferredId!
+            : storedProjects[0].projectId;
+          setActiveProjectId(nextActiveId);
         }
       } catch (err) {
         console.warn('Storage initial load notice:', err);
@@ -174,16 +166,21 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // 3. Auto-save local persistence (IndexedDB + safe LocalStorage) & Firebase Cloud Sync
+  // 3. Persist complete projects only through the authoritative IndexedDB repository.
   useEffect(() => {
     if (!isStorageLoaded) return;
-    let isMounted = true;
     (async () => {
       try {
-        await safeSaveItem('presscraft_all_projects', projects);
-        await safeSaveItem('presscraft_book_project', project);
         localStorage.setItem('presscraft_active_project_id', activeProjectId);
-        await saveProjectToSQLite(project);
+        const expectedRevision = localRevisions.current.get(project.id);
+        const result = await localProjectRepository.saveBookProject(project, expectedRevision);
+        if (result.status === 'conflict') {
+          console.warn(
+            `[IndexedDB] Local revision conflict for "${project.id}". The stored copy was preserved.`
+          );
+          return;
+        }
+        localRevisions.current.set(project.id, result.project.localRevision);
 
         // Sync active project to Firebase Cloud when online
         if (navigator.onLine && project) {
@@ -193,7 +190,6 @@ export default function App() {
         console.warn('Project background save notice:', e);
       }
     })();
-    return () => { isMounted = false; };
   }, [project, projects, activeProjectId, isStorageLoaded]);
 
   // Keep activeChapterId in sync when project changes
@@ -261,6 +257,10 @@ export default function App() {
   };
 
   const handleDeleteProject = (projId: string) => {
+    void localProjectRepository.deleteProject(projId).catch((error) => {
+      console.warn(`[IndexedDB] Could not delete local project "${projId}":`, error);
+    });
+    localRevisions.current.delete(projId);
     setProjects((prev) => {
       const remaining = prev.filter((p) => p.id !== projId);
       if (projId === activeProjectId && remaining.length > 0) {
