@@ -1,6 +1,7 @@
 import { describe,expect,it } from 'vitest';
 import { createEmptyBookProject } from '../data/createEmptyBookProject';
-import { cloneParagraphPreset, paragraphCss, pointsTo, resolveParagraphFormatting, toPoints } from './paragraphFormatting';
+import { cloneParagraphPreset, findPreviousParagraphContext, isFirstQualifyingParagraph, PARAGRAPH_PRESETS, paragraphCss, pointsTo, resolveParagraphFormatting, toPoints } from './paragraphFormatting';
+import { migrateStoredProject, wrapLegacyProject } from '../persistence/projectSchema';
 
 const block=(id:string,type:'paragraph'|'heading'|'image'='paragraph')=>({id,type,text:`text-${id}`});
 describe('paragraph formatting',()=>{
@@ -15,4 +16,11 @@ describe('paragraph formatting',()=>{
  it('converts units deterministically',()=>{expect(toPoints(1,'in')).toBe(72);expect(pointsTo(72,'in')).toBe(1);expect(toPoints(pointsTo(72,'mm'),'mm')).toBeCloseTo(72);});
  it('produces structural CSS without altering text',()=>{const p=createEmptyBookProject();const b=block('p');const before=structuredClone(b);const css=paragraphCss(resolveParagraphFormatting(b,undefined,0,p.typography!));expect(css.textIndent).toContain('pt');expect(b).toEqual(before);});
  it('clones presets independently',()=>{const a=cloneParagraphPreset('literary'),b=cloneParagraphPreset('literary');a.firstLineIndentPt=1;expect(b.firstLineIndentPt).toBe(24);});
+ it('keeps preset definitions deeply immutable',()=>{expect(Object.isFrozen(PARAGRAPH_PRESETS)).toBe(true);expect(Object.isFrozen(PARAGRAPH_PRESETS.literary)).toBe(true);});
+ it('finds the first qualifying paragraph past captions and empty spacers',()=>{const blocks=[{...block('e'),text:''},{...block('c'),type:'caption' as const},block('p')];expect(isFirstQualifyingParagraph(blocks,2)).toBe(true);expect(findPreviousParagraphContext(blocks,2)).toBeUndefined();});
+ it('migrates schema 3 paragraph data to Legacy idempotently without content or ID changes',()=>{
+   const project=createEmptyBookProject(); const stored=wrapLegacyProject(project) as any; stored.schemaVersion=3; delete stored.project.typography.paragraphs.schemaVersion;
+   const before=structuredClone(stored.project.chapters); const migrated=migrateStoredProject(stored);
+   expect(migrated?.schemaVersion).toBe(4);expect(migrated?.project.typography?.paragraphs.presetId).toBe('legacy');expect(migrated?.project.chapters).toEqual(before);expect(migrateStoredProject(migrated)).toEqual(migrated);
+ });
 });

@@ -19,10 +19,17 @@
 ## Resolution and compatibility
 
 Precedence is block override, contextual first-paragraph/after-heading/after-
-image rule, book paragraph settings, then bounded safe values. Missing fields
-from existing projects are normalized in memory against Legacy defaults without
-changing stored revisions or appearance. New projects receive preset-aligned
-paragraph rules.
+image rule, book paragraph settings, then bounded safe values. Stored schema v4
+adds explicit Legacy paragraph settings to older projects without changing
+content, IDs, dimensions, local revisions, colours or appearance; the migration
+is deterministic and idempotent. New projects receive preset-aligned paragraph
+rules.
+
+First-body detection uses semantic block order. Empty paragraph spacers and
+captions are skipped when finding context. Headings (`heading`, `subheading`,
+`clause`) and images remain meaningful context. The model still has no semantic
+scene-break block, so repeated punctuation is never guessed to be a scene break;
+the stored suppression preference is ready for a future semantic block.
 
 Points are canonical. Conversion helpers support pt, mm, cm and inches, while
 all resolved values are bounded. Indentation is metadata/CSS/DOCX paragraph

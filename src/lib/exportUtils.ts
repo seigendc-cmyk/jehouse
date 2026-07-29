@@ -12,7 +12,7 @@ import {
   getChapterDisplayParts
 } from './documentDisplayLabel';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from './bookColours';
-import { resolveParagraphFormatting } from './paragraphFormatting';
+import { findPreviousParagraphContext, isFirstQualifyingParagraph, resolveParagraphFormatting } from './paragraphFormatting';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -811,7 +811,7 @@ export function exportToPDF(project: BookProject) {
       `;
 
       const alignStyle = block.align ? `text-align: ${block.align};` : 'text-align: justify;';
-      const pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,effectiveTypography);
+      const pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,effectiveTypography);
       const indentStyle = `padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;text-indent:${pf.firstLineIndentPt}pt;margin-top:${pf.spacingBeforePt}pt;margin-bottom:${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};widows:${pf.widows};orphans:${pf.orphans};`;
       const fontSizeStyle = block.fontSize ? `font-size: ${block.fontSize}px;` : '';
       const fontStyleClass = block.fontStyle === 'sans' ? 'font-family: sans-serif;' : block.fontStyle === 'mono' ? 'font-family: monospace;' : '';
@@ -981,7 +981,7 @@ export function exportToEPUB(project: BookProject) {
 </div>`;
       }
       const colour = resolveBlockTextColour(b, palette);
-      const pf=resolveParagraphFormatting(b,blocksWithImages[blockIndex-1],blockIndex,typography); const ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
+      const pf=resolveParagraphFormatting(b,findPreviousParagraphContext(blocksWithImages,blockIndex),isFirstQualifyingParagraph(blocksWithImages,blockIndex)?0:blockIndex,typography); const ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (b.type === 'heading') return `<h2 style="color: ${colour};${ps}">${b.text}</h2>`;
       if (b.type === 'subheading') return `<h3 style="color: ${colour}">${b.text}</h3>`;
       if (b.type === 'quote') return `<blockquote style="color: ${colour}">${b.text}</blockquote>`;
@@ -1327,7 +1327,7 @@ export function exportToHTML(project: BookProject) {
     }
     ch.blocks.forEach((block) => {
       const colour = resolveBlockTextColour(block, palette);
-      const blockIndex=ch.blocks.indexOf(block),pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,typography),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
+      const blockIndex=ch.blocks.indexOf(block),pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
       else if (block.type === 'subheading') html += `    <h4 style="color: ${colour}">${block.text}</h4>\n`;
       else if (block.type === 'quote') html += `    <blockquote style="color: ${colour}">${block.text}</blockquote>\n`;
@@ -1626,7 +1626,7 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
 
     ch.blocks.forEach((block, blockIndex) => {
       const blockColour = resolveBlockTextColour(block, palette).replace('#', '').toUpperCase();
-      const pf=resolveParagraphFormatting(block,ch.blocks[blockIndex-1],blockIndex,typography);
+      const pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography);
       const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
       const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
       if (block.type === 'heading') {

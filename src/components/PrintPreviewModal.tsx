@@ -32,7 +32,7 @@ import {
   resolveRunningHeaderText
 } from '../lib/bookTypography';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from '../lib/bookColours';
-import { paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 import { 
   exportToPDF, 
   exportToEPUB, 
@@ -603,7 +603,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       }}
                     >
                       {page.blocks.map((block) => {
-                        const index=page.blocks.indexOf(block); const ps=paragraphCss(resolveParagraphFormatting(block,page.blocks[index-1],index,effectiveTypography));
+                        const index=page.blocks.indexOf(block); const ps=paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(page.blocks,index),isFirstQualifyingParagraph(page.blocks,index)?0:index,effectiveTypography));
                         if (block.type === 'heading') return <h2 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-lg font-bold font-serif">{block.text}</h2>;
                         if (block.type === 'subheading') return <h3 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-base font-semibold font-serif">{block.text}</h3>;
                         if (block.type === 'clause') return <div key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="font-bold">{block.text}</div>;

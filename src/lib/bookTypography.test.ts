@@ -33,7 +33,7 @@ describe('authoritative book typography', () => {
       syncStatus: 'local-only'
     });
 
-    expect(migrated?.schemaVersion).toBe(3);
+    expect(migrated?.schemaVersion).toBe(4);
     expect(migrated?.project.typography?.presetId).toBe('legacy');
     expect(migrated?.project.chapters).toEqual(before.chapters);
     expect(migrated?.project.exportSettings.trimSize).toBe(before.exportSettings.trimSize);

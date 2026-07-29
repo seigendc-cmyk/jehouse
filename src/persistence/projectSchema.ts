@@ -2,6 +2,7 @@ import { BookProject } from '../types';
 import { PROJECT_SCHEMA_VERSION, StoredProject, SyncStatus } from './types';
 import { getLegacyTypography } from '../lib/bookTypography';
 import { createColourSettings } from '../lib/bookColours';
+import { cloneParagraphPreset } from '../lib/paragraphFormatting';
 
 const VALID_SYNC_STATUSES = new Set<SyncStatus>([
   'local-only',
@@ -81,6 +82,20 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
           project: migrated.project.colourSettings
             ? migrated.project
             : { ...migrated.project, typography, colourSettings: createColourSettings(typography) }
+        };
+        break;
+      }
+      case 3: {
+        const typography = migrated.project.typography ?? getLegacyTypography();
+        migrated = {
+          ...migrated,
+          schemaVersion: 4,
+          project: {
+            ...migrated.project,
+            typography: typography.paragraphs?.schemaVersion
+              ? typography
+              : {...typography, paragraphs: cloneParagraphPreset('legacy')}
+          }
         };
         break;
       }

@@ -172,7 +172,7 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
             <fieldset className="grid grid-cols-2 gap-3 rounded-xl border p-4">
               <legend className="px-1 text-sm font-bold">Paragraph Rules</legend>
               <label className="col-span-2 text-xs">Paragraph preset
-                <select value={draft.paragraphs.presetId} onChange={e=>{const id=e.target.value as keyof typeof PARAGRAPH_PRESETS;setDraft(v=>({...v,presetId:'custom',paragraphs:cloneParagraphPreset(id)}));}} className="mt-1 w-full rounded border px-2 py-1.5">
+                <select value={draft.paragraphs.presetId} onChange={e=>{const id=e.target.value as keyof typeof PARAGRAPH_PRESETS;setDraft(v=>({...v,paragraphs:cloneParagraphPreset(id)}));}} className="mt-1 w-full rounded border px-2 py-1.5">
                   {Object.entries(PARAGRAPH_PRESETS).map(([id,p])=><option key={id} value={id}>{id.replace(/-/g,' ')}</option>)}
                   <option value="custom" disabled>Custom</option>
                 </select>
@@ -186,6 +186,10 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
               <label className="text-xs">Line height<input type="number" min=".8" max="3" step=".05" value={draft.paragraphs.lineHeight} onChange={e=>edit(v=>{v.paragraphs.lineHeight=Number(e.target.value);v.paragraphs.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1.5" /></label>
               <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.suppressIndentAfterHeading} onChange={e=>edit(v=>{v.paragraphs.suppressIndentAfterHeading=e.target.checked;})}/>No indent after heading</label>
               <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.suppressIndentAfterImage} onChange={e=>edit(v=>{v.paragraphs.suppressIndentAfterImage=e.target.checked;})}/>No indent after image or figure</label>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.suppressIndentAfterSceneBreak} onChange={e=>edit(v=>{v.paragraphs.suppressIndentAfterSceneBreak=e.target.checked;v.paragraphs.presetId='custom';})}/>No indent after semantic scene break (when supported)</label>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.widowOrphanEnabled} onChange={e=>edit(v=>{v.paragraphs.widowOrphanEnabled=e.target.checked;v.paragraphs.presetId='custom';})}/>Widow/orphan control</label>
+              <label className="text-xs">Minimum lines<input type="number" min="2" max="4" value={draft.paragraphs.minimumLines} onChange={e=>edit(v=>{v.paragraphs.minimumLines=Math.min(4,Math.max(2,Number(e.target.value)));v.paragraphs.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1.5" /></label>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.paragraphs.keepWithNextForHeadings} onChange={e=>edit(v=>{v.paragraphs.keepWithNextForHeadings=e.target.checked;v.paragraphs.presetId='custom';})}/>Keep headings with following paragraph</label>
               <label className="text-xs">Subsequent paragraphs
                 <select value={draft.paragraphs.subsequentParagraphMode} onChange={(e) => edit(v => { v.paragraphs.subsequentParagraphMode = e.target.value as BookTypographySettings['paragraphs']['subsequentParagraphMode']; })} className="mt-1 w-full rounded border px-2 py-1.5">
                   <option value="inherit">Inherit</option><option value="first-line">First-line</option><option value="block">Block</option>

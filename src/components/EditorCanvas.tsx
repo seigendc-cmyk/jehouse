@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange, BookColourSettings, BookTypographySettings } from '../types';
 import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
-import { paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 import { resolveProjectTypography } from '../lib/bookTypography';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
@@ -398,6 +398,10 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
   const activePalette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
   const resolvedTypography = resolveProjectTypography({typography});
+  const paragraphStyleFor = (block:ContentBlock) => {
+    const index=chapter.blocks.indexOf(block);
+    return paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,index),isFirstQualifyingParagraph(chapter.blocks,index)?0:index,resolvedTypography));
+  };
 
   const defaultSizeForType = (type: BlockType): number => {
     switch (type) {
@@ -1289,7 +1293,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
-                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
+                            ...paragraphStyleFor(block),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 26}px`,
                             fontWeight: block.bold ? 900 : 800,
@@ -1309,7 +1313,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
-                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
+                            ...paragraphStyleFor(block),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 20}px`,
                             fontWeight: block.bold ? 800 : 700,
@@ -1329,7 +1333,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           style={{
-                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
+                            ...paragraphStyleFor(block),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 15}px`,
                             textAlign: block.align || 'left',
@@ -1347,7 +1351,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                           rows={Math.max(2, Math.ceil(block.text.length / 80))}
                           style={{
-                            ...paragraphCss(resolveParagraphFormatting(block, chapter.blocks[chapter.blocks.indexOf(block)-1], chapter.blocks.indexOf(block), resolvedTypography)),
+                            ...paragraphStyleFor(block),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 16}px`,
                             paddingLeft: `${(block.indentLevel || 0) * 1.5}rem`,

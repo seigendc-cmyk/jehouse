@@ -4,7 +4,7 @@ import { BookColourSettings, BookTypographySettings, Chapter, PageOrientation, T
 import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 import { getEffectiveTypography, resolveProjectTypography } from '../lib/bookTypography';
 import { resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
-import { paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -146,7 +146,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
                     value={block.text}
                     onChange={(e) => handleTextChange(block.id, e.target.value)}
                     className="w-full text-xl font-bold font-sans bg-transparent border-none focus:outline-hidden"
-                    style={paragraphCss(resolveParagraphFormatting(block,chapter.blocks[idx-1],idx,effectiveTypography))}
+                    style={paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography))}
                   />
                 ) : (
                   <textarea
@@ -157,7 +157,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
                     className="w-full bg-transparent border-none focus:outline-hidden resize-none leading-relaxed text-lg tracking-wide font-serif"
                     placeholder="Type freely..."
                     autoFocus={idx === focusedBlockIdx}
-                    style={paragraphCss(resolveParagraphFormatting(block,chapter.blocks[idx-1],idx,effectiveTypography))}
+                    style={paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography))}
                   />
                 )}
               </div>
