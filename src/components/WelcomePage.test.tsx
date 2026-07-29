@@ -1,4 +1,5 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { WelcomePage } from './WelcomePage';
@@ -12,6 +13,12 @@ const actions = {
 };
 
 describe('WelcomePage', () => {
+  it('uses the optimized local welcome illustration', () => {
+    const source = readFileSync(new URL('./WelcomePage.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('/brand/presscraft-welcome-books.webp');
+    expect(source).not.toContain('/brand/presscraft-welcome-books.png');
+  });
+
   it('shows the truthful first-launch empty state and locally packaged visual', () => {
     const markup = renderToStaticMarkup(
       <WelcomePage
@@ -24,7 +31,7 @@ describe('WelcomePage', () => {
     );
     expect(markup).toContain('Write. Design.');
     expect(markup).toContain('No books have been created on this device yet.');
-    expect(markup).toContain('/brand/presscraft-welcome-books.png');
+    expect(markup).toContain('/brand/presscraft-welcome-books.webp');
     expect(markup).toContain('Offline mode');
     expect(markup).not.toContain('Install PressCraft');
   });

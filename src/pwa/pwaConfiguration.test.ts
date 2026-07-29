@@ -5,32 +5,58 @@ import { installStateForEnvironment } from './installState';
 describe('PWA configuration', () => {
   const config = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+  const manifest = JSON.parse(
+    readFileSync(new URL('../../public/manifest.webmanifest', import.meta.url), 'utf8')
+  );
+  const worker = readFileSync(
+    new URL('./service-worker-template.js', import.meta.url),
+    'utf8'
+  );
 
   it('defines the required installable manifest and local icons', () => {
-    expect(config).toContain("name: 'PressCraft Book Studio'");
-    expect(config).toContain("short_name: 'PressCraft'");
-    expect(config).toContain("display: 'standalone'");
-    expect(config).toContain("background_color: '#EA580C'");
-    expect(config).toContain('presscraft-192.png');
-    expect(config).toContain('presscraft-512.png');
-    expect(config).toContain('presscraft-maskable-512.png');
+    expect(manifest.name).toBe('PressCraft Book Studio');
+    expect(manifest.short_name).toBe('PressCraft');
+    expect(manifest.display).toBe('standalone');
+    expect(manifest.background_color).toBe('#EA580C');
+    expect(manifest.icons.map(({ src }: { src: string }) => src)).toEqual([
+      '/icons/presscraft-192.png',
+      '/icons/presscraft-512.png',
+      '/icons/presscraft-maskable-512.png'
+    ]);
   });
 
-  it('registers generated service-worker support only through the production lifecycle hook', () => {
+  it('registers the native service worker only through the production lifecycle hook', () => {
     const hook = readFileSync(new URL('../hooks/usePwaLifecycle.ts', import.meta.url), 'utf8');
     expect(hook).toContain('import.meta.env.PROD');
-    expect(hook).toContain('registerSW');
-    expect(config).toContain("navigateFallback: '/index.html'");
-    expect(config).toContain('cleanupOutdatedCaches: true');
+    expect(hook).toContain("register('/sw.js'");
+    expect(hook).toContain('controllerchange');
+    expect(hook).toContain("postMessage({ type: 'SKIP_WAITING' })");
+    expect(hook).not.toContain('virtual:pwa-register');
+    expect(config).not.toContain('VitePWA');
   });
 
-  it('does not configure runtime caching for project or private API payloads', () => {
-    expect(config).not.toContain('firebase');
-    expect(config).not.toContain('firestore');
-    expect(config).not.toContain('gemini');
-    expect(config).not.toContain('presscraft_projects');
-    expect(config).not.toContain('BookProject');
-    expect(config).toContain("request.destination === 'image'");
+  it('keeps private, API and cross-origin data on the network', () => {
+    expect(worker).toContain("url.pathname.startsWith('/api/')");
+    expect(worker).toContain("url.pathname.startsWith('/firebase/')");
+    expect(worker).toContain("url.pathname.startsWith('/firestore/')");
+    expect(worker).toContain("url.pathname.startsWith('/gemini/')");
+    expect(worker).toContain('url.origin !== self.location.origin');
+    expect(worker).not.toContain('presscraft_projects');
+    expect(worker).not.toContain('BookProject');
+  });
+
+  it('uses bounded local-image caching and navigation-only shell fallback', () => {
+    expect(worker).toContain('MAX_RUNTIME_IMAGES = 32');
+    expect(worker).toContain("request.mode === 'navigate'");
+    expect(worker).toContain("cache.match('/index.html')");
+    expect(worker).toContain("request.destination === 'image'");
+  });
+
+  it('removes only obsolete PressCraft shell caches and waits for update approval', () => {
+    expect(worker).toContain("name.startsWith('presscraft-shell-')");
+    expect(worker).toContain('name !== SHELL_CACHE');
+    expect(worker).toContain("event.data?.type === 'SKIP_WAITING'");
+    expect(worker).not.toContain("addEventListener('install', (event) => {\n  self.skipWaiting()");
   });
 
   it('shows installation only with a captured prompt and hides it in standalone mode', () => {

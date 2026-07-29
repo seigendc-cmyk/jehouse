@@ -107,7 +107,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
           <div className="relative min-h-[360px] self-stretch lg:min-h-[600px]">
             <img
-              src="/brand/presscraft-welcome-books.png"
+              src="/brand/presscraft-welcome-books.webp"
               alt="A standing hardcover book, open manuscript and fountain pen"
               className="absolute inset-0 h-full w-full object-contain object-center lg:object-right"
             />
