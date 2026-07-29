@@ -123,6 +123,7 @@ export interface ContentBlock {
   /** Explicit colour for the complete block. Omit to inherit from book typography. */
   textColour?: string;
   paragraphFormatting?: BlockParagraphFormatting;
+  dropCapFormatting?: BlockDropCapFormatting;
   sceneBreak?: SceneBreakSettings;
 
   
@@ -377,6 +378,7 @@ export interface BookTypographySettings {
     minimumLines: number;
     keepWithNextForHeadings: boolean;
   };
+  dropCaps: DropCapSettings;
   runningHeaders: {
     suppressOnChapterOpening: boolean;
     suppressOnBlankPages: boolean;
@@ -385,6 +387,39 @@ export interface BookTypographySettings {
     customOddText?: string;
     customEvenText?: string;
   };
+}
+
+export type DropCapStyle = 'dropped' | 'in-margin' | 'raised' | 'custom';
+export interface DropCapSettings {
+  schemaVersion: 1;
+  presetId: 'legacy' | 'modern-fiction' | 'classic-literary' | 'dramatic-fiction' | 'academic' | 'minimal' | 'custom';
+  enabledByDefault: boolean;
+  defaultContext: 'chapter-only' | 'chapter-and-scene' | 'chapter-scene-and-heading' | 'manual-only';
+  style: DropCapStyle;
+  lines: number;
+  characterCount: number;
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: 'normal' | 'italic';
+  colourSource: 'inherit-body' | 'inherit-chapter' | 'palette-accent' | 'custom';
+  customColour?: string;
+  spacingRightPt: number;
+  spacingTopPt: number;
+  baselineAdjustmentPt: number;
+  useSmallCapsForFollowingWords: boolean;
+  followingWordCount: number;
+}
+
+export interface BlockDropCapFormatting {
+  enabled?: boolean;
+  style?: 'inherit' | 'dropped' | 'in-margin' | 'raised' | 'none';
+  lines?: number;
+  characterCount?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  colour?: string;
+  spacingRightPt?: number;
+  spacingTopPt?: number;
 }
 
 export type ParagraphMode = 'inherit' | 'first-line' | 'block' | 'none' | 'hanging';

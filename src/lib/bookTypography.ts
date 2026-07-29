@@ -7,6 +7,7 @@ import {
   TypographyPresetId
 } from '../types';
 import { cloneParagraphPreset } from './paragraphFormatting';
+import { DROP_CAP_PRESETS, LEGACY_DROP_CAPS } from './dropCaps';
 
 const base = (
   presetId: TypographyPresetId,
@@ -80,6 +81,7 @@ const base = (
     minimumLines: 2,
     keepWithNextForHeadings: true
   },
+  dropCaps: structuredClone(LEGACY_DROP_CAPS),
   runningHeaders: {
     suppressOnChapterOpening: true,
     suppressOnBlankPages: true,
@@ -92,6 +94,7 @@ const base = (
 const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySettings> = {
   legacy: base('legacy'),
   'modern-bold': base('modern-bold', {
+    dropCaps: structuredClone(DROP_CAP_PRESETS['modern-fiction']),
     paragraphs: cloneParagraphPreset('fiction-standard'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
@@ -115,6 +118,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'classic-literary': base('classic-literary', {
+    dropCaps: structuredClone(DROP_CAP_PRESETS['classic-literary']),
     paragraphs: cloneParagraphPreset('literary'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
@@ -133,6 +137,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'contemporary-minimal': base('contemporary-minimal', {
+    dropCaps: structuredClone(DROP_CAP_PRESETS.minimal),
     paragraphs: cloneParagraphPreset('block-paragraph'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
@@ -151,6 +156,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   academic: base('academic', {
+    dropCaps: structuredClone(DROP_CAP_PRESETS.academic),
     paragraphs: cloneParagraphPreset('academic'),
     body: {
       ...base('legacy').body,
@@ -173,6 +179,7 @@ const presets: Record<Exclude<TypographyPresetId, 'custom'>, BookTypographySetti
     }
   }),
   'dramatic-fiction': base('dramatic-fiction', {
+    dropCaps: structuredClone(DROP_CAP_PRESETS['dramatic-fiction']),
     paragraphs: cloneParagraphPreset('fiction-standard'),
     chapterOpening: {
       ...base('legacy').chapterOpening,
@@ -209,7 +216,11 @@ export function getLegacyTypography(): BookTypographySettings {
 }
 
 export function getDefaultTypography(category: BookCategory): BookTypographySettings {
-  return cloneTypographyPreset(category === 'Academic & Textbook' ? 'academic' : 'modern-bold');
+  return cloneTypographyPreset(
+    category === 'Academic & Textbook'
+      ? 'academic'
+      : 'modern-bold'
+  );
 }
 
 export function resolveProjectTypography(project: Pick<BookProject, 'typography'>): BookTypographySettings {
@@ -217,7 +228,8 @@ export function resolveProjectTypography(project: Pick<BookProject, 'typography'
   const legacy = getLegacyTypography();
   return {
     ...structuredClone(project.typography),
-    paragraphs: {...legacy.paragraphs, ...structuredClone(project.typography.paragraphs)}
+    paragraphs: {...legacy.paragraphs, ...structuredClone(project.typography.paragraphs)},
+    dropCaps: {...legacy.dropCaps, ...structuredClone(project.typography.dropCaps)}
   };
 }
 

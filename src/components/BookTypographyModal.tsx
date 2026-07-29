@@ -10,6 +10,8 @@ import {
 import { Check, RotateCcw, Type, X } from 'lucide-react';
 import { addRecentColour, applyPaletteToTypography, BOOK_COLOUR_PALETTES, clonePalette, contrastRatio, contrastStatus, createColourSettings, createCustomPalette, normalizeHexColour, resolveActivePalette, resolveColourSettings } from '../lib/bookColours';
 import { cloneParagraphPreset, PARAGRAPH_PRESETS, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { DROP_CAP_PRESETS, paragraphFormattingWithDropCap, resolveDropCapFormatting } from '../lib/dropCaps';
+import { DropCapText } from './DropCapText';
 
 interface BookTypographyModalProps {
   project: BookProject;
@@ -83,7 +85,10 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
                 value={draft.presetId}
                 onChange={(event) => {
                   const id = event.target.value as TypographyPresetId;
-                  if (id !== 'custom') setDraft(cloneTypographyPreset(id));
+                  if (id !== 'custom') {
+                    const preset=cloneTypographyPreset(id);
+                    setDraft(value=>({...preset,dropCaps:structuredClone(value.dropCaps)}));
+                  }
                 }}
                 className="w-full rounded-lg border px-3 py-2"
               >
@@ -143,6 +148,20 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
               <label className="text-xs">Line height
                 <input type="number" min="1.2" max="2" step="0.05" value={draft.body.lineHeight} onChange={(e) => edit(v => { v.body.lineHeight = Number(e.target.value); })} className="mt-1 w-full rounded border px-2 py-1.5" />
               </label>
+            </fieldset>
+
+            <fieldset className="grid grid-cols-2 gap-3 rounded-xl border p-4">
+              <legend className="px-1 text-sm font-bold">Drop Caps</legend>
+              <label className="col-span-2 flex gap-2 text-xs"><input type="checkbox" checked={draft.dropCaps.enabledByDefault} onChange={e=>edit(v=>{v.dropCaps.enabledByDefault=e.target.checked;v.dropCaps.presetId='custom';})}/>Enable Drop Caps</label>
+              <label className="text-xs">Context<select value={draft.dropCaps.defaultContext} onChange={e=>edit(v=>{v.dropCaps.defaultContext=e.target.value as typeof v.dropCaps.defaultContext;v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"><option value="chapter-only">Chapter opening</option><option value="chapter-and-scene">Chapter and scene</option><option value="chapter-scene-and-heading">Chapter, scene and heading</option><option value="manual-only">Manual only</option></select></label>
+              <label className="text-xs">Style<select value={draft.dropCaps.style} onChange={e=>edit(v=>{v.dropCaps.style=e.target.value as typeof v.dropCaps.style;v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"><option value="dropped">Dropped</option><option value="raised">Raised</option><option value="in-margin">In Margin</option><option value="custom">Custom</option></select></label>
+              {([['lines','Lines',1,4],['characterCount','Characters',1,3],['fontWeight','Font weight',100,900],['spacingRightPt','Right spacing (pt)',0,36],['spacingTopPt','Top spacing (pt)',-18,36],['baselineAdjustmentPt','Baseline (pt)',-18,18]] as const).map(([field,label,min,max])=><label key={field} className="text-xs">{label}<input type="number" min={min} max={max} value={draft.dropCaps[field]} onChange={e=>edit(v=>{(v.dropCaps[field] as number)=Number(e.target.value);v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"/></label>)}
+              <label className="col-span-2 text-xs">Font family<input value={draft.dropCaps.fontFamily} onChange={e=>edit(v=>{v.dropCaps.fontFamily=e.target.value;v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"/></label>
+              <label className="text-xs">Font style<select value={draft.dropCaps.fontStyle} onChange={e=>edit(v=>{v.dropCaps.fontStyle=e.target.value as 'normal'|'italic';v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"><option value="normal">Normal</option><option value="italic">Italic</option></select></label>
+              <label className="text-xs">Colour source<select value={draft.dropCaps.colourSource} onChange={e=>edit(v=>{v.dropCaps.colourSource=e.target.value as typeof v.dropCaps.colourSource;v.dropCaps.presetId='custom';})} className="mt-1 w-full rounded border px-2 py-1"><option value="inherit-body">Body</option><option value="inherit-chapter">Chapter</option><option value="palette-accent">Accent</option><option value="custom">Custom</option></select></label>
+              {draft.dropCaps.colourSource==='custom'&&<label className="col-span-2 text-xs">Custom colour <input type="color" value={normalizeHexColour(draft.dropCaps.customColour??'')??'#111111'} onChange={e=>edit(v=>{v.dropCaps.customColour=e.target.value;v.dropCaps.presetId='custom';})}/><span className="ml-2 font-mono">{draft.dropCaps.customColour??'#111111'}</span></label>}
+              <label className="col-span-2 flex gap-2 text-xs opacity-60" title="Reserved until equivalent editing and export support is available."><input type="checkbox" disabled checked={false}/>Small caps for following words (future inline presentation)</label>
+              <button type="button" onClick={()=>edit(v=>{v.dropCaps=structuredClone(DROP_CAP_PRESETS[v.presetId==='classic-literary'?'classic-literary':v.presetId==='dramatic-fiction'?'dramatic-fiction':v.presetId==='academic'?'academic':v.presetId==='contemporary-minimal'?'minimal':'modern-fiction']);})} className="col-span-2 rounded border px-3 py-1.5 text-xs font-bold">Reset to Preset</button>
             </fieldset>
 
             <fieldset className="grid grid-cols-2 gap-3 rounded-xl border p-4">
@@ -232,7 +251,7 @@ export const BookTypographyModal: React.FC<BookTypographyModalProps> = ({
                 <p style={{ margin: '5pt 0 0', fontFamily: effective.chapterOpening.subtitleFontFamily, fontSize: `${effective.chapterOpening.subtitleFontSizePt}pt`, color: effective.chapterOpening.subtitleColour }}>A quiet decision changes everything</p>
                 {effective.chapterOpening.showDivider && <hr style={{ width: `${effective.chapterOpening.dividerWidthPercent}%`, border: 0, borderTop: `${effective.chapterOpening.dividerThicknessPt}pt solid ${effective.chapterOpening.dividerColour}` }} />}
               </header>
-              <p>The morning arrived without ceremony, laying a pale ribbon of light across the floorboards.</p>
+              {(()=>{const b={id:'drop-cap-preview',type:'paragraph' as const,text:'The morning arrived without ceremony, laying a pale ribbon of light across the floorboards.'},blocks=[b],paragraphFormatting=resolveParagraphFormatting(b,undefined,0,effective),dropCap=resolveDropCapFormatting({block:b,blocks,index:0,typography:effective,palette:activePalette,paragraphFormatting});return <p style={paragraphCss(paragraphFormattingWithDropCap(paragraphFormatting,dropCap))}><DropCapText text={b.text} resolved={dropCap}/></p>;})()}
               <p>Beyond the window, the city continued as though nothing important had happened.</p>
               {(() => { const samples=[{id:'p1',type:'paragraph' as const,text:''},{id:'p2',type:'paragraph' as const,text:''}]; return samples.map((b,i)=><p key={b.id} style={paragraphCss(resolveParagraphFormatting(b,samples[i-1],i,effective))}>{i===0?'First paragraph after the chapter opening begins flush left.':'The following paragraph demonstrates the inherited first-line rhythm.'}</p>); })()}
               <h4 style={{color:activePalette.colours.primaryHeading}}>A Primary Heading</h4>

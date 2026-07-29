@@ -130,6 +130,19 @@ describe('IndexedDbProjectRepository', () => {
     expect(reopened?.project.chapters[0].blocks.at(-1)).toMatchObject({id:scene.id,type:'scene-break',text:'',sceneBreak:{style:'ornament'}});
   });
 
+  it('reopens project and block drop-cap metadata offline without changing text', async () => {
+    const repository=new IndexedDbProjectRepository();
+    const source=wrapLegacyProject(project('drop-cap-offline-test','Drop cap copy'));
+    const originalText=source.project.chapters[0].blocks[0].text;
+    source.project.typography!.dropCaps.enabledByDefault=true;
+    source.project.chapters[0].blocks[0].dropCapFormatting={enabled:true,style:'raised',lines:2};
+    await repository.saveProject(source,0);
+    const reopened=await repository.getProject(source.projectId);
+    expect(reopened?.project.typography?.dropCaps.enabledByDefault).toBe(true);
+    expect(reopened?.project.chapters[0].blocks[0].dropCapFormatting).toEqual({enabled:true,style:'raised',lines:2});
+    expect(reopened?.project.chapters[0].blocks[0].text).toBe(originalText);
+  });
+
   it('uses a deterministic content hash independent of object key order', () => {
     const original = project('hash-test', 'Hash');
     const reordered = {

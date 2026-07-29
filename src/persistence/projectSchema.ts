@@ -3,6 +3,7 @@ import { PROJECT_SCHEMA_VERSION, StoredProject, SyncStatus } from './types';
 import { getLegacyTypography } from '../lib/bookTypography';
 import { createColourSettings } from '../lib/bookColours';
 import { cloneParagraphPreset } from '../lib/paragraphFormatting';
+import { LEGACY_DROP_CAPS } from '../lib/dropCaps';
 
 const VALID_SYNC_STATUSES = new Set<SyncStatus>([
   'local-only',
@@ -99,6 +100,20 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
         };
         break;
       }
+      case 4: {
+        const typography = migrated.project.typography ?? getLegacyTypography();
+        migrated = {
+          ...migrated,
+          schemaVersion: 5,
+          project: {
+            ...migrated.project,
+            typography: typography.dropCaps
+              ? typography
+              : {...typography, dropCaps: structuredClone(LEGACY_DROP_CAPS)}
+          }
+        };
+        break;
+      }
       default:
         return null;
     }
@@ -124,7 +139,11 @@ export function wrapLegacyProject(
     localRevision: Math.max(0, options.localRevision ?? 0),
     project: structuredClone((() => {
       const typography = project.typography ?? getLegacyTypography();
-      return {...project, typography, colourSettings: project.colourSettings ?? createColourSettings(typography)};
+      return {
+        ...project,
+        typography: typography.dropCaps ? typography : {...typography,dropCaps:structuredClone(LEGACY_DROP_CAPS)},
+        colourSettings: project.colourSettings ?? createColourSettings(typography)
+      };
     })()),
     createdAt: options.createdAt ?? legacySavedAt,
     updatedAt: options.updatedAt ?? legacySavedAt,

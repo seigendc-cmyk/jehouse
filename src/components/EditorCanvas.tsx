@@ -56,6 +56,7 @@ import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss,
 import { resolveProjectTypography } from '../lib/bookTypography';
 import { createSceneBreakBlock, DEFAULT_SCENE_BREAK, resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign, sanitizeSceneBreakText } from '../lib/sceneBreak';
 import { HistoryScope } from '../lib/formattingHistory';
+import { paragraphFormattingWithDropCap, resolveDropCapFormatting } from '../lib/dropCaps';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
@@ -362,6 +363,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           ?'Clear paragraph formatting'
           :partial.paragraphFormatting
             ?'Change paragraph formatting'
+            :'dropCapFormatting'in partial
+              ?partial.dropCapFormatting===undefined?'Clear drop cap override':'Change drop cap'
             :partial.sceneBreak
               ?'Change scene-break settings'
               :'Change block formatting';
@@ -434,7 +437,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   const resolvedTypography = resolveProjectTypography({typography});
   const paragraphStyleFor = (block:ContentBlock) => {
     const index=chapter.blocks.indexOf(block);
-    return paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,index),isFirstQualifyingParagraph(chapter.blocks,index)?0:index,resolvedTypography));
+    const paragraph=resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,index),isFirstQualifyingParagraph(chapter.blocks,index)?0:index,resolvedTypography);
+    const dropCap=resolveDropCapFormatting({block,blocks:chapter.blocks,index,typography:resolvedTypography,palette:activePalette,paragraphFormatting:paragraph});
+    return {
+      ...paragraphCss(paragraphFormattingWithDropCap(paragraph,dropCap)),
+      boxShadow:dropCap.enabled?`inset 3px 0 ${dropCap.colour}`:undefined
+    };
   };
 
   const defaultSizeForType = (type: BlockType): number => {
@@ -602,6 +610,17 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="quiz">Interactive Quiz</option>
             <option value="image">Image Attachment</option>
           </select>
+        )}
+        {activeBlock?.type==='paragraph'&&(
+          <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies a drop cap to the opening character of this paragraph. Manuscript text is unchanged.">
+            <span className="text-[10px] text-gray-300">Drop Cap — Entire Paragraph</span>
+            <select aria-label="Drop cap state" value={activeBlock.dropCapFormatting?.enabled===undefined?'inherit':activeBlock.dropCapFormatting.enabled?'enable':'disable'} onChange={e=>updateBlock(activeBlock.id,{dropCapFormatting:e.target.value==='inherit'?undefined:{...activeBlock.dropCapFormatting,enabled:e.target.value==='enable'}})} className="bg-[#1a1a1a] text-xs text-white"><option value="inherit">Inherit</option><option value="enable">Enable</option><option value="disable">Disable</option></select>
+            <select aria-label="Drop cap style" value={activeBlock.dropCapFormatting?.style??'inherit'} onChange={e=>updateBlock(activeBlock.id,{dropCapFormatting:{...activeBlock.dropCapFormatting,enabled:true,style:e.target.value as any}})} className="bg-[#1a1a1a] text-xs text-white"><option value="inherit">Inherited style</option><option value="dropped">Dropped</option><option value="raised">Raised</option><option value="in-margin">In Margin</option><option value="none">None</option></select>
+            <input aria-label="Drop cap lines" type="number" min="1" max="4" value={activeBlock.dropCapFormatting?.lines??''} placeholder="Lines" onChange={e=>updateBlock(activeBlock.id,{dropCapFormatting:{...activeBlock.dropCapFormatting,enabled:true,lines:Number(e.target.value)}})} className="w-12 bg-[#1a1a1a] px-1 text-[10px] text-white"/>
+            <input aria-label="Drop cap character count" type="number" min="1" max="3" value={activeBlock.dropCapFormatting?.characterCount??''} placeholder="Chars" onChange={e=>updateBlock(activeBlock.id,{dropCapFormatting:{...activeBlock.dropCapFormatting,enabled:true,characterCount:Number(e.target.value)}})} className="w-12 bg-[#1a1a1a] px-1 text-[10px] text-white"/>
+            <input aria-label="Drop cap colour" type="color" value={normalizeHexColour(activeBlock.dropCapFormatting?.colour??'')??activePalette.colours.accent} onChange={e=>updateBlock(activeBlock.id,{dropCapFormatting:{...activeBlock.dropCapFormatting,enabled:true,colour:e.target.value}})} className="h-6 w-7"/>
+            <button type="button" onClick={()=>updateBlock(activeBlock.id,{dropCapFormatting:undefined})} className="px-1 text-[10px] text-gray-300">Clear Override</button>
+          </div>
         )}
         {activeBlock && activeBlock.type!=='scene-break' && (
           <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies to the whole selected paragraph or block.">

@@ -13,6 +13,7 @@ import {
 } from './documentDisplayLabel';
 import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } from './bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, resolveParagraphFormatting } from './paragraphFormatting';
+import { dropCapHtml, paragraphFormattingWithDropCap, resolveDropCapFormatting } from './dropCaps';
 import { resolveSceneBreak, sceneBreakHtml, sceneBreakMark } from './sceneBreak';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
@@ -32,6 +33,10 @@ import {
   TableCell, 
   WidthType 
 } from 'docx';
+
+const escapeDropCapText=(value:string)=>value.replace(/[&<>"']/g,char=>({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+}[char]!));
 
 /**
  * Trigger browser print dialog formatted specifically as a book PDF layout
@@ -813,12 +818,14 @@ export function exportToPDF(project: BookProject) {
       `;
 
       const alignStyle = block.align ? `text-align: ${block.align};` : 'text-align: justify;';
-      const pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,effectiveTypography);
+      const rawPf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,effectiveTypography);
+      const dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index:blockIndex,typography:effectiveTypography,palette:colourPalette,paragraphFormatting:rawPf});
+      const pf=paragraphFormattingWithDropCap(rawPf,dropCap);
       const indentStyle = `padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;text-indent:${pf.firstLineIndentPt}pt;margin-top:${pf.spacingBeforePt}pt;margin-bottom:${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};widows:${pf.widows};orphans:${pf.orphans};`;
       const fontSizeStyle = block.fontSize ? `font-size: ${block.fontSize}px;` : '';
       const fontStyleClass = block.fontStyle === 'sans' ? 'font-family: sans-serif;' : block.fontStyle === 'mono' ? 'font-family: monospace;' : '';
 
-      return `<p style="${alignStyle} ${indentStyle} ${fontSizeStyle} ${fontStyleClass}">${formatBlockText(block)}</p>`;
+      return `<p class="${dropCap.enabled?'has-drop-cap':''}" style="${alignStyle} ${indentStyle} ${fontSizeStyle} ${fontStyleClass}">${dropCap.enabled?dropCapHtml(block.text,dropCap,escapeDropCapText):formatBlockText(block)}</p>`;
     }).join('');
 
     const footnotesHtml = footnotes.length > 0 ? `
@@ -984,12 +991,14 @@ export function exportToEPUB(project: BookProject) {
 </div>`;
       }
       const colour = resolveBlockTextColour(b, palette);
-      const pf=resolveParagraphFormatting(b,findPreviousParagraphContext(blocksWithImages,blockIndex),isFirstQualifyingParagraph(blocksWithImages,blockIndex)?0:blockIndex,typography); const ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
+      const rawPf=resolveParagraphFormatting(b,findPreviousParagraphContext(blocksWithImages,blockIndex),isFirstQualifyingParagraph(blocksWithImages,blockIndex)?0:blockIndex,typography);
+      const dropCap=resolveDropCapFormatting({block:b,blocks:blocksWithImages,index:blockIndex,typography,palette,paragraphFormatting:rawPf});
+      const pf=paragraphFormattingWithDropCap(rawPf,dropCap); const ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (b.type === 'heading') return `<h2 style="color: ${colour};${ps}">${b.text}</h2>`;
       if (b.type === 'subheading') return `<h3 style="color: ${colour}">${b.text}</h3>`;
       if (b.type === 'quote') return `<blockquote style="color: ${colour}">${b.text}</blockquote>`;
       if (b.type === 'code') return `<pre><code>${b.codeSnippet || b.text}</code></pre>`;
-      return `<p style="color: ${colour};${ps}">${b.text}</p>`;
+      return `<p class="${dropCap.enabled?'has-drop-cap':''}" style="color: ${colour};${ps}">${dropCapHtml(b.text,dropCap,escapeDropCapText)}</p>`;
     }).join('\n');
 
     const chapterText = blocksWithImages.map((b) => {
@@ -1331,7 +1340,7 @@ export function exportToHTML(project: BookProject) {
     }
     ch.blocks.forEach((block) => {
       const colour = resolveBlockTextColour(block, palette);
-      const blockIndex=ch.blocks.indexOf(block),pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
+      const blockIndex=ch.blocks.indexOf(block),rawPf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index:blockIndex,typography,palette,paragraphFormatting:rawPf}),pf=paragraphFormattingWithDropCap(rawPf,dropCap),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (block.type === 'scene-break') html += `    ${sceneBreakHtml(block)}\n`;
       else if (block.type === 'heading') html += `    <h3 style="color: ${colour}">${block.text}</h3>\n`;
       else if (block.type === 'subheading') html += `    <h4 style="color: ${colour}">${block.text}</h4>\n`;
@@ -1346,6 +1355,7 @@ export function exportToHTML(project: BookProject) {
         if (caption) html += `      <div style="font-size: 0.85em; color: #666; font-style: italic; margin-top: 4px;">${caption}</div>\n`;
         html += `    </div>\n`;
       }
+      else if (block.type === 'paragraph') html += `    <p class="${dropCap.enabled?'has-drop-cap':''}" style="color: ${colour};${ps}">${dropCapHtml(block.text,dropCap,escapeDropCapText)}</p>\n`;
       else if (block.type === 'table' && block.tableData) {
         const tbl = block.tableData;
         html += `    <div style="margin: 1.5rem 0;">\n`;
@@ -1631,7 +1641,9 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
 
     ch.blocks.forEach((block, blockIndex) => {
       const blockColour = resolveBlockTextColour(block, palette).replace('#', '').toUpperCase();
-      const pf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography);
+      const rawPf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography);
+      const dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index:blockIndex,typography,palette,paragraphFormatting:rawPf});
+      const pf=paragraphFormattingWithDropCap(rawPf,dropCap);
       const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
       const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
       if (block.type === 'scene-break') {
@@ -1727,11 +1739,14 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
           })
         );
       } else {
+        const opening=dropCap.enabled?dropCap.opening:null;
         children.push(
           new Paragraph({
-            children: [
-              new TextRun({ text: block.text, size: 24, color: blockColour })
-            ],
+            children: opening ? [
+              new TextRun({text:opening.prefix,size:24,color:blockColour}),
+              new TextRun({text:opening.cap,size:Math.round(24*Math.max(1.5,dropCap.lines*.8)),bold:dropCap.fontWeight>=600,italics:dropCap.fontStyle==='italic',font:dropCap.fontFamily.split(',')[0].replace(/["']/g,''),color:dropCap.colour.replace('#','').toUpperCase()}),
+              new TextRun({text:opening.remainder,size:24,color:blockColour})
+            ] : [new TextRun({ text: block.text, size: 24, color: blockColour })],
             spacing: paragraphSpacing,
             indent: paragraphIndent,
             alignment: AlignmentType.JUSTIFIED

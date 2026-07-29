@@ -5,6 +5,8 @@ import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 import { getEffectiveTypography, resolveProjectTypography } from '../lib/bookTypography';
 import { resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
+import { paragraphFormattingWithDropCap, resolveDropCapFormatting } from '../lib/dropCaps';
+import { DropCapText } from './DropCapText';
 import { resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign } from '../lib/sceneBreak';
 
 interface FocusModeProps {
@@ -135,6 +137,9 @@ export const FocusMode: React.FC<FocusModeProps> = ({
             const isFocused = focusedBlockIdx === idx;
             if(block.type==='scene-break'){const s=resolveSceneBreak(block);return <div key={block.id} role="separator" aria-label="Scene break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`,breakAfter:s.keepWithNext?'avoid':undefined}}>{s.style==='rule'?<hr />:<span aria-hidden={s.style!=='custom'}>{s.style==='whitespace'?'':sceneBreakMark(s)}</span>}</div>;}
 
+            const paragraphFormatting=resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography);
+            const dropCap=resolveDropCapFormatting({block,blocks:chapter.blocks,index:idx,typography:effectiveTypography,palette,paragraphFormatting});
+            const resolvedParagraph=paragraphFormattingWithDropCap(paragraphFormatting,dropCap);
             return (
               <div 
                 key={block.id} 
@@ -150,7 +155,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
                     className="w-full text-xl font-bold font-sans bg-transparent border-none focus:outline-hidden"
                     style={paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography))}
                   />
-                ) : (
+                ) : isFocused ? (
                   <textarea
                     value={block.text}
                     onChange={(e) => handleTextChange(block.id, e.target.value)}
@@ -159,8 +164,12 @@ export const FocusMode: React.FC<FocusModeProps> = ({
                     className="w-full bg-transparent border-none focus:outline-hidden resize-none leading-relaxed text-lg tracking-wide font-serif"
                     placeholder="Type freely..."
                     autoFocus={idx === focusedBlockIdx}
-                    style={paragraphCss(resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography))}
+                    style={paragraphCss(resolvedParagraph)}
                   />
+                ) : (
+                  <p style={paragraphCss(resolvedParagraph)} aria-label={dropCap.enabled?'Paragraph with drop cap':undefined}>
+                    <DropCapText text={block.text} resolved={dropCap} />
+                  </p>
                 )}
               </div>
             );
