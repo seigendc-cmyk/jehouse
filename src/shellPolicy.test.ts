@@ -60,4 +60,21 @@ describe('light shell policy', () => {
     expect(app).toContain("if (next && window.innerWidth <= 900) setNavigationVisible(false)");
     expect(app).toContain("if (next && window.innerWidth <= 900) setInspectorVisible(false)");
   });
+
+  it('routes visible chapter labels through the canonical presentation helper', async () => {
+    const paths = [
+      './components/Sidebar.tsx',
+      './components/EditorCanvas.tsx',
+      './components/ImageGalleryModal.tsx',
+      './components/TableOfContents.tsx',
+      './components/PrintPreviewModal.tsx',
+      './components/FocusMode.tsx'
+    ];
+    const sources = await Promise.all(paths.map(readSource));
+    for (const source of sources) {
+      expect(source).toContain('getChapterDisplayLabel');
+      expect(source).not.toContain('Chapter {ch.number}: {ch.title}');
+      expect(source).not.toContain('`Chapter ${ch.number}: ${ch.title}`');
+    }
+  });
 });

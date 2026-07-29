@@ -28,6 +28,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { BookProject, ProjectAsset, AssetCategory, Chapter } from '../types';
+import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 
 interface ImageGalleryModalProps {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
           if (imgSrc && !existingUrls.has(imgSrc)) {
             found.push({
               src: imgSrc,
-              sourceName: `Chapter ${ch.number}: ${ch.title}`,
+              sourceName: getChapterDisplayLabel(ch.number, ch.title),
               caption: b.imageCaption || b.text
             });
           }
@@ -560,7 +561,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
               >
                 {project.chapters.map((ch) => (
                   <option key={ch.id} value={ch.id}>
-                    Chapter {ch.number}: {ch.title}
+                    {getChapterDisplayLabel(ch.number, ch.title)}
                   </option>
                 ))}
               </select>

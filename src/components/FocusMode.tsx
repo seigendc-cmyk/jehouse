@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Minimize2, Volume2, VolumeX, Sun, Moon, Clock } from 'lucide-react';
 import { Chapter } from '../types';
+import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -57,7 +58,9 @@ export const FocusMode: React.FC<FocusModeProps> = ({
       {/* Top Minimal Chrome Header */}
       <header className="px-8 py-4 flex items-center justify-between opacity-40 hover:opacity-100 transition-opacity select-none">
         <div className="flex items-center gap-3 text-xs font-semibold">
-          <span className="text-orange-500 font-bold uppercase tracking-wider">Chapter {chapter.number} Focus View</span>
+          <span className="text-orange-500 font-bold uppercase tracking-wider">
+            {getChapterDisplayLabel(chapter.number, chapter.title)} Focus View
+          </span>
           <span>•</span>
           <span>{chapter.wordCount} words</span>
           <span>•</span>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Chapter, FrontMatter, TocStyle } from '../types';
 import { calculateTocData } from '../lib/tocUtils';
 import { ListTree, Edit2, Hash, Layers } from 'lucide-react';
+import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 
 interface TableOfContentsProps {
   chapters: Chapter[];
@@ -59,7 +60,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
             <div className="flex items-baseline justify-between text-sm group">
               <div className="flex-1 pr-2 truncate">
                 <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                  Chapter {ch.number}: {ch.title}
+                  {getChapterDisplayLabel(ch.number, ch.title)}
                 </span>
                 {showSubtitles && ch.subtitle && (
                   <span className="block text-xs italic font-normal text-zinc-500 dark:text-zinc-400 mt-0.5 pl-4 truncate">

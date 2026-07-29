@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 import { TableOfContents } from './TableOfContents';
 import { IndexOfTerms } from './IndexOfTerms';
 import { 
@@ -454,7 +455,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           {(activeViewTab === 'all' || activeViewTab === 'chapters') && (
             project.chapters.map((ch) => (
               <div key={ch.id} className="flex flex-col items-center gap-2">
-                <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Chapter {ch.number}: {ch.title}</span>
+                <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">{getChapterDisplayLabel(ch.number, ch.title)}</span>
                 
                 <div 
                   className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl flex flex-col justify-between relative transition-all`}
@@ -500,7 +501,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                   {project.exportSettings.showRunningHeader && (
                     <div className="border-b border-zinc-200 pb-2 mb-8 flex items-center justify-between text-[11px] font-serif text-zinc-400 italic">
                       <span>{project.title}</span>
-                      <span>Chapter {ch.number}: {ch.title}</span>
+                      <span>{getChapterDisplayLabel(ch.number, ch.title)}</span>
                     </div>
                   )}
 
@@ -578,7 +579,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                           <div key={block.id} className="my-6 space-y-3">
                             <div className="border-t-2 border-dashed border-orange-400 text-center text-[10px] text-orange-500 uppercase tracking-widest font-mono py-1">--- PAGE BREAK • NEW PAGE ---</div>
                             <div className="pb-2 border-b-2 border-zinc-900 font-serif font-bold text-sm uppercase tracking-wider text-zinc-900 flex items-center justify-between">
-                              <span>Chapter {ch.number}: {ch.title}</span>
+                              <span>{getChapterDisplayLabel(ch.number, ch.title)}</span>
                               <span className="text-xs font-mono font-normal text-zinc-500 lowercase italic">(continued)</span>
                             </div>
                           </div>
