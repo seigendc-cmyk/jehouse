@@ -55,6 +55,7 @@ import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 import { resolveProjectTypography } from '../lib/bookTypography';
 import { createSceneBreakBlock, DEFAULT_SCENE_BREAK, resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign, sanitizeSceneBreakText } from '../lib/sceneBreak';
+import { HistoryScope } from '../lib/formattingHistory';
 import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
@@ -95,6 +96,8 @@ interface EditorCanvasProps {
   onOpenImageGallery?: () => void;
   typography?: BookTypographySettings;
   colourSettings?: BookColourSettings;
+  onFormattingTransaction?: (chapter:Chapter,label:string,scope:HistoryScope,mergeKey?:string,activeBlockId?:string)=>void;
+  requestedActiveBlockId?: string;
 }
 
 const FONT_FAMILIES = [
@@ -140,6 +143,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   onOpenImageGallery,
   typography,
   colourSettings,
+  onFormattingTransaction,
+  requestedActiveBlockId,
 }) => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(chapter.blocks[0]?.id || null);
   const [showRulers, setShowRulers] = useState<boolean>(true);
@@ -167,6 +172,17 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
+  const commitChapter=(next:Chapter,label:string,scope:HistoryScope='block-formatting',mergeKey?:string,blockId?:string)=>{
+    if(onFormattingTransaction)onFormattingTransaction(next,label,scope,mergeKey,blockId??activeBlockId??undefined);
+    else onUpdateChapter(next);
+  };
+  useEffect(()=>{
+    if(!requestedActiveBlockId)return;
+    const safeBlockId=chapter.blocks.some(b=>b.id===requestedActiveBlockId)
+      ?requestedActiveBlockId
+      :chapter.blocks[0]?.id;
+    if(safeBlockId)setActiveBlockId(safeBlockId);
+  },[requestedActiveBlockId,chapter.blocks]);
 
   // Recalculate word count whenever blocks update
   useEffect(() => {
@@ -204,7 +220,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     const updatedBlocks = [...chapter.blocks];
     updatedBlocks.splice(targetIdx + 1, 0, duplicated);
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    commitChapter({ ...chapter, blocks: updatedBlocks },`Duplicate ${target.type==='scene-break'?'scene break':'block'}`,target.type==='scene-break'?'scene-break':'structure',undefined,duplicated.id);
     setActiveBlockId(duplicated.id);
     showToast(`Duplicated ${target.type.toUpperCase()} block`);
   };
@@ -261,7 +277,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       updatedBlocks.push(newBlock);
     }
 
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    commitChapter({ ...chapter, blocks: updatedBlocks },`Paste ${newBlock.type==='scene-break'?'scene break':'block'}`,newBlock.type==='scene-break'?'scene-break':'structure',undefined,newBlock.id);
     setActiveBlockId(newBlock.id);
     showToast(`Pasted ${newBlock.type.toUpperCase()} block`);
   };
@@ -338,7 +354,19 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       return { ...b, ...partial };
     });
 
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    const formattingOnly=partial.text===undefined;
+    if(formattingOnly){
+      const label='textColour'in partial
+        ?partial.textColour===undefined?'Clear text colour':'Change text colour'
+        :partial.paragraphFormatting===undefined&&'paragraphFormatting'in partial
+          ?'Clear paragraph formatting'
+          :partial.paragraphFormatting
+            ?'Change paragraph formatting'
+            :partial.sceneBreak
+              ?'Change scene-break settings'
+              :'Change block formatting';
+      commitChapter({...chapter,blocks:updatedBlocks},label,partial.sceneBreak?'scene-break':'block-formatting',`block:${id}:${Object.keys(partial).sort().join(',')}`,id);
+    }else onUpdateChapter({ ...chapter, blocks: updatedBlocks });
   };
 
   // Add a new content block after target ID with Review Mode tracking flag
@@ -361,7 +389,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       updatedBlocks.push(newBlock);
     }
 
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    commitChapter({ ...chapter, blocks: updatedBlocks },type==='scene-break'?'Insert scene break':`Insert ${type} block`,type==='scene-break'?'scene-break':'structure',undefined,newBlock.id);
     setActiveBlockId(newBlock.id);
   };
 
@@ -373,10 +401,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       const updatedBlocks = chapter.blocks.map((b) =>
         b.id === id ? { ...b, isDeletedInReview: true } : b
       );
-      onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+      commitChapter({ ...chapter, blocks: updatedBlocks },'Delete block','structure',undefined,id);
     } else {
       const updatedBlocks = chapter.blocks.filter((b) => b.id !== id);
-      onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+      const target=chapter.blocks.find(b=>b.id===id);
+      commitChapter({ ...chapter, blocks: updatedBlocks },target?.type==='scene-break'?'Delete scene break':'Delete block',target?.type==='scene-break'?'scene-break':'structure',undefined,id);
     }
   };
 
@@ -387,7 +416,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const updatedBlocks = [...chapter.blocks];
     const [moved] = updatedBlocks.splice(idx, 1);
     updatedBlocks.splice(idx - 1, 0, moved);
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    commitChapter({ ...chapter, blocks: updatedBlocks },chapter.blocks[idx].type==='scene-break'?'Move scene break':'Move block',chapter.blocks[idx].type==='scene-break'?'scene-break':'structure',undefined,id);
   };
 
   // Move block DOWN in position order
@@ -397,7 +426,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     const updatedBlocks = [...chapter.blocks];
     const [moved] = updatedBlocks.splice(idx, 1);
     updatedBlocks.splice(idx + 1, 0, moved);
-    onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+    commitChapter({ ...chapter, blocks: updatedBlocks },chapter.blocks[idx].type==='scene-break'?'Move scene break':'Move block',chapter.blocks[idx].type==='scene-break'?'scene-break':'structure',undefined,id);
   };
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];

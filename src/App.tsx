@@ -25,6 +25,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { applyUpdateWhenSafe } from './pwa/updatePolicy';
 import { getDocumentDisplayLabel } from './lib/documentDisplayLabel';
+import { FormattingHistoryController, HistoryScope } from './lib/formattingHistory';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -97,6 +98,10 @@ export default function App() {
   const hasActiveProject = activeProject !== null;
   const activeProjectRef = useRef(project);
   activeProjectRef.current = project;
+  const historyRef=useRef(new FormattingHistoryController());
+  const [historyTick,setHistoryTick]=useState(0);
+  const [historyAnnouncement,setHistoryAnnouncement]=useState('');
+  const [historyActiveBlockId,setHistoryActiveBlockId]=useState<string>();
 
   const [activeTab, setActiveTab] = useState<SidebarTab>('editor');
   const [activeChapterId, setActiveChapterId] = useState<string>(project.chapters[0]?.id || 'ch-1');
@@ -301,6 +306,20 @@ export default function App() {
     );
     saveCoordinatorRef.current?.markDirty(changedProject);
   };
+  const applyHistoryProject=(next:BookProject)=>{
+    activeProjectRef.current=next;
+    setProjects(current=>current.map(item=>item.id===next.id?next:item));
+    saveCoordinatorRef.current?.markDirty(next);
+  };
+  const executeFormattingTransaction=(label:string,scope:HistoryScope,next:BookProject,mergeKey?:string,activeBlockId?:string)=>{
+    const before=activeProjectRef.current;
+    if(historyRef.current.execute({label,scope,before:structuredClone(before),after:structuredClone(next),mergeKey,activeBlockBefore:activeBlockId,activeBlockAfter:activeBlockId})){
+      applyHistoryProject(next);setHistoryTick(v=>v+1);setHistoryAnnouncement(label);
+    }
+  };
+  const undoFormatting=()=>{const result=historyRef.current.undo();if(!result)return;applyHistoryProject(result.project);setHistoryActiveBlockId(result.activeBlockId);setHistoryTick(v=>v+1);setHistoryAnnouncement(`Undid: ${result.entry.label}.`);};
+  const redoFormatting=()=>{const result=historyRef.current.redo();if(!result)return;applyHistoryProject(result.project);setHistoryActiveBlockId(result.activeBlockId);setHistoryTick(v=>v+1);setHistoryAnnouncement(`Redid: ${result.entry.label}.`);};
+  const clearFormattingHistory=()=>{historyRef.current.clear();setHistoryTick(v=>v+1);setHistoryActiveBlockId(undefined);};
 
   const handleCreateProject = async (newProj: BookProject) => {
     if (
@@ -316,6 +335,7 @@ export default function App() {
       }
     }
     setProjects((prev) => [newProj, ...prev]);
+    clearFormattingHistory();
     setActiveProjectId(newProj.id);
     activeProjectRef.current = newProj;
     saveCoordinatorRef.current?.setProject(newProj, null);
@@ -326,6 +346,8 @@ export default function App() {
   const handleUpdateProjectInList = (updatedProj: BookProject) => {
     setProjects((prev) => prev.map((p) => (p.id === updatedProj.id ? updatedProj : p)));
     if (updatedProj.id === activeProjectId) {
+      clearFormattingHistory();
+      activeProjectRef.current = updatedProj;
       saveCoordinatorRef.current?.markDirty(updatedProj);
     }
   };
@@ -350,6 +372,7 @@ export default function App() {
     setRecentProjects((current) => current.filter((item) => item.projectId !== projId));
     setProjects((prev) => prev.filter((p) => p.id !== projId));
     if (projId === activeProjectId) {
+      clearFormattingHistory();
       setActiveProjectId(null);
       saveCoordinatorRef.current?.clearProject();
     }
@@ -378,6 +401,7 @@ export default function App() {
       ...current.filter((item) => item.id !== projectId)
     ]);
     setActiveProjectId(projectId);
+    clearFormattingHistory();
     activeProjectRef.current = nextProject;
     setActiveChapterId(nextProject.chapters[0]?.id || 'ch-1');
     saveCoordinatorRef.current?.setProject(nextProject, stored);
@@ -396,12 +420,14 @@ export default function App() {
       }
     }
     setActiveProjectId(null);
+    clearFormattingHistory();
     saveCoordinatorRef.current?.clearProject();
     setSaveState(createInitialSaveState());
     return true;
   };
 
   const handleRecoverVersion = async (version: ProjectVersion) => {
+    clearFormattingHistory();
     const recovered: BookProject = {
       ...structuredClone(version.project),
       id: `book-recovered-${crypto.randomUUID()}`,
@@ -432,6 +458,7 @@ export default function App() {
   };
 
   const handleReloadStoredProject = async () => {
+    clearFormattingHistory();
     const stored = await localProjectRepository.getProject(project.id);
     if (!stored) return;
     projectRecords.current.set(stored.projectId, stored);
@@ -443,6 +470,7 @@ export default function App() {
   };
 
   const handleKeepCurrentAsCopy = async () => {
+    clearFormattingHistory();
     const copy: BookProject = {
       ...structuredClone(project),
       id: `${project.id}-recovered-${Date.now()}`,
@@ -463,6 +491,22 @@ export default function App() {
     const updatedChapters = project.chapters.map((c) => (c.id === updatedChapter.id ? updatedChapter : c));
     handleUpdateProject({ chapters: updatedChapters });
   };
+  const handleFormattingChapter=(updatedChapter:Chapter,label:string,scope:HistoryScope,mergeKey?:string,activeBlockId?:string)=>{
+    const next={...activeProjectRef.current,chapters:activeProjectRef.current.chapters.map(c=>c.id===updatedChapter.id?updatedChapter:c)};
+    executeFormattingTransaction(label,scope,next,mergeKey,activeBlockId);
+  };
+
+  useEffect(()=>{
+    const handler=(event:KeyboardEvent)=>{
+      const target=event.target as HTMLElement|null;
+      if(target&&(target.tagName==='TEXTAREA'||target.tagName==='INPUT'||target.isContentEditable))return;
+      if(!(event.ctrlKey||event.metaKey))return;
+      const key=event.key.toLowerCase();
+      if(key==='z'){event.preventDefault();event.shiftKey?redoFormatting():undoFormatting();}
+      else if(key==='y'){event.preventDefault();redoFormatting();}
+    };
+    window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);
+  },[]);
 
   // Add new chapter
   const handleAddChapter = () => {
@@ -928,7 +972,14 @@ export default function App() {
             return next;
           });
         }}
+        canUndo={historyRef.current.canUndo}
+        canRedo={historyRef.current.canRedo}
+        undoLabel={historyRef.current.undoLabel}
+        redoLabel={historyRef.current.redoLabel}
+        onUndo={undoFormatting}
+        onRedo={redoFormatting}
       />
+      <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
 
       {/* Main Studio Body Workspace with Floating Sidebar */}
@@ -986,6 +1037,8 @@ export default function App() {
               onAcceptSingleChange={handleAcceptSingleChange}
               onRejectSingleChange={handleRejectSingleChange}
               onUpdateChapter={handleUpdateChapter}
+              onFormattingTransaction={handleFormattingChapter}
+              requestedActiveBlockId={historyActiveBlockId}
               onUpdateTrimSize={(trimSize) =>
                 handleUpdateProject({
                   exportSettings: { ...project.exportSettings, trimSize }
@@ -1224,8 +1277,24 @@ export default function App() {
             project,
             isOpen: true,
             onClose: () => setIsTypographyOpen(false),
-            onApply: (typography: BookProject['typography'], colourSettings: BookProject['colourSettings']) =>
-              handleUpdateProject({ typography, colourSettings })
+            onApply: (typography: BookProject['typography'], colourSettings: BookProject['colourSettings']) => {
+              const current = activeProjectRef.current;
+              const paletteChanged =
+                current.colourSettings?.activePaletteId !== colourSettings?.activePaletteId ||
+                JSON.stringify(current.colourSettings?.customPalettes) !==
+                  JSON.stringify(colourSettings?.customPalettes);
+              const paragraphPresetChanged =
+                current.typography?.paragraphs?.presetId !== typography?.paragraphs?.presetId;
+              executeFormattingTransaction(
+                paletteChanged
+                  ? 'Apply book palette'
+                  : paragraphPresetChanged
+                    ? 'Apply paragraph preset'
+                    : 'Apply book typography',
+                paletteChanged ? 'palette' : 'project-typography',
+                {...current,typography,colourSettings}
+              );
+            }
           }}
           onReturn={() => setIsTypographyOpen(false)}
         />

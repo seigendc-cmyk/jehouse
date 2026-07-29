@@ -119,7 +119,8 @@ describe('authoritative book typography', () => {
     expect(workspace).toContain('const [draft, setDraft]');
     expect(workspace).toContain('Static sample preview');
     expect(workspace).toContain('onApply(structuredClone(draft), structuredClone(colourDraft))');
-    expect(app).toContain('handleUpdateProject({ typography, colourSettings })');
+    expect(app).toContain('executeFormattingTransaction(');
+    expect(app).toContain('{...current,typography,colourSettings}');
   });
 
   it('shares effective typography across preview and PDF, EPUB, HTML and DOCX exports', async () => {

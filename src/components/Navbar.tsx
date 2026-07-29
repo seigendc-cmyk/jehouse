@@ -3,7 +3,7 @@ import {
   BookOpen, BookMarked, Check, CloudOff, Database, Download, FileText,
   Focus, FolderOpen, GraduationCap, HelpCircle, Image, LayoutPanelLeft,
   Library, Maximize2, Menu, PanelRight, Plus, Printer, Save, Search,
-  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi
+  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2
 } from 'lucide-react';
 import { BookProject, UITheme } from '../types';
 import { SidebarTab } from './Sidebar';
@@ -56,6 +56,8 @@ interface NavbarProps {
   inspectorVisible?: boolean;
   onToggleNavigation?: () => void;
   onToggleInspector?: () => void;
+  canUndo?: boolean; canRedo?: boolean; undoLabel?: string; redoLabel?: string;
+  onUndo?: () => void; onRedo?: () => void;
 }
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -107,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager,
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
-  onToggleNavigation, onToggleInspector
+  onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
 }) => {
   const [selectedTab, setSelectedTab] = useState<RibbonTab>('home');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -148,6 +150,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'home':
         return <>
           <RibbonGroup label="Editing">
+            <RibbonButton label="Undo" icon={Undo2} onClick={onUndo} disabled={!canUndo} title={canUndo?`Undo ${undoLabel} (Ctrl+Z)`:'Nothing to undo'} />
+            <RibbonButton label="Redo" icon={Redo2} onClick={onRedo} disabled={!canRedo} title={canRedo?`Redo ${redoLabel} (Ctrl+Y)`:'Nothing to redo'} />
             <RibbonButton label="Find" icon={Search} disabled title="Use the document toolbar or Ctrl+F" />
             <RibbonButton label="Writing Assistant" icon={Sparkles} onClick={onOpenStoryContinuation} />
           </RibbonGroup>

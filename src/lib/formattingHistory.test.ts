@@ -1,0 +1,24 @@
+import { describe,expect,it } from 'vitest';
+import fs from 'node:fs';
+import { createEmptyBookProject } from '../data/createEmptyBookProject';
+import { FORMATTING_HISTORY_LIMIT, FormattingHistoryController } from './formattingHistory';
+import { createSceneBreakBlock } from './sceneBreak';
+
+const projects=()=>{const before=createEmptyBookProject({title:'Before'});return [before,{...structuredClone(before),title:'After'}] as const;};
+describe('formatting history',()=>{
+ it('starts empty',()=>{const h=new FormattingHistoryController();expect(h.size).toEqual({past:0,future:0});expect(h.canUndo).toBe(false);});
+ it('skips no-op transactions',()=>{const h=new FormattingHistoryController(),[p]=projects();expect(h.execute({label:'noop',scope:'block-formatting',before:p,after:structuredClone(p)})).toBe(false);});
+ it('undoes and redoes forward state without adding entries',()=>{const h=new FormattingHistoryController(),[a,b]=projects();h.execute({label:'Change',scope:'block-formatting',before:a,after:b});expect(h.undo()?.project.title).toBe('Before');expect(h.size).toEqual({past:0,future:1});expect(h.redo()?.project.title).toBe('After');expect(h.size).toEqual({past:1,future:0});});
+ it('clears redo after a new mutation',()=>{const h=new FormattingHistoryController(),[a,b]=projects();h.execute({label:'One',scope:'block-formatting',before:a,after:b});h.undo();h.execute({label:'Two',scope:'palette',before:a,after:{...a,subtitle:'new'}});expect(h.canRedo).toBe(false);});
+ it('bounds memory by removing oldest entries',()=>{const h=new FormattingHistoryController(3);let p=createEmptyBookProject();for(let i=0;i<6;i++){const next={...p,title:String(i)};h.execute({label:String(i),scope:'block-formatting',before:p,after:next},i*1000);p=next;}expect(h.size.past).toBe(3);});
+ it('merges rapid related changes but not unrelated blocks',()=>{const h=new FormattingHistoryController(50,750),[a]=projects();const b={...a,title:'1'},c={...a,title:'2'};h.execute({label:'Indent',scope:'block-formatting',before:a,after:b,mergeKey:'block:a:indent'},1000);h.execute({label:'Indent',scope:'block-formatting',before:b,after:c,mergeKey:'block:a:indent'},1500);expect(h.size.past).toBe(1);expect(h.undo()?.project.title).toBe(a.title);});
+ it('restores active block metadata safely',()=>{const h=new FormattingHistoryController(),[a,b]=projects();h.execute({label:'Colour',scope:'block-formatting',before:a,after:b,activeBlockBefore:'b1',activeBlockAfter:'b1'});expect(h.undo()?.activeBlockId).toBe('b1');});
+ it('reverses scene-break insertion with the same block ID',()=>{const h=new FormattingHistoryController(),[a]=projects(),scene=createSceneBreakBlock();const b=structuredClone(a);b.chapters[0].blocks.push(scene);h.execute({label:'Insert scene break',scope:'scene-break',before:a,after:b});expect(h.undo()?.project.chapters[0].blocks.some(x=>x.id===scene.id)).toBe(false);expect(h.redo()?.project.chapters[0].blocks.at(-1)?.id).toBe(scene.id);});
+ it('preserves manuscript text, project ID, and chapter IDs',()=>{const h=new FormattingHistoryController(),[a]=projects(),b=structuredClone(a);b.chapters[0].blocks[0].textColour='#123456';h.execute({label:'Colour',scope:'block-formatting',before:a,after:b});const restored=h.undo()!.project;expect(restored.id).toBe(a.id);expect(restored.chapters[0].id).toBe(a.chapters[0].id);expect(restored.chapters[0].blocks[0].text).toBe(a.chapters[0].blocks[0].text);});
+ it('clears at project boundaries',()=>{const h=new FormattingHistoryController(),[a,b]=projects();h.execute({label:'x',scope:'palette',before:a,after:b});h.clear();expect(h.size).toEqual({past:0,future:0});});
+ it('uses the shared production history limit',()=>expect(FORMATTING_HISTORY_LIMIT).toBe(50));
+ it('is never serialized into BookProject',()=>{const p=createEmptyBookProject();expect(JSON.stringify(p)).not.toContain('history-');expect('history' in p).toBe(false);});
+ it('wires native-input shortcut precedence, toolbar state, and live announcements',()=>{const app=fs.readFileSync('src/App.tsx','utf8'),nav=fs.readFileSync('src/components/Navbar.tsx','utf8');expect(app).toContain(`target.tagName==='TEXTAREA'||target.tagName==='INPUT'`);expect(app).toContain('aria-live="polite"');expect(nav).toContain('Nothing to undo');expect(nav).toContain('Nothing to redo');});
+ it('does not clear history on Ctrl+S or autosave callbacks',()=>{const app=fs.readFileSync('src/App.tsx','utf8');const saveSection=app.slice(app.indexOf('// Ctrl+S'),app.indexOf('// Browsers control'));expect(saveSection).not.toContain('clearFormattingHistory');expect(app).toContain('saveCoordinatorRef.current?.markDirty(next)');});
+ it('does not deep-clone on textarea keystrokes',()=>{const editor=fs.readFileSync('src/components/EditorCanvas.tsx','utf8');expect(editor).toContain('else onUpdateChapter({ ...chapter, blocks: updatedBlocks })');});
+});
