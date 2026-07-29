@@ -194,10 +194,39 @@
 .presscraft-shell main > .flex-1 > .bg-\[\#222222\] .bg-\[\#1A1A1A\] { background: white !important; border-color: var(--pc-border) !important; color: var(--pc-text) !important; }
 
 @media (max-width: 900px) {
-  .pc-product-name, .pc-document-label { display: none; }
-  .pc-title-status .pc-save-state { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pc-menu-tab { min-width: 45px; padding-inline: 6px; }
-  .pc-inspector { display: none; }
+  .pc-titlebar { gap: 5px; padding-inline: 8px; }
+  .pc-product-name, .pc-document-label, .pc-title-separator { display: none; }
+  .pc-project-title { min-width: 0; max-width: 220px; flex: 1 1 auto; text-align: left; }
+  .pc-title-status { margin-left: 4px; gap: 8px; flex: 0 0 auto; }
+  .pc-title-status .pc-save-state { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pc-connectivity { font-size: 0; }
+  .pc-connectivity svg { width: 16px; height: 16px; }
+  .pc-menu-tabs { overflow-x: auto; scrollbar-width: thin; }
+  .pc-menu-tab { min-width: 50px; padding-inline: 7px; flex: 0 0 auto; }
+  .pc-ribbon { scrollbar-width: thin; }
+  .pc-navigation-pane {
+    width: min(var(--pc-navigation-width), calc(100vw - 64px));
+    box-shadow: 4px 0 14px rgb(15 23 42 / 18%);
+  }
+  .pc-inspector {
+    display: block;
+    width: min(var(--pc-inspector-width), calc(100vw - 64px));
+    box-shadow: -4px 0 14px rgb(15 23 42 / 18%);
+  }
+  .pc-manuscript-shell { padding-left: 0 !important; padding-right: 0 !important; }
+  .pc-statusbar { justify-content: flex-end; padding-inline: 8px; }
+  .pc-status-secondary { display: none; }
+  .pc-status-primary { max-width: 100%; gap: 8px; }
+  .pc-status-primary > span:not(:first-child),
+  .pc-status-primary > div { display: none; }
+  .presscraft-shell main > .flex-1 > .flex-1.overflow-y-auto { padding-inline: 8px !important; }
+}
+
+@media (max-width: 780px) {
+  .pc-project-title { max-width: 190px; }
+  .pc-title-status .pc-save-state { max-width: 125px; }
+  .pc-ribbon-group { padding-inline: 5px; }
+  .pc-ribbon-button { min-width: 44px; padding-inline: 4px; }
 }
 
 @layer base {
@@ -545,4 +574,3 @@
   color: #71717a !important;
   opacity: 1 !important;
 }
-

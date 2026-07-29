@@ -267,11 +267,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="pc-title-input"
           />
         ) : (
-          <button className="pc-project-title" onClick={() => setIsEditingTitle(true)} title="Edit project title">
+          <button className="pc-project-title" onClick={() => setIsEditingTitle(true)} title={`${project.title.trim() || 'Untitled Book'} — click to edit`}>
             {project.title.trim() || 'Untitled Book'}
           </button>
         )}
-        {activeDocumentLabel && <><span className="pc-title-separator">|</span><span className="pc-document-label">{activeDocumentLabel}</span></>}
+        {activeDocumentLabel && <><span className="pc-title-separator">|</span><span className="pc-document-label" title={activeDocumentLabel}>{activeDocumentLabel}</span></>}
         <div className="pc-title-status">
           <span className={`pc-save-state pc-save-${saveState.status}`}>{localSaveStatusLabel(saveState, isOnline)}</span>
           <span className="pc-connectivity">{isOnline ? <Wifi className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}{isOnline ? 'Online' : 'Offline'}</span>

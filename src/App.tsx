@@ -24,6 +24,7 @@ import { ProjectSummary, ProjectVersion, StoredProject } from './persistence/typ
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { applyUpdateWhenSafe } from './pwa/updatePolicy';
+import { getDocumentDisplayLabel } from './lib/documentDisplayLabel';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -142,7 +143,9 @@ export default function App() {
   const [uiTheme, setUITheme] = useState<UITheme>('warm_light');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [autoAmbient, setAutoAmbient] = useState<boolean>(false);
-  const [navigationVisible, setNavigationVisible] = useState(true);
+  const [navigationVisible, setNavigationVisible] = useState(
+    () => typeof window === 'undefined' || window.innerWidth > 900
+  );
   const [inspectorVisible, setInspectorVisible] = useState(false);
 
   // Modals & Drawers
@@ -824,20 +827,13 @@ export default function App() {
   }
 
   const activeChapter = project.chapters.find((c) => c.id === activeChapterId) || project.chapters[0];
-  const activeDocumentLabel =
-    activeTab === 'editor' && activeChapter
-      ? activeChapter.episodeNumber
-        ? `Episode ${activeChapter.episodeNumber}: ${activeChapter.episodeTitle || activeChapter.title}`
-        : `Chapter ${activeChapter.number}: ${activeChapter.title}`
-      : activeTab === 'cover'
-        ? 'Cover'
-        : activeTab === 'frontmatter'
-          ? 'Front Matter'
-          : activeTab === 'watermark'
-            ? 'Watermark'
-            : activeTab === 'exportSettings'
-              ? 'Export Settings'
-              : undefined;
+  const activeDocumentLabel = getDocumentDisplayLabel({
+    workspace: activeTab,
+    chapterNumber: activeChapter?.number,
+    chapterTitle: activeChapter?.title,
+    episodeNumber: activeChapter?.episodeNumber,
+    episodeTitle: activeChapter?.episodeTitle
+  });
 
   const persistenceByProject = Object.fromEntries(
     projects.map((item) => {
@@ -912,8 +908,20 @@ export default function App() {
         activeDocumentLabel={activeDocumentLabel}
         navigationVisible={navigationVisible}
         inspectorVisible={inspectorVisible}
-        onToggleNavigation={() => setNavigationVisible((visible) => !visible)}
-        onToggleInspector={() => setInspectorVisible((visible) => !visible)}
+        onToggleNavigation={() => {
+          setNavigationVisible((visible) => {
+            const next = !visible;
+            if (next && window.innerWidth <= 900) setInspectorVisible(false);
+            return next;
+          });
+        }}
+        onToggleInspector={() => {
+          setInspectorVisible((visible) => {
+            const next = !visible;
+            if (next && window.innerWidth <= 900) setNavigationVisible(false);
+            return next;
+          });
+        }}
       />
 
 
@@ -954,7 +962,7 @@ export default function App() {
         />}
 
         {/* Center Active Workspace View offset for Floating Header (pt-[4.25rem]), Floating Sidebar (pl-[16.25rem]), and Footer (pb-[2rem]) */}
-        <main className={`flex-1 flex flex-col overflow-hidden pt-[8.25rem] pb-[1.75rem] h-full w-full transition-[padding] ${navigationVisible ? 'pl-[15.5rem]' : 'pl-0'} ${inspectorVisible ? 'pr-80' : 'pr-0'}`}>
+        <main className={`pc-manuscript-shell flex-1 flex flex-col overflow-hidden pt-[8.25rem] pb-[1.75rem] h-full w-full transition-[padding] ${navigationVisible ? 'pl-[15.5rem]' : 'pl-0'} ${inspectorVisible ? 'pr-80' : 'pr-0'}`}>
           {activeTab === 'editor' && (
             <EditorCanvas
               chapter={activeChapter}
@@ -1089,14 +1097,14 @@ export default function App() {
 
       {/* Professional Polish Bottom Status Bar Footer */}
       <footer className="pc-statusbar">
-        <div className="flex items-center gap-4">
+        <div className="pc-status-secondary flex items-center gap-4">
           <span>Words: <strong className="text-gray-200">{project.chapters.reduce((acc, c) => acc + c.wordCount, 0).toLocaleString()}</strong></span>
           <span>Estimated pages: <strong className="text-gray-200">~{Math.max(1, Math.ceil(project.chapters.reduce((acc, c) => acc + c.wordCount, 0) / 350))}</strong></span>
           <span>Focus Mode: <span className={isFocusMode ? "text-[#FF6B00] font-bold" : "text-gray-500"}>{isFocusMode ? "Active" : "Inactive"}</span></span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className={
+        <div className="pc-status-primary flex items-center gap-4">
+          <span aria-live="polite" className={
             saveState.status === 'error' || saveState.status === 'conflict'
               ? 'text-red-400 font-bold'
               : saveState.status === 'dirty' || saveState.status === 'saving'

@@ -30,6 +30,7 @@ import {
   localSaveStatusLabel,
   ProjectSaveState
 } from '../persistence/localSaveCoordinator';
+import { getChapterDisplayLabel } from '../lib/documentDisplayLabel';
 
 export type SidebarTab = 'editor' | 'cover' | 'frontmatter' | 'watermark' | 'exportSettings';
 
@@ -384,10 +385,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Drag Grip Handle */}
                     <GripVertical className="w-3.5 h-3.5 text-zinc-500 group-hover:text-[#FF6B00] cursor-grab active:cursor-grabbing shrink-0 transition-colors" />
 
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-[#FF6B00] text-black' : 'bg-zinc-800 text-zinc-200'}`}>
-                      {ch.number}
+                    <span className="truncate" title={getChapterDisplayLabel(ch.number, ch.title)}>
+                      {getChapterDisplayLabel(ch.number, ch.title)}
                     </span>
-                    <span className="truncate">{ch.title}</span>
                   </div>
 
                   {/* Chapter Actions: Up / Down arrows & Delete */}

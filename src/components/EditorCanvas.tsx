@@ -56,6 +56,10 @@ import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
 import { CaptionBlock } from './blocks/CaptionBlock';
 import { GitCompare, CheckCheck, XCircle, EyeOff } from 'lucide-react';
+import {
+  chapterTitleIncludesNumber,
+  getChapterDisplayLabel
+} from '../lib/documentDisplayLabel';
 
 const GraphBlock = React.lazy(() =>
   import('./blocks/GraphBlock').then((module) => ({ default: module.GraphBlock }))
@@ -502,9 +506,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       {/* Chapter Title & Sub-bar */}
       <div className="bg-[#222222] text-[#E5E5E5] border-b border-[#333333] px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3 flex-1">
-          <span className="text-xs font-bold bg-[#FF6B00] text-black px-2 py-0.5 rounded uppercase tracking-wider">
-            Chapter {chapter.number}
-          </span>
+          {!chapterTitleIncludesNumber(chapter.number, chapter.title) && (
+            <span className="text-xs font-bold bg-[#FF6B00] text-black px-2 py-0.5 rounded uppercase tracking-wider">
+              Chapter {chapter.number}
+            </span>
+          )}
           <input
             type="text"
             value={chapter.title}
@@ -1349,7 +1355,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           <div className="mt-4 p-2.5 bg-orange-500/10 dark:bg-orange-950/30 border-l-4 border-orange-500 rounded-r-lg text-xs font-serif font-bold text-zinc-800 dark:text-zinc-200 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] bg-orange-500 text-black px-1.5 py-0.5 rounded font-sans uppercase tracking-wider font-extrabold">Continuing Top Header</span>
-                              <span>Chapter {chapter.number}: {chapter.title}</span>
+                              <span>{getChapterDisplayLabel(chapter.number, chapter.title)}</span>
                             </div>
                             <span className="text-[11px] font-mono font-normal text-orange-600 dark:text-orange-400 italic">(Continued)</span>
                           </div>
