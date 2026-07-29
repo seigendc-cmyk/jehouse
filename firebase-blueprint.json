@@ -1,0 +1,18 @@
+{
+  "entities": {
+    "BookProject": {
+      "title": "BookProject",
+      "description": "Book projects created or archived by users",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "author": { "type": "string" },
+        "category": { "type": "string" },
+        "archived": { "type": "boolean" },
+        "updatedAt": { "type": "string text" }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "PressCraft Book Studio",
+  "description": "Industrial-grade book publishing document editor with cover design, preambles, chapters, AI storytelling continuation, spell/grammar correction, LaTeX support, quizzes, and PDF/EPUB export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

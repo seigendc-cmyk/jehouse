@@ -1,0 +1,23 @@
+{
+  "name": "PressCraft Book Studio",
+  "short_name": "PressCraft",
+  "description": "Professional Offline-First Book Publishing & Layout Studio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c0d0b",
+  "theme_color": "#ea580c",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=192",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=512",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,349 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Default font color for inputs, textareas, and selects to prevent white-on-white text */
+  input, textarea, select {
+    color: #09090b;
+  }
+
+  /* Dark mode overrides for form controls */
+  .dark input, .dark textarea, .dark select {
+    color: #f4f4f5;
+  }
+
+  /* Force dark text when input has explicit light background even in dark mode */
+  .bg-white input,
+  .bg-white textarea,
+  .bg-white select,
+  .bg-zinc-50 input,
+  .bg-zinc-50 textarea,
+  .bg-zinc-50 select,
+  .bg-zinc-100 input,
+  .bg-zinc-100 textarea,
+  .bg-zinc-100 select,
+  input.bg-white,
+  textarea.bg-white,
+  select.bg-white,
+  input.bg-zinc-50,
+  textarea.bg-zinc-50,
+  select.bg-zinc-50,
+  input.bg-zinc-100,
+  textarea.bg-zinc-100,
+  select.bg-zinc-100 {
+    color: #09090b !important;
+  }
+
+  /* Ensure placeholder text remains visible and legible */
+  input::placeholder, textarea::placeholder {
+    color: #71717a;
+    opacity: 1;
+  }
+}
+
+/* ==========================================
+   PressCraft Theme Aesthetics Engine
+   ========================================== */
+
+/* 1. SAHARA RED SOILS AT DUSK THEME (DEFAULT DARK) */
+.theme-sahara-dusk {
+  --bg-app: #180b09;
+  --bg-surface: #27120d;
+  --bg-surface-translucent: rgba(39, 18, 13, 0.95);
+  --bg-card: #341712;
+  --bg-card-hover: #421c16;
+  --bg-input: #3a1914;
+  --border-subtle: #4e221b;
+  --border-accent: #ea580c;
+  --text-main: #ffffff;
+  --text-secondary: #f5e6e1;
+  --text-muted: #d8b4a8;
+}
+
+.theme-sahara-dusk,
+.theme-sahara-dusk body,
+.theme-sahara-dusk #root {
+  background-color: #180b09 !important;
+  color: #ffffff !important;
+}
+
+/* Background overrides for main containers in Sahara Dusk */
+.theme-sahara-dusk .bg-\[\#1A1A1A\],
+.theme-sahara-dusk .bg-\[\#141414\],
+.theme-sahara-dusk .bg-\[\#121212\],
+.theme-sahara-dusk .bg-zinc-950,
+.theme-sahara-dusk .bg-zinc-900 {
+  background-color: #180b09 !important;
+}
+
+.theme-sahara-dusk .bg-\[\#262626\],
+.theme-sahara-dusk .bg-\[\#262626\]\/90,
+.theme-sahara-dusk .bg-\[\#212121\],
+.theme-sahara-dusk .bg-\[\#252528\],
+.theme-sahara-dusk .bg-\[\#1e1e1e\],
+.theme-sahara-dusk .bg-\[\#1F1F1F\],
+.theme-sahara-dusk .bg-\[\#2a2a2a\],
+.theme-sahara-dusk .bg-\[\#181818\],
+.theme-sahara-dusk .bg-\[\#1C1C1E\],
+.theme-sahara-dusk .bg-zinc-900\/90 {
+  background-color: #27120d !important;
+}
+
+.theme-sahara-dusk .bg-\[\#333\],
+.theme-sahara-dusk .bg-\[\#2A2A2A\],
+.theme-sahara-dusk .bg-\[\#2D2D2D\],
+.theme-sahara-dusk .bg-zinc-800,
+.theme-sahara-dusk .bg-zinc-800\/90 {
+  background-color: #3e1914 !important;
+}
+
+/* Border color overrides in Sahara Dusk */
+.theme-sahara-dusk .border-\[\#444\],
+.theme-sahara-dusk .border-\[\#444444\],
+.theme-sahara-dusk .border-\[\#333\],
+.theme-sahara-dusk .border-\[\#333333\],
+.theme-sahara-dusk .border-\[\#2a2a2a\],
+.theme-sahara-dusk .border-\[\#2D2D2D\],
+.theme-sahara-dusk .border-\[\#3A3A3A\],
+.theme-sahara-dusk .border-zinc-800,
+.theme-sahara-dusk .border-zinc-700 {
+  border-color: #58261e !important;
+}
+
+/* High-contrast font readability in Sahara Dusk */
+.theme-sahara-dusk .text-zinc-100,
+.theme-sahara-dusk .text-zinc-200,
+.theme-sahara-dusk .text-gray-100,
+.theme-sahara-dusk .text-gray-200,
+.theme-sahara-dusk .text-white {
+  color: #ffffff !important;
+}
+
+.theme-sahara-dusk .text-zinc-300,
+.theme-sahara-dusk .text-zinc-400,
+.theme-sahara-dusk .text-gray-300,
+.theme-sahara-dusk .text-gray-400 {
+  color: #f3ded7 !important;
+}
+
+.theme-sahara-dusk .text-zinc-500,
+.theme-sahara-dusk .text-gray-500 {
+  color: #d8b4a8 !important;
+}
+
+/* Inputs, textareas, selects in Sahara Dusk mode */
+.theme-sahara-dusk input,
+.theme-sahara-dusk textarea,
+.theme-sahara-dusk select {
+  background-color: #361712 !important;
+  color: #ffffff !important;
+  border-color: #58261e !important;
+}
+
+.theme-sahara-dusk input::placeholder,
+.theme-sahara-dusk textarea::placeholder {
+  color: #d8b4a8 !important;
+  opacity: 1 !important;
+}
+
+/* Ensure paper & white containers retain crisp dark text */
+.bg-white,
+.bg-white *,
+.theme-sahara-dusk .bg-white,
+.theme-sahara-dusk .bg-white *,
+.theme-warm-light .bg-white,
+.theme-warm-light .bg-white * {
+  /* Allow dark text inside explicit paper/white canvas elements */
+}
+
+.bg-white input,
+.bg-white textarea,
+.bg-white select,
+.theme-sahara-dusk .bg-white input,
+.theme-sahara-dusk .bg-white textarea,
+.theme-sahara-dusk .bg-white select {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: #e2ddd3 !important;
+}
+
+/* Accent colors in Sahara Dusk */
+.theme-sahara-dusk .text-\[\#FF6B00\],
+.theme-sahara-dusk .text-orange-500,
+.theme-sahara-dusk .text-orange-400 {
+  color: #f97316 !important;
+}
+
+.theme-sahara-dusk .bg-\[\#FF6B00\],
+.theme-sahara-dusk .bg-orange-600 {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+}
+
+
+/* 2. CLASSIC DARK THEME OVERRIDES */
+.theme-classic-dark {
+  --bg-app: #121212;
+  --bg-surface: #1e1e1e;
+  --bg-card: #262626;
+  --border-subtle: #3f3f46;
+  --text-main: #ffffff;
+  --text-muted: #d4d4d8;
+}
+
+.theme-classic-dark,
+.theme-classic-dark body,
+.theme-classic-dark #root {
+  background-color: #121212 !important;
+  color: #f4f4f5 !important;
+}
+
+.theme-classic-dark .text-zinc-100,
+.theme-classic-dark .text-zinc-200,
+.theme-classic-dark .text-white {
+  color: #ffffff !important;
+}
+
+.theme-classic-dark .text-zinc-300,
+.theme-classic-dark .text-zinc-400 {
+  color: #e4e4e7 !important;
+}
+
+
+/* 3. WARM LIGHT THEME OVERRIDES */
+.theme-warm-light {
+  --bg-app: #f5f3ec;
+  --bg-surface: #faf8f2;
+  --bg-card: #ffffff;
+  --border-subtle: #e4e0d5;
+  --text-main: #18181b;
+  --text-muted: #52525b;
+}
+
+.theme-warm-light,
+.theme-warm-light body,
+.theme-warm-light #root {
+  background-color: #f5f3ec !important;
+  color: #18181b !important;
+}
+
+/* Container backgrounds in Warm Light theme */
+.theme-warm-light .bg-\[\#1A1A1A\],
+.theme-warm-light .bg-\[\#141414\],
+.theme-warm-light .bg-\[\#121212\] {
+  background-color: #f5f3ec !important;
+  color: #18181b !important;
+}
+
+.theme-warm-light .bg-\[\#262626\],
+.theme-warm-light .bg-\[\#262626\]\/90,
+.theme-warm-light .bg-\[\#212121\],
+.theme-warm-light .bg-\[\#1e1e1e\],
+.theme-warm-light .bg-\[\#1C1C1E\] {
+  background-color: #faf8f2 !important;
+  color: #18181b !important;
+  border-color: #e4e0d5 !important;
+}
+
+.theme-warm-light .bg-\[\#333\],
+.theme-warm-light .bg-\[\#2A2A2A\] {
+  background-color: #ece8dd !important;
+  color: #18181b !important;
+}
+
+/* Text visibility rules in Warm Light mode */
+.theme-warm-light .text-zinc-100,
+.theme-warm-light .text-zinc-200,
+.theme-warm-light .text-gray-100,
+.theme-warm-light .text-gray-200 {
+  color: #18181b !important;
+}
+
+.theme-warm-light .text-zinc-300,
+.theme-warm-light .text-zinc-400,
+.theme-warm-light .text-gray-300,
+.theme-warm-light .text-gray-400 {
+  color: #3f3f46 !important;
+}
+
+.theme-warm-light .text-zinc-500,
+.theme-warm-light .text-gray-500 {
+  color: #52525b !important;
+}
+
+/* CRITICAL: Preserve crisp WHITE text on filled dark/accent containers and buttons in ALL themes */
+.bg-zinc-800,
+.bg-zinc-900,
+.bg-zinc-950,
+.bg-black,
+.bg-orange-600,
+.bg-orange-500,
+.bg-orange-700,
+.bg-amber-600,
+.bg-emerald-600,
+.bg-blue-600,
+.bg-rose-600,
+.bg-indigo-600,
+.theme-warm-light .bg-zinc-800,
+.theme-warm-light .bg-zinc-900,
+.theme-warm-light .bg-zinc-950,
+.theme-warm-light .bg-black,
+.theme-warm-light .bg-orange-600,
+.theme-warm-light .bg-orange-500,
+.theme-warm-light .bg-orange-700,
+.theme-warm-light .bg-emerald-600,
+.theme-warm-light .bg-blue-600,
+.theme-warm-light .bg-rose-600 {
+  color: #ffffff !important;
+}
+
+/* Ensure text children inside dark containers remain bright white across themes */
+.bg-zinc-800 *,
+.bg-zinc-900 *,
+.bg-zinc-950 *,
+.bg-black *,
+.bg-orange-600 *,
+.bg-orange-500 *,
+.bg-emerald-600 *,
+.bg-blue-600 *,
+.bg-rose-600 *,
+.theme-warm-light .bg-zinc-800 *,
+.theme-warm-light .bg-zinc-900 *,
+.theme-warm-light .bg-zinc-950 *,
+.theme-warm-light .bg-black *,
+.theme-warm-light .bg-orange-600 *,
+.theme-warm-light .bg-orange-500 *,
+.theme-warm-light .bg-emerald-600 *,
+.theme-warm-light .bg-blue-600 *,
+.theme-warm-light .bg-rose-600 * {
+  color: #ffffff !important;
+}
+
+/* High contrast exception for specific muted elements inside dark containers */
+.bg-zinc-800 .text-zinc-400,
+.bg-zinc-900 .text-zinc-400,
+.bg-black .text-zinc-400,
+.bg-zinc-800 .text-zinc-500,
+.bg-zinc-900 .text-zinc-500,
+.bg-black .text-zinc-500,
+.theme-warm-light .bg-zinc-800 .text-zinc-400,
+.theme-warm-light .bg-zinc-900 .text-zinc-400,
+.theme-warm-light .bg-black .text-zinc-400 {
+  color: #d4d4d8 !important;
+}
+
+/* Form controls in Warm Light mode */
+.theme-warm-light input,
+.theme-warm-light textarea,
+.theme-warm-light select {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border-color: #d4d4d8 !important;
+}
+
+.theme-warm-light input::placeholder,
+.theme-warm-light textarea::placeholder {
+  color: #71717a !important;
+  opacity: 1 !important;
+}
+
+
