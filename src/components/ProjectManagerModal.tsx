@@ -24,8 +24,7 @@ import {
 } from 'lucide-react';
 import { BookProject, BookCategory, Chapter, ContentBlock } from '../types';
 
-import { initialBookProject } from '../data/initialBook';
-import { GoogleGenAI } from '@google/genai';
+import { createEmptyBookProject } from '../data/createEmptyBookProject';
 
 interface ProjectManagerModalProps {
   isOpen: boolean;
@@ -41,6 +40,7 @@ interface ProjectManagerModalProps {
     string,
     { lastSavedAt?: string; localRevision: number; status: string }
   >;
+  initialTab?: 'active' | 'new';
 }
 
 export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
@@ -53,7 +53,8 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   onUpdateProjectInList,
   onDeleteProject,
   isOnline,
-  persistenceByProject
+  persistenceByProject,
+  initialTab = 'active'
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'new'>('active');
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,6 +70,10 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -92,12 +97,12 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         id: `ch-1-${Date.now()}`,
         number: 1,
         title: 'Chapter 1: Opening',
-        wordCount: 10,
+        wordCount: 0,
         blocks: [
           {
             id: `b-1-${Date.now()}`,
             type: 'paragraph',
-            text: 'Begin your story or document here...',
+            text: '',
             fontFamily: 'Georgia, serif',
             fontSize: 16,
             align: 'left',
@@ -177,23 +182,21 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       setIsGenerating(true);
       setAiError(null);
       try {
-        const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-        const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Create a structured 4-chapter book outline for a book titled "${newTitle}" (${newCategory}). 
-Prompt details: ${aiPrompt}. 
-Return strictly JSON format:
-[
-  { "title": "Chapter title", "summary": "Initial opening paragraph text" }
-]`
+        const response = await fetch('/api/ai/book-outline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newTitle,
+            category: newCategory,
+            prompt: aiPrompt
+          })
         });
-
-        const text = response.text || '';
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          chapters = parsed.map((item: any, idx: number) => ({
+        if (!response.ok) throw new Error('The outline service could not complete the request.');
+        const payload = (await response.json()) as {
+          chapters?: Array<{ title?: string; summary?: string }>;
+        };
+        if (Array.isArray(payload.chapters)) {
+          chapters = payload.chapters.map((item, idx) => ({
             id: `ch-${idx + 1}-${Date.now()}`,
             number: idx + 1,
             title: item.title || `Chapter ${idx + 1}`,
@@ -211,7 +214,6 @@ Return strictly JSON format:
             ]
           }));
         }
-
       } catch (err: any) {
         console.warn('[AI Book Outline] Error:', err);
         setAiError('Failed to generate AI outline. Created basic initial template instead.');
@@ -220,22 +222,13 @@ Return strictly JSON format:
       }
     }
 
-    const newProject: BookProject = {
-      ...initialBookProject,
-      id: `book-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      title: newTitle.trim(),
-      subtitle: newSubtitle.trim(),
-      author: newAuthor.trim() || 'Anonymous Author',
-      category: newCategory,
-      archived: false,
-      chapters,
-      cover: {
-        ...initialBookProject.cover,
-        title: newTitle.trim(),
-        subtitle: newSubtitle.trim(),
-        author: newAuthor.trim() || 'Anonymous Author'
-      }
-    };
+    const newProject = createEmptyBookProject({
+      title: newTitle,
+      subtitle: newSubtitle,
+      author: newAuthor,
+      category: newCategory
+    });
+    newProject.chapters = chapters;
 
     onCreateProject(newProject);
     setNewTitle('');

@@ -1,6 +1,9 @@
 import { BookProject } from '../types';
 
-export const initialBookProject: BookProject = {
+/**
+ * Explicit opt-in demonstration fixture. Never load this as user data or at startup.
+ */
+export const sampleBookTemplate: BookProject = {
   id: 'book-presscraft-001',
   title: 'The Algorithmic Economy',
   subtitle: 'Industrial Architectures, Financial Intelligence & Quantum Value Networks',

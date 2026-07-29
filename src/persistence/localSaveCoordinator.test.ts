@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initialBookProject } from '../data/initialBook';
+import { sampleBookTemplate } from '../templates/sampleBookTemplate';
 import {
   applicationDocumentTitle,
   isImmediateSaveShortcut,
@@ -13,7 +13,7 @@ import { ProjectVersion, SaveResult, StoredProject } from './types';
 
 function project(title = 'Test Book') {
   return structuredClone({
-    ...initialBookProject,
+    ...sampleBookTemplate,
     id: 'save-state-test',
     title,
     lastSaved: '2026-07-29T07:00:00.000Z'

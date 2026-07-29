@@ -68,8 +68,9 @@ interface NavbarProps {
   onOpenImageGallery?: () => void;
   onOpenProjectManager?: () => void;
   isOnline?: boolean;
-  deferredPwaPrompt?: any;
+  canInstall?: boolean;
   onInstallPwa?: () => void;
+  onGoHome?: () => void;
   saveState: ProjectSaveState;
   activeDocumentLabel?: string;
 }
@@ -113,8 +114,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenImageGallery,
   onOpenProjectManager,
   isOnline = true,
-  deferredPwaPrompt,
+  canInstall = false,
   onInstallPwa,
+  onGoHome,
   saveState,
   activeDocumentLabel
 }) => {
@@ -243,6 +245,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
                 <div className="my-1 border-t border-[#3a3a3a]" />
+                {onGoHome && (
+                  <button
+                    onClick={() => { onGoHome(); setActiveMenu(null); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#333] text-zinc-200 cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-[#FF6B00]" />
+                    <span>Home / Close Project</span>
+                  </button>
+                )}
                 <button
                   onClick={() => { onSaveToLocalDisk(); setActiveMenu(null); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#333] text-zinc-200 cursor-pointer"
@@ -606,7 +617,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* PWA Install Button (If install prompt ready) */}
-        {deferredPwaPrompt && onInstallPwa && (
+        {canInstall && onInstallPwa && (
           <button
             onClick={onInstallPwa}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-orange-600 hover:bg-orange-500 text-white transition-all border border-orange-400 shadow-md animate-pulse cursor-pointer"

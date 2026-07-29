@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { initialBookProject } from '../data/initialBook';
+import { sampleBookTemplate } from '../templates/sampleBookTemplate';
 import { setIDBItem } from '../lib/idbStorage';
 import { IndexedDbProjectRepository } from './indexedDbProjectRepository';
 import { stableProjectHash, wrapLegacyProject } from './projectSchema';
@@ -35,11 +35,11 @@ class MemoryStorage implements Storage {
 
 function project(id: string, title: string, lastSaved = '2026-07-29T08:00:00.000Z') {
   return structuredClone({
-    ...initialBookProject,
+    ...sampleBookTemplate,
     id,
     title,
     lastSaved,
-    chapters: initialBookProject.chapters.slice(0, 1)
+    chapters: sampleBookTemplate.chapters.slice(0, 1)
   });
 }
 
@@ -101,5 +101,24 @@ describe('IndexedDbProjectRepository', () => {
       ...original
     };
     expect(stableProjectHash(original)).toBe(stableProjectHash(reordered));
+  });
+
+  it('lists only real stored projects ordered by repository-confirmed timestamps', async () => {
+    const repository = new IndexedDbProjectRepository();
+    const first = project('recent-project-first', 'First local book');
+    const second = project('recent-project-second', 'Second local book');
+    await repository.saveProject(wrapLegacyProject(first), 0);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await repository.saveProject(wrapLegacyProject(second), 0);
+
+    const recent = (await repository.listProjects()).filter((summary) =>
+      summary.projectId.startsWith('recent-project-')
+    );
+    expect(recent.map((summary) => summary.projectId)).toEqual([
+      'recent-project-second',
+      'recent-project-first'
+    ]);
+    expect(recent.every((summary) => Boolean(summary.lastSavedAt))).toBe(true);
+    expect(recent.some((summary) => summary.projectId === sampleBookTemplate.id)).toBe(false);
   });
 });

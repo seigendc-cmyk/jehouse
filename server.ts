@@ -23,6 +23,37 @@ const ai = new GoogleGenAI({
 
 // AI API Endpoints
 
+app.post("/api/ai/book-outline", async (req, res) => {
+  try {
+    const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
+    const userPrompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
+    if (!title || !userPrompt || title.length > 200 || userPrompt.length > 4000) {
+      return res.status(400).json({ error: "A valid title and outline prompt are required." });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: `Create a structured four-chapter outline for a book titled "${title}" in the category "${category || "General"}".
+Author direction: ${userPrompt}
+
+Return a JSON array only:
+[
+  { "title": "Chapter title", "summary": "Initial opening paragraph text" }
+]`,
+      config: { responseMimeType: "application/json" },
+    });
+    const chapters = JSON.parse(response.text || "[]");
+    if (!Array.isArray(chapters)) {
+      return res.status(502).json({ error: "The outline service returned an invalid response." });
+    }
+    res.json({ chapters: chapters.slice(0, 12) });
+  } catch (error: any) {
+    console.error("Book outline API error:", error);
+    res.status(500).json({ error: "Failed to generate the book outline." });
+  }
+});
+
 // 1. Proofread & Grammar Correction
 app.post("/api/ai/proofread", async (req, res) => {
   try {

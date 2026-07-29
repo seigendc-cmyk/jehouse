@@ -122,6 +122,13 @@ export class LocalSaveCoordinator {
     this.publish(createInitialSaveState(record));
   }
 
+  clearProject(): void {
+    this.cancelTimer();
+    this.latestProject = null;
+    this.mutationVersion = 0;
+    this.publish(createInitialSaveState());
+  }
+
   markDirty(project: BookProject): void {
     if (this.destroyed) return;
     this.latestProject = structuredClone(project);

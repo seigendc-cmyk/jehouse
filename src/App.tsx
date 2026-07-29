@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookProject, Chapter, ContentBlock, CoverConfig, FrontMatter, WatermarkConfig, ExportSettings, ProofreadIssue, ProjectAsset, UITheme } from './types';
-import { initialBookProject } from './data/initialBook';
+import { createEmptyBookProject } from './data/createEmptyBookProject';
 import { Navbar } from './components/Navbar';
 import { Sidebar, SidebarTab } from './components/Sidebar';
 import { EditorCanvas } from './components/EditorCanvas';
@@ -23,6 +23,7 @@ import { DesignStudioModal } from './designStudio';
 import { GoogleFontsLoaderModal } from './components/GoogleFontsLoaderModal';
 import { ImageGalleryModal } from './components/ImageGalleryModal';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { WelcomePage } from './components/WelcomePage';
 import { FocusMode } from './components/FocusMode';
 import { saveToLocalDiskInDocuments } from './lib/exportUtils';
 import { loadProjectFromSQLite } from './lib/sqliteDb';
@@ -34,32 +35,24 @@ import {
   needsUnloadProtection,
   ProjectSaveState
 } from './persistence/localSaveCoordinator';
-import { StoredProject } from './persistence/types';
+import { ProjectSummary, ProjectVersion, StoredProject } from './persistence/types';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { usePwaLifecycle } from './hooks/usePwaLifecycle';
+import { applyUpdateWhenSafe } from './pwa/updatePolicy';
 
+const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 
 export default function App() {
-  // Multi-Project Storage & Active State
-  const [projects, setProjects] = useState<BookProject[]>(() => {
-    try {
-      const saved = localStorage.getItem('presscraft_all_projects');
-      return saved ? JSON.parse(saved) : [initialBookProject];
-    } catch (e) {
-      return [initialBookProject];
-    }
-  });
-
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('presscraft_active_project_id') || initialBookProject.id;
-    } catch {
-      return initialBookProject.id;
-    }
-  });
+  const [projects, setProjects] = useState<BookProject[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [recentProjects, setRecentProjects] = useState<ProjectSummary[]>([]);
+  const [recoveryVersions, setRecoveryVersions] = useState<ProjectVersion[]>([]);
+  const [startupError, setStartupError] = useState<string>();
   const projectRecords = useRef<Map<string, StoredProject>>(new Map());
 
-  // Current Active Project Derived State
-  const project = projects.find(p => p.id === activeProjectId) || projects[0] || initialBookProject;
+  const activeProject = projects.find(p => p.id === activeProjectId) ?? null;
+  const project = activeProject ?? EMPTY_PROJECT_PLACEHOLDER;
+  const hasActiveProject = activeProject !== null;
   const activeProjectRef = useRef(project);
   activeProjectRef.current = project;
 
@@ -69,9 +62,10 @@ export default function App() {
   
   // Network status is connectivity information only; it does not imply cloud availability.
   const isOnline = useNetworkStatus();
+  const pwa = usePwaLifecycle();
   const isOnlineRef = useRef(isOnline);
   isOnlineRef.current = isOnline;
-  const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null);
+  const [updateError, setUpdateError] = useState<string>();
   const [saveState, setSaveState] = useState<ProjectSaveState>(createInitialSaveState());
   const saveCoordinatorRef = useRef<LocalSaveCoordinator | null>(null);
   if (!saveCoordinatorRef.current) {
@@ -81,6 +75,21 @@ export default function App() {
       isOnline: () => isOnlineRef.current,
       onConfirmedSave: (confirmedProject, record) => {
         projectRecords.current.set(record.projectId, record);
+        setRecentProjects((current) => {
+          const summary: ProjectSummary = {
+            projectId: record.projectId,
+            title: confirmedProject.title,
+            author: confirmedProject.author,
+            category: confirmedProject.category,
+            localRevision: record.localRevision,
+            updatedAt: record.updatedAt,
+            lastSavedAt: record.lastSavedAt,
+            syncStatus: record.syncStatus
+          };
+          return [summary, ...current.filter((item) => item.projectId !== record.projectId)].sort(
+            (left, right) => Date.parse(right.lastSavedAt) - Date.parse(left.lastSavedAt)
+          );
+        });
         setProjects((current) =>
           current.map((item) =>
             item.id === confirmedProject.id
@@ -107,6 +116,7 @@ export default function App() {
 
   // Modals & Drawers
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState<boolean>(false);
+  const [projectManagerInitialTab, setProjectManagerInitialTab] = useState<'active' | 'new'>('active');
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState<boolean>(false);
@@ -127,31 +137,7 @@ export default function App() {
   const [proofreadIssues, setProofreadIssues] = useState<ProofreadIssue[]>([]);
   const [isProofreadLoading, setIsProofreadLoading] = useState<boolean>(false);
 
-  // 1. Capture the PWA install prompt. Network state is owned by useNetworkStatus.
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPwaPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallPwa = async () => {
-    if (!deferredPwaPrompt) return;
-    deferredPwaPrompt.prompt();
-    const choiceResult = await deferredPwaPrompt.userChoice;
-    if (choiceResult.outcome === 'accepted') {
-      console.log('User accepted PressCraft PWA installation');
-    }
-    setDeferredPwaPrompt(null);
-  };
-
-  // 2. Open the authoritative local repository and migrate legacy stores.
+  // Open the authoritative local repository before any project is selected.
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -169,18 +155,25 @@ export default function App() {
             storedProjects.map((record) => [record.projectId, record])
           );
           setProjects(storedProjects.map((record) => record.project));
-          const preferredId = localStorage.getItem('presscraft_active_project_id');
-          const nextActiveId = storedProjects.some((record) => record.projectId === preferredId)
-            ? preferredId!
-            : storedProjects[0].projectId;
-          setActiveProjectId(nextActiveId);
-          const activeRecord = storedProjects.find((record) => record.projectId === nextActiveId)!;
-          saveCoordinatorRef.current?.setProject(activeRecord.project, activeRecord);
-        } else if (isMounted) {
-          saveCoordinatorRef.current?.setProject(project, null);
+          setRecentProjects(summaries);
+          const versions = (
+            await Promise.all(
+              summaries.map((summary) =>
+                localProjectRepository.getProjectVersions(summary.projectId)
+              )
+            )
+          )
+            .flat()
+            .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+          if (isMounted) setRecoveryVersions(versions);
         }
       } catch (err) {
         console.warn('Storage initial load notice:', err);
+        if (isMounted) {
+          setStartupError(
+            'PressCraft could not read local projects. Stored records were left unchanged. Retry by reloading this page.'
+          );
+        }
       } finally {
         if (isMounted) setIsStorageLoaded(true);
       }
@@ -189,7 +182,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isStorageLoaded) localStorage.setItem('presscraft_active_project_id', activeProjectId);
+    if (isStorageLoaded && activeProjectId) {
+      localStorage.setItem('presscraft_active_project_id', activeProjectId);
+    }
   }, [activeProjectId, isStorageLoaded]);
 
   // Ctrl+S always targets the latest complete in-memory project snapshot.
@@ -217,10 +212,10 @@ export default function App() {
 
   // Keep activeChapterId in sync when project changes
   useEffect(() => {
-    if (project && (!project.chapters.some(c => c.id === activeChapterId))) {
+    if (hasActiveProject && !project.chapters.some(c => c.id === activeChapterId)) {
       setActiveChapterId(project.chapters[0]?.id || 'ch-1');
     }
-  }, [project, activeChapterId]);
+  }, [project, activeChapterId, hasActiveProject]);
 
 
   // Ambient Light level / time of day auto theme switcher
@@ -256,6 +251,7 @@ export default function App() {
 
   // Project update helper for current active project
   const handleUpdateProject = (partial: Partial<BookProject>) => {
+    if (!hasActiveProject) return;
     const changedProject = {
       ...activeProjectRef.current,
       ...partial
@@ -268,7 +264,10 @@ export default function App() {
   };
 
   const handleCreateProject = async (newProj: BookProject) => {
-    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+    if (
+      hasActiveProject &&
+      needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)
+    ) {
       await saveCoordinatorRef.current?.saveNow();
       if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
         const proceed = window.confirm(
@@ -282,6 +281,7 @@ export default function App() {
     activeProjectRef.current = newProj;
     saveCoordinatorRef.current?.setProject(newProj, null);
     saveCoordinatorRef.current?.markDirty(newProj);
+    setIsProjectManagerOpen(false);
   };
 
   const handleUpdateProjectInList = (updatedProj: BookProject) => {
@@ -308,17 +308,12 @@ export default function App() {
       console.warn(`[IndexedDB] Could not delete local project "${projId}":`, error);
     });
     projectRecords.current.delete(projId);
-    setProjects((prev) => {
-      const remaining = prev.filter((p) => p.id !== projId);
-      if (projId === activeProjectId && remaining.length > 0) {
-        setActiveProjectId(remaining[0].id);
-        saveCoordinatorRef.current?.setProject(
-          remaining[0],
-          projectRecords.current.get(remaining[0].id) ?? null
-        );
-      }
-      return remaining.length > 0 ? remaining : [initialBookProject];
-    });
+    setRecentProjects((current) => current.filter((item) => item.projectId !== projId));
+    setProjects((prev) => prev.filter((p) => p.id !== projId));
+    if (projId === activeProjectId) {
+      setActiveProjectId(null);
+      saveCoordinatorRef.current?.clearProject();
+    }
   };
 
   const handleSelectProject = async (projectId: string) => {
@@ -332,15 +327,69 @@ export default function App() {
         if (!proceed) return false;
       }
     }
-    const nextProject = projects.find((item) => item.id === projectId);
-    if (!nextProject) return false;
+    const stored = await localProjectRepository.getProject(projectId);
+    if (!stored) {
+      setStartupError('That local project could not be opened. Its stored record was not changed.');
+      return false;
+    }
+    const nextProject = stored.project;
+    projectRecords.current.set(projectId, stored);
+    setProjects((current) => [
+      nextProject,
+      ...current.filter((item) => item.id !== projectId)
+    ]);
     setActiveProjectId(projectId);
     activeProjectRef.current = nextProject;
-    saveCoordinatorRef.current?.setProject(
-      nextProject,
-      projectRecords.current.get(projectId) ?? null
-    );
+    setActiveChapterId(nextProject.chapters[0]?.id || 'ch-1');
+    saveCoordinatorRef.current?.setProject(nextProject, stored);
+    setStartupError(undefined);
     return true;
+  };
+
+  const handleCloseProject = async () => {
+    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+      await saveCoordinatorRef.current?.saveNow();
+      if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+        const proceed = window.confirm(
+          'This project could not be confirmed saved. Close it and return Home anyway?'
+        );
+        if (!proceed) return false;
+      }
+    }
+    setActiveProjectId(null);
+    saveCoordinatorRef.current?.clearProject();
+    setSaveState(createInitialSaveState());
+    return true;
+  };
+
+  const handleRecoverVersion = async (version: ProjectVersion) => {
+    const recovered: BookProject = {
+      ...structuredClone(version.project),
+      id: `book-recovered-${crypto.randomUUID()}`,
+      title: `${version.title.trim() || 'Untitled Book'} (Recovered)`,
+      cloudSynced: false,
+      lastSaved: ''
+    };
+    await handleCreateProject(recovered);
+    await saveCoordinatorRef.current?.saveNow();
+  };
+
+  const handleApplyPwaUpdate = async () => {
+    setUpdateError(undefined);
+    if (!hasActiveProject) {
+      await pwa.applyUpdate();
+      return;
+    }
+    const decision = await applyUpdateWhenSafe(
+      saveCoordinatorRef.current?.getState() ?? saveState,
+      async () =>
+        (await saveCoordinatorRef.current?.saveNow()) ??
+        (saveCoordinatorRef.current?.getState() ?? saveState),
+      pwa.applyUpdate
+    );
+    if (decision === 'blocked') {
+      setUpdateError('Save the current project successfully before updating PressCraft.');
+    }
   };
 
   const handleReloadStoredProject = async () => {
@@ -677,6 +726,72 @@ export default function App() {
     handleUpdateProject({ chapters: updatedChapters });
   };
 
+  if (!hasActiveProject) {
+    const welcomePersistence = Object.fromEntries(
+      recentProjects.map((item) => [
+        item.projectId,
+        {
+          lastSavedAt: item.lastSavedAt,
+          localRevision: item.localRevision,
+          status: 'local-only'
+        }
+      ])
+    );
+
+    return (
+      <>
+        <WelcomePage
+          recentProjects={recentProjects}
+          recoveryVersions={recoveryVersions}
+          isOnline={isOnline}
+          canInstall={pwa.canInstall}
+          onInstall={() => void pwa.requestInstall()}
+          onCreateProject={() => {
+            setProjectManagerInitialTab('new');
+            setIsProjectManagerOpen(true);
+          }}
+          onOpenExisting={() => {
+            setProjectManagerInitialTab('active');
+            setIsProjectManagerOpen(true);
+          }}
+          onContinueProject={(projectId) => void handleSelectProject(projectId)}
+          onRecoverVersion={(version) => void handleRecoverVersion(version)}
+        />
+
+        {startupError ? (
+          <div role="alert" className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/40 bg-white px-4 py-3 text-sm font-semibold text-red-700 shadow-xl">
+            {startupError}
+          </div>
+        ) : null}
+
+        {pwa.updateAvailable ? (
+          <div className="fixed right-4 top-4 z-50 max-w-sm rounded-xl border border-orange-200 bg-white p-4 text-sm text-gray-800 shadow-2xl">
+            <strong>A new version of PressCraft is available.</strong>
+            {updateError ? <p className="mt-1 text-xs text-red-700">{updateError}</p> : null}
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => void handleApplyPwaUpdate()} className="rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">Update now</button>
+              <button onClick={pwa.dismissUpdate} className="rounded px-3 py-1.5 text-xs font-bold text-gray-600">Later</button>
+            </div>
+          </div>
+        ) : null}
+
+        <ProjectManagerModal
+          isOpen={isProjectManagerOpen}
+          onClose={() => setIsProjectManagerOpen(false)}
+          activeProject={EMPTY_PROJECT_PLACEHOLDER}
+          projects={projects}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onUpdateProjectInList={handleUpdateProjectInList}
+          onDeleteProject={handleDeleteProject}
+          isOnline={isOnline}
+          persistenceByProject={welcomePersistence}
+          initialTab={projectManagerInitialTab}
+        />
+      </>
+    );
+  }
+
   const activeChapter = project.chapters.find((c) => c.id === activeChapterId) || project.chapters[0];
   const activeDocumentLabel =
     activeTab === 'editor' && activeChapter
@@ -750,10 +865,14 @@ export default function App() {
         onOpenDesignStudio={() => setIsDesignStudioOpen(true)}
         onOpenGoogleFontsModal={() => setIsGoogleFontsOpen(true)}
         onOpenImageGallery={() => setIsImageGalleryOpen(true)}
-        onOpenProjectManager={() => setIsProjectManagerOpen(true)}
+        onOpenProjectManager={() => {
+          setProjectManagerInitialTab('active');
+          setIsProjectManagerOpen(true);
+        }}
         isOnline={isOnline}
-        deferredPwaPrompt={deferredPwaPrompt}
-        onInstallPwa={handleInstallPwa}
+        canInstall={pwa.canInstall}
+        onInstallPwa={() => void pwa.requestInstall()}
+        onGoHome={() => void handleCloseProject()}
         saveState={saveState}
         activeDocumentLabel={activeDocumentLabel}
       />
@@ -1077,6 +1196,7 @@ export default function App() {
         onDeleteProject={handleDeleteProject}
         isOnline={isOnline}
         persistenceByProject={persistenceByProject}
+        initialTab={projectManagerInitialTab}
       />
 
       {saveState.status === 'conflict' && (
@@ -1106,6 +1226,18 @@ export default function App() {
           <button onClick={() => void saveCoordinatorRef.current?.retry()} className="mt-3 rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">
             Retry local save
           </button>
+        </div>
+      )}
+
+      {pwa.updateAvailable && (
+        <div className="fixed right-4 top-20 z-50 max-w-sm rounded-xl border border-orange-500/40 bg-[#262626] p-4 text-sm text-white shadow-2xl">
+          <strong>A new version of PressCraft is available.</strong>
+          <p className="mt-1 text-xs text-zinc-400">Save your work before updating.</p>
+          {updateError ? <p className="mt-1 text-xs text-red-400">{updateError}</p> : null}
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => void handleApplyPwaUpdate()} className="rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">Update now</button>
+            <button onClick={pwa.dismissUpdate} className="rounded px-3 py-1.5 text-xs font-bold text-zinc-400">Later</button>
+          </div>
         </div>
       )}
 
