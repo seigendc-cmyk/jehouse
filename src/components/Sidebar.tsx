@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const totalPending = totalInsertions + totalDeletions;
 
   return (
-    <aside className="fixed top-[4.25rem] left-2.5 bottom-[2.5rem] w-60 bg-[#262626]/90 backdrop-blur-md text-gray-300 border border-[#444444] rounded-xl shadow-2xl flex flex-col z-30 select-none overflow-hidden transition-all ring-1 ring-white/10 font-sans">
+    <aside className="pc-navigation-pane">
       {/* Navigation Groups */}
       <div className="p-3 space-y-5 overflow-y-auto flex-1">
         

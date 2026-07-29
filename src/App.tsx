@@ -139,17 +139,11 @@ export default function App() {
   }
 
   // Theme & Ambient Light State - Defaulting to Sahara Red Soils at Dusk
-  const [uiTheme, setUITheme] = useState<UITheme>(() => {
-    try {
-      const saved = localStorage.getItem('presscraft_ui_theme');
-      if (saved === 'sahara_dusk' || saved === 'classic_dark' || saved === 'warm_light') {
-        return saved;
-      }
-    } catch (e) {}
-    return 'sahara_dusk';
-  });
-  const [darkMode, setDarkMode] = useState<boolean>(true);
-  const [autoAmbient, setAutoAmbient] = useState<boolean>(true);
+  const [uiTheme, setUITheme] = useState<UITheme>('warm_light');
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [autoAmbient, setAutoAmbient] = useState<boolean>(false);
+  const [navigationVisible, setNavigationVisible] = useState(true);
+  const [inspectorVisible, setInspectorVisible] = useState(false);
 
   // Modals & Drawers
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState<boolean>(false);
@@ -866,7 +860,7 @@ export default function App() {
   );
 
   return (
-    <div className={`h-screen w-screen ${uiTheme === 'sahara_dusk' ? 'theme-sahara-dusk bg-[#1c0d0b]' : uiTheme === 'classic_dark' ? 'theme-classic-dark bg-[#141414]' : 'theme-warm-light bg-[#faf9f5]'} text-zinc-100 font-sans flex flex-col overflow-hidden relative transition-colors duration-200`}>
+    <div className="presscraft-shell theme-warm-light h-screen w-screen bg-[var(--pc-app-background)] text-[var(--pc-text)] font-sans flex flex-col overflow-hidden relative">
       
       {/* Floating Top Navbar Header */}
       <Navbar
@@ -916,6 +910,10 @@ export default function App() {
         onGoHome={() => void handleCloseProject()}
         saveState={saveState}
         activeDocumentLabel={activeDocumentLabel}
+        navigationVisible={navigationVisible}
+        inspectorVisible={inspectorVisible}
+        onToggleNavigation={() => setNavigationVisible((visible) => !visible)}
+        onToggleInspector={() => setInspectorVisible((visible) => !visible)}
       />
 
 
@@ -923,7 +921,7 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden relative h-full w-full">
         
         {/* Floating Left Sidebar Navigation */}
-        <Sidebar
+        {navigationVisible && <Sidebar
           project={project}
           activeTab={activeTab}
           activeChapterId={activeChapterId}
@@ -953,10 +951,10 @@ export default function App() {
           saveState={saveState}
           isOnline={isOnline}
           onRetrySave={() => void saveCoordinatorRef.current?.retry()}
-        />
+        />}
 
         {/* Center Active Workspace View offset for Floating Header (pt-[4.25rem]), Floating Sidebar (pl-[16.25rem]), and Footer (pb-[2rem]) */}
-        <main className="flex-1 flex flex-col overflow-hidden pt-[4.25rem] pl-[16.25rem] pb-[2rem] h-full w-full">
+        <main className={`flex-1 flex flex-col overflow-hidden pt-[8.25rem] pb-[1.75rem] h-full w-full transition-[padding] ${navigationVisible ? 'pl-[15.5rem]' : 'pl-0'} ${inspectorVisible ? 'pr-80' : 'pr-0'}`}>
           {activeTab === 'editor' && (
             <EditorCanvas
               chapter={activeChapter}
@@ -1070,10 +1068,27 @@ export default function App() {
           )}
         </main>
 
+        {inspectorVisible && (
+          <aside className="pc-inspector" aria-label="Document inspector">
+            <div className="pc-inspector-heading">
+              <strong>Properties</strong>
+              <button onClick={() => setInspectorVisible(false)} aria-label="Close inspector">×</button>
+            </div>
+            <dl className="pc-property-list">
+              <div><dt>Document</dt><dd>{activeDocumentLabel || 'Manuscript'}</dd></div>
+              <div><dt>Title</dt><dd>{project.title || 'Untitled Book'}</dd></div>
+              <div><dt>Author</dt><dd>{project.author || 'Not specified'}</dd></div>
+              <div><dt>Chapters</dt><dd>{project.chapters.length}</dd></div>
+              <div><dt>Local revision</dt><dd>{saveState.localRevision}</dd></div>
+              <div><dt>Cloud sync</dt><dd>Disabled pending security approval</dd></div>
+            </dl>
+          </aside>
+        )}
+
       </div>
 
       {/* Professional Polish Bottom Status Bar Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 h-8 items-center justify-between bg-[#262626] px-4 text-[10px] text-gray-400 border-t border-[#333333] z-40 select-none font-sans flex">
+      <footer className="pc-statusbar">
         <div className="flex items-center gap-4">
           <span>Words: <strong className="text-gray-200">{project.chapters.reduce((acc, c) => acc + c.wordCount, 0).toLocaleString()}</strong></span>
           <span>Estimated pages: <strong className="text-gray-200">~{Math.max(1, Math.ceil(project.chapters.reduce((acc, c) => acc + c.wordCount, 0) / 350))}</strong></span>
