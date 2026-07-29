@@ -134,7 +134,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
+    <div className="pc-studio-light fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -190,7 +190,9 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-700 transition-colors"
+              aria-label="Close Design Studio"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -206,7 +208,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeModule === 'flyer' 
                   ? 'bg-purple-600 text-white shadow-lg' 
-                  : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-white text-zinc-700 border border-zinc-300 hover:bg-purple-50 hover:text-purple-800'
               }`}
             >
               <FileText className="w-4 h-4" />
@@ -218,7 +220,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeModule === 'catalogue' 
                   ? 'bg-purple-600 text-white shadow-lg' 
-                  : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-white text-zinc-700 border border-zinc-300 hover:bg-purple-50 hover:text-purple-800'
               }`}
             >
               <ShoppingBag className="w-4 h-4" />
@@ -230,7 +232,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeModule === 'invitation' 
                   ? 'bg-purple-600 text-white shadow-lg' 
-                  : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-white text-zinc-700 border border-zinc-300 hover:bg-purple-50 hover:text-purple-800'
               }`}
             >
               <Heart className="w-4 h-4" />
@@ -301,11 +303,11 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
         <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
           
           {/* LEFT COLUMN: CONTROLS & FORM EDITOR */}
-          <div className="lg:col-span-6 border-r border-zinc-800 flex flex-col h-full bg-[#1C1C1E] overflow-y-auto p-5 space-y-6">
+          <div className="pc-studio-controls lg:col-span-6 border-r border-zinc-800 flex flex-col h-full bg-[#1C1C1E] overflow-y-auto p-5 space-y-6">
             
             {/* FORMAT & ORIENTATION CONTROLS (SHARED FOR ALL MODULES) */}
             <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-purple-400 border-b border-zinc-800 pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-purple-700 border-b border-zinc-800 pb-2">
                 <Layout className="w-4 h-4" />
                 <span>Document Format & Page Orientation Settings</span>
               </div>
@@ -452,14 +454,14 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                 {/* Hero Image & Logo Upload */}
                 <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-                  <div className="flex items-center justify-between font-bold text-zinc-300">
+                  <div className="flex items-center justify-between font-bold text-zinc-700">
                     <span>Flyer Hero Image & Logo Upload</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-zinc-400 text-[11px] mb-1">Hero Image</label>
-                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg cursor-pointer font-bold border border-zinc-700">
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-700 rounded-lg cursor-pointer font-bold border border-zinc-700">
                         <Upload className="w-3.5 h-3.5 text-purple-400" />
                         <span>Upload Hero Image</span>
                         <input 
@@ -473,7 +475,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                     <div>
                       <label className="block text-zinc-400 text-[11px] mb-1">Logo Image</label>
-                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg cursor-pointer font-bold border border-zinc-700">
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-700 rounded-lg cursor-pointer font-bold border border-zinc-700">
                         <Upload className="w-3.5 h-3.5 text-purple-400" />
                         <span>Upload Logo File</span>
                         <input 
@@ -489,7 +491,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                 {/* Features List Manager */}
                 <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-                  <div className="flex items-center justify-between font-bold text-purple-400">
+                  <div className="flex items-center justify-between font-bold text-purple-700">
                     <span>Key Features ({flyer.features.length})</span>
                     <button
                       onClick={() => {
@@ -625,12 +627,12 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                 {/* Catalogue Cover Image Upload */}
                 <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-                  <div className="flex items-center justify-between font-bold text-zinc-300">
+                  <div className="flex items-center justify-between font-bold text-zinc-700">
                     <span>Catalogue Cover Image & Logo Upload</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg cursor-pointer font-bold border border-zinc-700">
+                    <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-700 rounded-lg cursor-pointer font-bold border border-zinc-700">
                       <Upload className="w-3.5 h-3.5 text-purple-400" />
                       <span>Upload Cover Image</span>
                       <input 
@@ -641,7 +643,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
                       />
                     </label>
 
-                    <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg cursor-pointer font-bold border border-zinc-700">
+                    <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-700 rounded-lg cursor-pointer font-bold border border-zinc-700">
                       <Upload className="w-3.5 h-3.5 text-purple-400" />
                       <span>Upload Logo File</span>
                       <input 
@@ -656,7 +658,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                 {/* Products Manager */}
                 <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-                  <div className="flex items-center justify-between font-bold text-purple-400">
+                  <div className="flex items-center justify-between font-bold text-purple-700">
                     <span>Products ({catalogue.products.length})</span>
                     <button
                       onClick={() => {
@@ -877,11 +879,11 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
 
                 {/* Hero Photo Upload */}
                 <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 space-y-3">
-                  <div className="flex items-center justify-between font-bold text-zinc-300">
+                  <div className="flex items-center justify-between font-bold text-zinc-700">
                     <span>Celebration Photo Upload</span>
                   </div>
 
-                  <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg cursor-pointer font-bold border border-zinc-700">
+                  <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-700 rounded-lg cursor-pointer font-bold border border-zinc-700">
                     <Upload className="w-3.5 h-3.5 text-purple-400" />
                     <span>Upload Couple / Host Photo</span>
                     <input 
@@ -922,7 +924,7 @@ export const DesignStudioModal: React.FC<DesignStudioModalProps> = ({
           </div>
 
           {/* RIGHT COLUMN: REAL-TIME DOCUMENT PREVIEW */}
-          <div className="lg:col-span-6 bg-zinc-950 p-6 overflow-y-auto h-full flex flex-col items-center justify-start">
+          <div className="pc-publication-preview lg:col-span-6 bg-zinc-950 p-6 overflow-y-auto h-full flex flex-col items-center justify-start">
             <div className="w-full max-w-xl transform scale-95 origin-top space-y-4">
               
               <div className="flex items-center justify-between text-xs font-mono text-zinc-400 border-b border-zinc-800 pb-2">

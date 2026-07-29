@@ -20,7 +20,9 @@ import {
   BookMarked,
   Feather,
   GraduationCap,
-  Briefcase
+  Briefcase,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { BookProject, BookCategory, Chapter, ContentBlock } from '../types';
 
@@ -56,6 +58,7 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   persistenceByProject,
   initialTab = 'active'
 }) => {
+  const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'new'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -300,8 +303,8 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
-      <div className="bg-[#2b1310] dark:bg-[#1f1a18] text-[#fff6f2] dark:text-zinc-100 border border-[#56241e] dark:border-zinc-800 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
+    <div className="pc-studio-light fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 overflow-y-auto">
+      <div className={`bg-[#2b1310] dark:bg-[#1f1a18] text-[#fff6f2] dark:text-zinc-100 border border-[#56241e] dark:border-zinc-800 rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden relative ${isMaximized ? 'h-[calc(100vh-2rem)] max-w-none' : 'max-w-5xl max-h-[90vh]'}`}>
         
         {/* Modal Header */}
         <div className="px-6 py-4 bg-[#230e0c] dark:bg-[#161211] border-b border-[#56241e] dark:border-zinc-800 flex items-center justify-between shrink-0">
@@ -325,8 +328,19 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             </div>
 
             <button
+              onClick={() => setIsMaximized((value) => !value)}
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              aria-label={isMaximized ? 'Restore Project Manager size' : 'Maximise Project Manager'}
+              title={isMaximized ? 'Restore size' : 'Maximise'}
+            >
+              {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            </button>
+
+            <button
               onClick={onClose}
               className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              aria-label="Close Project Manager"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>

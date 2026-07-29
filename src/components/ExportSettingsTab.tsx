@@ -50,7 +50,7 @@ export const ExportSettingsTab: React.FC<ExportSettingsTabProps> = ({
   const currentPreset = exportSettings.marginPreset || 'auto';
 
   return (
-    <div className="flex-1 p-6 md:p-8 bg-[#18181b] overflow-y-auto text-zinc-100 font-sans space-y-6">
+    <div className="pc-studio-light pc-studio-workspace flex-1 p-6 md:p-8 bg-[#18181b] overflow-y-auto text-zinc-100 font-sans space-y-6">
       
       {/* Top Header & Subtab Switcher */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#333] pb-4">
@@ -100,7 +100,7 @@ export const ExportSettingsTab: React.FC<ExportSettingsTabProps> = ({
       {activeSubTab === 'compilation' ? (
         <div className="space-y-6 max-w-5xl mx-auto">
           {/* Quick Action Preview Banner */}
-          <div className="bg-gradient-to-r from-[#2a170d] to-[#1e1e22] border border-[#FF6B00]/40 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+          <div className="pc-publication-preview bg-gradient-to-r from-[#2a170d] to-[#1e1e22] border border-[#FF6B00]/40 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
             <div className="space-y-1 text-center sm:text-left">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF6B00] bg-[#FF6B00]/10 px-2 py-0.5 rounded font-mono">
                 Interactive Studio

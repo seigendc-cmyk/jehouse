@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   BookOpen,
   Maximize2,
+  Minimize2,
   RefreshCw,
   FileImage,
   CheckCircle2
@@ -61,6 +62,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
   selectMode = false,
   onSelectAsset,
 }) => {
+  const [isMaximized, setIsMaximized] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<AssetCategory | 'all'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'size'>('newest');
@@ -346,8 +348,8 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 overflow-hidden animate-fadeIn">
-      <div className="bg-[#18181b] border border-zinc-700/80 rounded-2xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-zinc-100 font-sans">
+    <div className="pc-studio-light fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-6 overflow-hidden animate-fadeIn">
+      <div className={`bg-[#18181b] border border-zinc-700/80 rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden text-zinc-100 font-sans ${isMaximized ? 'h-[calc(100vh-2rem)] max-w-none' : 'max-w-6xl max-h-[92vh]'}`}>
         
         {/* Modal Header */}
         <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/80">
@@ -386,8 +388,19 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
             )}
 
             <button
+              onClick={() => setIsMaximized((value) => !value)}
+              className="p-2 text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 rounded-lg transition"
+              aria-label={isMaximized ? 'Restore Image Gallery size' : 'Maximise Image Gallery'}
+              title={isMaximized ? 'Restore size' : 'Maximise'}
+            >
+              {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            </button>
+
+            <button
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 rounded-lg transition"
+              aria-label="Close Image Gallery"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>

@@ -207,7 +207,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
   const activeSection = profile.sections.find(s => s.id === activeSectionId) || profile.sections[0];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
+    <div className="pc-studio-light fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden font-sans">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -281,7 +281,9 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-700 transition-colors"
+              aria-label="Close Company Profile Studio"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -294,7 +296,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
             <button
               onClick={() => setActiveTab('branding')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'branding' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                activeTab === 'branding' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-700 hover:text-blue-800 hover:bg-blue-50'
               }`}
             >
               <Palette className="w-3.5 h-3.5" />
@@ -303,7 +305,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
             <button
               onClick={() => setActiveTab('sections')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'sections' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                activeTab === 'sections' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-700 hover:text-blue-800 hover:bg-blue-50'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -312,7 +314,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
             <button
               onClick={() => setActiveTab('preview')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                activeTab === 'preview' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                activeTab === 'preview' ? 'bg-blue-600 text-white shadow-sm' : 'text-zinc-700 hover:text-blue-800 hover:bg-blue-50'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -547,7 +549,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
           {activeTab === 'sections' && (
             <>
               {/* LEFT SIDE: Section Navigator & Editor */}
-              <div className="lg:col-span-6 border-r border-zinc-800 flex flex-col h-full bg-[#1C1C1E] overflow-hidden">
+              <div className="pc-studio-controls lg:col-span-6 border-r border-zinc-800 flex flex-col h-full bg-[#1C1C1E] overflow-hidden">
                 
                 {/* Section List Horizontal Bar */}
                 <div className="p-3 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between gap-2 overflow-x-auto shrink-0">
@@ -878,7 +880,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
               </div>
 
               {/* RIGHT SIDE: Real-Time Preview Column */}
-              <div className="lg:col-span-6 bg-zinc-950 p-6 overflow-y-auto h-full flex flex-col items-center">
+              <div className="pc-publication-preview lg:col-span-6 bg-zinc-950 p-6 overflow-y-auto h-full flex flex-col items-center">
                 <div className="w-full max-w-2xl transform scale-95 origin-top">
                   <CompanyProfilePreview profile={profile} />
                 </div>
@@ -888,7 +890,7 @@ export const CompanyProfileStudioModal: React.FC<CompanyProfileStudioModalProps>
 
           {/* TAB 3: FULL DOCUMENT PREVIEW */}
           {activeTab === 'preview' && (
-            <div className="lg:col-span-12 p-6 sm:p-10 bg-zinc-950 overflow-y-auto h-full flex justify-center">
+            <div className="pc-publication-preview lg:col-span-12 p-6 sm:p-10 bg-zinc-950 overflow-y-auto h-full flex justify-center">
               <div className="w-full max-w-4xl">
                 <CompanyProfilePreview profile={profile} />
               </div>

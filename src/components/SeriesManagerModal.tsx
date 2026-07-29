@@ -17,7 +17,9 @@ import {
   Calendar, 
   BookOpen, 
   Tag, 
-  FileText 
+  FileText,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { BookProject, SeriesConfig, Season, Episode, Chapter } from '../types';
 import { exportToPDF, exportProjectJSON } from '../lib/exportUtils';
@@ -40,6 +42,7 @@ export const SeriesManagerModal: React.FC<SeriesManagerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'details' | 'seasons' | 'export'>('seasons');
   const [expandedSeasonId, setExpandedSeasonId] = useState<string | null>(project.series?.seasons[0]?.id || null);
   const [selectedSeasonForExport, setSelectedSeasonForExport] = useState<string>('all');
+  const [isMaximized, setIsMaximized] = useState(false);
 
   if (!isOpen) return null;
 
@@ -235,8 +238,8 @@ export const SeriesManagerModal: React.FC<SeriesManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#18181b] border border-[#333333] rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl text-gray-100 overflow-hidden">
+    <div className="pc-studio-light fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className={`bg-[#18181b] border border-[#333333] rounded-xl w-full flex flex-col shadow-2xl text-gray-100 overflow-hidden ${isMaximized ? 'h-[calc(100vh-2rem)] max-w-none' : 'max-w-4xl max-h-[90vh]'}`}>
         
         {/* Header Bar */}
         <div className="h-16 border-b border-[#333333] bg-[#222225] px-6 flex items-center justify-between shrink-0">
@@ -255,12 +258,24 @@ export const SeriesManagerModal: React.FC<SeriesManagerModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-[#2a2a2d] hover:bg-[#333] text-gray-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMaximized((value) => !value)}
+              className="p-2 rounded-lg bg-[#2a2a2d] hover:bg-[#333] text-gray-400 hover:text-white transition-colors cursor-pointer"
+              aria-label={isMaximized ? 'Restore Series Manager size' : 'Maximise Series Manager'}
+              title={isMaximized ? 'Restore size' : 'Maximise'}
+            >
+              {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-[#2a2a2d] hover:bg-[#333] text-gray-400 hover:text-white transition-colors cursor-pointer"
+              aria-label="Close Series Manager"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}
