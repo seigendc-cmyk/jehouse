@@ -26,8 +26,16 @@ import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { FocusMode } from './components/FocusMode';
 import { saveToLocalDiskInDocuments } from './lib/exportUtils';
 import { loadProjectFromSQLite } from './lib/sqliteDb';
-import { syncProjectToCloud } from './lib/firebase';
 import { localProjectRepository } from './persistence/indexedDbProjectRepository';
+import {
+  createInitialSaveState,
+  isImmediateSaveShortcut,
+  LocalSaveCoordinator,
+  needsUnloadProtection,
+  ProjectSaveState
+} from './persistence/localSaveCoordinator';
+import { StoredProject } from './persistence/types';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 
 
 export default function App() {
@@ -48,18 +56,41 @@ export default function App() {
       return initialBookProject.id;
     }
   });
-  const localRevisions = useRef<Map<string, number>>(new Map());
+  const projectRecords = useRef<Map<string, StoredProject>>(new Map());
 
   // Current Active Project Derived State
   const project = projects.find(p => p.id === activeProjectId) || projects[0] || initialBookProject;
+  const activeProjectRef = useRef(project);
+  activeProjectRef.current = project;
 
   const [activeTab, setActiveTab] = useState<SidebarTab>('editor');
   const [activeChapterId, setActiveChapterId] = useState<string>(project.chapters[0]?.id || 'ch-1');
   const [isStorageLoaded, setIsStorageLoaded] = useState<boolean>(false);
   
-  // Network & PWA Install Prompt State
-  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Network status is connectivity information only; it does not imply cloud availability.
+  const isOnline = useNetworkStatus();
+  const isOnlineRef = useRef(isOnline);
+  isOnlineRef.current = isOnline;
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(null);
+  const [saveState, setSaveState] = useState<ProjectSaveState>(createInitialSaveState());
+  const saveCoordinatorRef = useRef<LocalSaveCoordinator | null>(null);
+  if (!saveCoordinatorRef.current) {
+    saveCoordinatorRef.current = new LocalSaveCoordinator({
+      repository: localProjectRepository,
+      onStateChange: setSaveState,
+      isOnline: () => isOnlineRef.current,
+      onConfirmedSave: (confirmedProject, record) => {
+        projectRecords.current.set(record.projectId, record);
+        setProjects((current) =>
+          current.map((item) =>
+            item.id === confirmedProject.id
+              ? { ...item, lastSaved: record.lastSavedAt }
+              : item
+          )
+        );
+      }
+    });
+  }
 
   // Theme & Ambient Light State - Defaulting to Sahara Red Soils at Dusk
   const [uiTheme, setUITheme] = useState<UITheme>(() => {
@@ -96,32 +127,19 @@ export default function App() {
   const [proofreadIssues, setProofreadIssues] = useState<ProofreadIssue[]>([]);
   const [isProofreadLoading, setIsProofreadLoading] = useState<boolean>(false);
 
-  // 1. Listen for Network Online/Offline Status and PWA Install Prompt
+  // 1. Capture the PWA install prompt. Network state is owned by useNetworkStatus.
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Trigger cloud sync when connection returns
-      if (project) {
-        syncProjectToCloud(project);
-      }
-    };
-    const handleOffline = () => setIsOnline(false);
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPwaPrompt(e);
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [project]);
+  }, []);
 
   const handleInstallPwa = async () => {
     if (!deferredPwaPrompt) return;
@@ -147,8 +165,8 @@ export default function App() {
         ).filter((record) => record !== null);
 
         if (storedProjects.length > 0 && isMounted) {
-          localRevisions.current = new Map(
-            storedProjects.map((record) => [record.projectId, record.localRevision])
+          projectRecords.current = new Map(
+            storedProjects.map((record) => [record.projectId, record])
           );
           setProjects(storedProjects.map((record) => record.project));
           const preferredId = localStorage.getItem('presscraft_active_project_id');
@@ -156,6 +174,10 @@ export default function App() {
             ? preferredId!
             : storedProjects[0].projectId;
           setActiveProjectId(nextActiveId);
+          const activeRecord = storedProjects.find((record) => record.projectId === nextActiveId)!;
+          saveCoordinatorRef.current?.setProject(activeRecord.project, activeRecord);
+        } else if (isMounted) {
+          saveCoordinatorRef.current?.setProject(project, null);
         }
       } catch (err) {
         console.warn('Storage initial load notice:', err);
@@ -166,31 +188,32 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // 3. Persist complete projects only through the authoritative IndexedDB repository.
   useEffect(() => {
-    if (!isStorageLoaded) return;
-    (async () => {
-      try {
-        localStorage.setItem('presscraft_active_project_id', activeProjectId);
-        const expectedRevision = localRevisions.current.get(project.id);
-        const result = await localProjectRepository.saveBookProject(project, expectedRevision);
-        if (result.status === 'conflict') {
-          console.warn(
-            `[IndexedDB] Local revision conflict for "${project.id}". The stored copy was preserved.`
-          );
-          return;
-        }
-        localRevisions.current.set(project.id, result.project.localRevision);
+    if (isStorageLoaded) localStorage.setItem('presscraft_active_project_id', activeProjectId);
+  }, [activeProjectId, isStorageLoaded]);
 
-        // Sync active project to Firebase Cloud when online
-        if (navigator.onLine && project) {
-          await syncProjectToCloud(project);
-        }
-      } catch (e) {
-        console.warn('Project background save notice:', e);
+  // Ctrl+S always targets the latest complete in-memory project snapshot.
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if (isImmediateSaveShortcut(event)) {
+        event.preventDefault();
+        void saveCoordinatorRef.current?.saveNow();
       }
-    })();
-  }, [project, projects, activeProjectId, isStorageLoaded]);
+    };
+    window.addEventListener('keydown', handleSaveShortcut);
+    return () => window.removeEventListener('keydown', handleSaveShortcut);
+  }, []);
+
+  // Browsers control the warning text, but only genuinely unconfirmed work activates it.
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!needsUnloadProtection(saveState)) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveState]);
 
   // Keep activeChapterId in sync when project changes
   useEffect(() => {
@@ -233,41 +256,117 @@ export default function App() {
 
   // Project update helper for current active project
   const handleUpdateProject = (partial: Partial<BookProject>) => {
+    const changedProject = {
+      ...activeProjectRef.current,
+      ...partial
+    };
+    activeProjectRef.current = changedProject;
     setProjects((prev) =>
-      prev.map((p) => {
-        if (p.id === activeProjectId) {
-          return {
-            ...p,
-            ...partial,
-            lastSaved: new Date().toISOString()
-          };
-        }
-        return p;
-      })
+      prev.map((item) => (item.id === activeProjectId ? changedProject : item))
     );
+    saveCoordinatorRef.current?.markDirty(changedProject);
   };
 
-  const handleCreateProject = (newProj: BookProject) => {
+  const handleCreateProject = async (newProj: BookProject) => {
+    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+      await saveCoordinatorRef.current?.saveNow();
+      if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+        const proceed = window.confirm(
+          'The current project has not been confirmed saved. Create the new project anyway?'
+        );
+        if (!proceed) return;
+      }
+    }
     setProjects((prev) => [newProj, ...prev]);
     setActiveProjectId(newProj.id);
+    activeProjectRef.current = newProj;
+    saveCoordinatorRef.current?.setProject(newProj, null);
+    saveCoordinatorRef.current?.markDirty(newProj);
   };
 
   const handleUpdateProjectInList = (updatedProj: BookProject) => {
     setProjects((prev) => prev.map((p) => (p.id === updatedProj.id ? updatedProj : p)));
+    if (updatedProj.id === activeProjectId) {
+      saveCoordinatorRef.current?.markDirty(updatedProj);
+    }
   };
 
-  const handleDeleteProject = (projId: string) => {
-    void localProjectRepository.deleteProject(projId).catch((error) => {
+  const handleDeleteProject = async (projId: string) => {
+    if (
+      projId === activeProjectId &&
+      needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)
+    ) {
+      await saveCoordinatorRef.current?.saveNow();
+      if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+        const proceed = window.confirm(
+          'This project still has unconfirmed edits. Delete the local project anyway?'
+        );
+        if (!proceed) return;
+      }
+    }
+    await localProjectRepository.deleteProject(projId).catch((error) => {
       console.warn(`[IndexedDB] Could not delete local project "${projId}":`, error);
     });
-    localRevisions.current.delete(projId);
+    projectRecords.current.delete(projId);
     setProjects((prev) => {
       const remaining = prev.filter((p) => p.id !== projId);
       if (projId === activeProjectId && remaining.length > 0) {
         setActiveProjectId(remaining[0].id);
+        saveCoordinatorRef.current?.setProject(
+          remaining[0],
+          projectRecords.current.get(remaining[0].id) ?? null
+        );
       }
       return remaining.length > 0 ? remaining : [initialBookProject];
     });
+  };
+
+  const handleSelectProject = async (projectId: string) => {
+    if (projectId === activeProjectId) return true;
+    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+      await saveCoordinatorRef.current?.saveNow();
+      if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+        const proceed = window.confirm(
+          'The current project still has unconfirmed edits. Open another project anyway? Your current in-memory work will remain available until this page closes.'
+        );
+        if (!proceed) return false;
+      }
+    }
+    const nextProject = projects.find((item) => item.id === projectId);
+    if (!nextProject) return false;
+    setActiveProjectId(projectId);
+    activeProjectRef.current = nextProject;
+    saveCoordinatorRef.current?.setProject(
+      nextProject,
+      projectRecords.current.get(projectId) ?? null
+    );
+    return true;
+  };
+
+  const handleReloadStoredProject = async () => {
+    const stored = await localProjectRepository.getProject(project.id);
+    if (!stored) return;
+    projectRecords.current.set(stored.projectId, stored);
+    setProjects((current) =>
+      current.map((item) => (item.id === stored.projectId ? stored.project : item))
+    );
+    activeProjectRef.current = stored.project;
+    saveCoordinatorRef.current?.setProject(stored.project, stored);
+  };
+
+  const handleKeepCurrentAsCopy = async () => {
+    const copy: BookProject = {
+      ...structuredClone(project),
+      id: `${project.id}-recovered-${Date.now()}`,
+      title: `${project.title.trim() || 'Untitled Book'} (Recovered Copy)`,
+      cloudSynced: false
+    };
+    setProjects((current) => [copy, ...current]);
+    setActiveProjectId(copy.id);
+    activeProjectRef.current = copy;
+    saveCoordinatorRef.current?.setProject(copy, null);
+    saveCoordinatorRef.current?.markDirty(copy);
+    await saveCoordinatorRef.current?.saveNow();
   };
 
 
@@ -579,6 +678,40 @@ export default function App() {
   };
 
   const activeChapter = project.chapters.find((c) => c.id === activeChapterId) || project.chapters[0];
+  const activeDocumentLabel =
+    activeTab === 'editor' && activeChapter
+      ? activeChapter.episodeNumber
+        ? `Episode ${activeChapter.episodeNumber}: ${activeChapter.episodeTitle || activeChapter.title}`
+        : `Chapter ${activeChapter.number}: ${activeChapter.title}`
+      : activeTab === 'cover'
+        ? 'Cover'
+        : activeTab === 'frontmatter'
+          ? 'Front Matter'
+          : activeTab === 'watermark'
+            ? 'Watermark'
+            : activeTab === 'exportSettings'
+              ? 'Export Settings'
+              : undefined;
+
+  const persistenceByProject = Object.fromEntries(
+    projects.map((item) => {
+      const record = projectRecords.current.get(item.id);
+      return [
+        item.id,
+        item.id === activeProjectId
+          ? {
+              lastSavedAt: saveState.lastSavedAt,
+              localRevision: saveState.localRevision,
+              status: saveState.status
+            }
+          : {
+              lastSavedAt: record?.lastSavedAt,
+              localRevision: record?.localRevision ?? 0,
+              status: record?.syncStatus ?? 'local-only'
+            }
+      ];
+    })
+  );
 
   return (
     <div className={`h-screen w-screen ${uiTheme === 'sahara_dusk' ? 'theme-sahara-dusk bg-[#1c0d0b]' : uiTheme === 'classic_dark' ? 'theme-classic-dark bg-[#141414]' : 'theme-warm-light bg-[#faf9f5]'} text-zinc-100 font-sans flex flex-col overflow-hidden relative transition-colors duration-200`}>
@@ -621,6 +754,8 @@ export default function App() {
         isOnline={isOnline}
         deferredPwaPrompt={deferredPwaPrompt}
         onInstallPwa={handleInstallPwa}
+        saveState={saveState}
+        activeDocumentLabel={activeDocumentLabel}
       />
 
 
@@ -650,6 +785,9 @@ export default function App() {
           onRejectAllChanges={handleRejectAllChanges}
           onAcceptSingleChange={handleAcceptSingleChange}
           onRejectSingleChange={handleRejectSingleChange}
+          saveState={saveState}
+          isOnline={isOnline}
+          onRetrySave={() => void saveCoordinatorRef.current?.retry()}
         />
 
         {/* Center Active Workspace View offset for Floating Header (pt-[4.25rem]), Floating Sidebar (pl-[16.25rem]), and Footer (pb-[2rem]) */}
@@ -748,12 +886,36 @@ export default function App() {
       <footer className="fixed bottom-0 left-0 right-0 h-8 items-center justify-between bg-[#262626] px-4 text-[10px] text-gray-400 border-t border-[#333333] z-40 select-none font-sans flex">
         <div className="flex items-center gap-4">
           <span>Words: <strong className="text-gray-200">{project.chapters.reduce((acc, c) => acc + c.wordCount, 0).toLocaleString()}</strong></span>
-          <span>Pages: <strong className="text-gray-200">~{Math.max(1, Math.ceil(project.chapters.reduce((acc, c) => acc + c.wordCount, 0) / 350))}</strong></span>
+          <span>Estimated pages: <strong className="text-gray-200">~{Math.max(1, Math.ceil(project.chapters.reduce((acc, c) => acc + c.wordCount, 0) / 350))}</strong></span>
           <span>Focus Mode: <span className={isFocusMode ? "text-[#FF6B00] font-bold" : "text-gray-500"}>{isFocusMode ? "Active" : "Inactive"}</span></span>
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-emerald-400 font-medium">Spellcheck: OK</span>
+          <span className={
+            saveState.status === 'error' || saveState.status === 'conflict'
+              ? 'text-red-400 font-bold'
+              : saveState.status === 'dirty' || saveState.status === 'saving'
+                ? 'text-amber-400 font-medium'
+                : 'text-emerald-400 font-medium'
+          }>
+            {saveState.status === 'dirty'
+              ? `Unsaved changes · Revision ${saveState.localRevision}`
+              : saveState.status === 'saving'
+                ? 'Saving locally…'
+                : saveState.status === 'error'
+                  ? 'Local save failed'
+                  : saveState.status === 'conflict'
+                    ? 'Local revision conflict'
+                    : saveState.lastSavedAt
+                      ? `${isOnline ? 'Saved locally' : 'Offline — saved on this device'} at ${new Date(saveState.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Revision ${saveState.localRevision} · ${isOnline ? 'Online' : 'Offline'}`
+                      : `Local storage active · Revision ${saveState.localRevision} · ${isOnline ? 'Online' : 'Offline'}`}
+          </span>
+          {saveState.error?.retryable ? (
+            <button onClick={() => void saveCoordinatorRef.current?.retry()} className="text-orange-400 font-bold hover:text-orange-300">
+              Retry
+            </button>
+          ) : null}
+          <span className="text-gray-500 font-medium">Spellcheck not run</span>
           <span>Grammar: <span className={proofreadIssues.length > 0 ? "text-amber-400 font-bold" : "text-gray-400"}>{proofreadIssues.length} {proofreadIssues.length === 1 ? 'Warning' : 'Warnings'}</span></span>
           <div className="flex items-center gap-2">
             <button 
@@ -823,7 +985,9 @@ export default function App() {
         project={project}
         isOpen={isCloudSyncOpen}
         onClose={() => setIsCloudSyncOpen(false)}
-        onUpdateProject={handleUpdateProject}
+        saveState={saveState}
+        isOnline={isOnline}
+        onSaveNow={() => void saveCoordinatorRef.current?.saveNow()}
       />
 
       <SQLiteConsoleModal
@@ -907,15 +1071,43 @@ export default function App() {
         onClose={() => setIsProjectManagerOpen(false)}
         activeProject={project}
         projects={projects}
-        onSelectProject={(projId) => setActiveProjectId(projId)}
+        onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
         onUpdateProjectInList={handleUpdateProjectInList}
         onDeleteProject={handleDeleteProject}
         isOnline={isOnline}
-        onSyncAll={() => {
-          if (project) syncProjectToCloud(project);
-        }}
+        persistenceByProject={persistenceByProject}
       />
+
+      {saveState.status === 'conflict' && (
+        <div className="fixed bottom-10 right-4 z-50 max-w-md rounded-xl border border-red-500/40 bg-[#2b1614] p-4 text-sm text-red-100 shadow-2xl">
+          <div className="font-bold">Local revision conflict</div>
+          <p className="mt-1 text-xs text-red-100/75">{saveState.error?.message}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => void handleReloadStoredProject()} className="rounded bg-zinc-700 px-3 py-1.5 text-xs font-bold text-white">
+              Reload stored version
+            </button>
+            <button onClick={() => void handleKeepCurrentAsCopy()} className="rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">
+              Keep current work as a copy
+            </button>
+            <button onClick={() => void saveCoordinatorRef.current?.retry()} className="rounded border border-orange-500/50 px-3 py-1.5 text-xs font-bold text-orange-300">
+              Retry current work
+            </button>
+          </div>
+        </div>
+      )}
+
+      {saveState.status === 'error' && (
+        <div className="fixed bottom-10 right-4 z-50 max-w-md rounded-xl border border-red-500/40 bg-[#2b1614] p-4 text-sm text-red-100 shadow-2xl">
+          <div className="font-bold">PressCraft could not save locally</div>
+          <p className="mt-1 text-xs text-red-100/75">
+            {saveState.error?.message} Technical code: {saveState.error?.code}.
+          </p>
+          <button onClick={() => void saveCoordinatorRef.current?.retry()} className="mt-3 rounded bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">
+            Retry local save
+          </button>
+        </div>
+      )}
 
 
     </div>

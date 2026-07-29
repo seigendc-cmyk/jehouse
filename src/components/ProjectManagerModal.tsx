@@ -32,12 +32,15 @@ interface ProjectManagerModalProps {
   onClose: () => void;
   activeProject: BookProject;
   projects: BookProject[];
-  onSelectProject: (projectId: string) => void;
+  onSelectProject: (projectId: string) => boolean | Promise<boolean>;
   onCreateProject: (newProject: BookProject) => void;
   onUpdateProjectInList: (updatedProject: BookProject) => void;
   onDeleteProject: (projectId: string) => void;
   isOnline: boolean;
-  onSyncAll: () => void;
+  persistenceByProject: Record<
+    string,
+    { lastSavedAt?: string; localRevision: number; status: string }
+  >;
 }
 
 export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
@@ -50,7 +53,7 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   onUpdateProjectInList,
   onDeleteProject,
   isOnline,
-  onSyncAll
+  persistenceByProject
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'archived' | 'new'>('active');
   const [searchQuery, setSearchQuery] = useState('');
@@ -320,17 +323,13 @@ Return strictly JSON format:
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={onSyncAll}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                isOnline 
-                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60' 
-                  : 'bg-zinc-800 border-zinc-700 text-zinc-400'
-              }`}
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border bg-zinc-800 border-zinc-700 text-zinc-300"
+              title="Firebase synchronization is disabled until secure Firestore rules are approved"
             >
-              {isOnline ? <Cloud className="w-3.5 h-3.5 text-emerald-400" /> : <CloudOff className="w-3.5 h-3.5 text-amber-400" />}
-              <span>{isOnline ? 'Cloud Synced' : 'Offline Mode'}</span>
-            </button>
+              {isOnline ? <Cloud className="w-3.5 h-3.5 text-zinc-400" /> : <CloudOff className="w-3.5 h-3.5 text-amber-400" />}
+              <span>{isOnline ? 'Local storage active' : 'Offline — local storage active'}</span>
+            </div>
 
             <button
               onClick={onClose}
@@ -436,6 +435,7 @@ Return strictly JSON format:
                     {activeProjectsList.map((p) => {
                       const isActive = p.id === activeProject.id;
                       const words = calculateTotalWords(p);
+                      const persistence = persistenceByProject[p.id];
 
                       return (
                         <div
@@ -470,13 +470,21 @@ Return strictly JSON format:
                                 <FileText className="w-3.5 h-3.5 text-amber-400" /> {words.toLocaleString()} words
                               </span>
                             </div>
+                            <div className="mt-2 text-[10px] text-[#c9a59b] flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-orange-400" />
+                              {persistence?.lastSavedAt
+                                ? `Saved on this device ${new Date(persistence.lastSavedAt).toLocaleString()} · Revision ${persistence.localRevision}`
+                                : 'Local project · Not yet confirmed saved'}
+                            </div>
                           </div>
 
                           {/* Actions */}
                           <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#56241e]">
                             {!isActive ? (
                               <button
-                                onClick={() => { onSelectProject(p.id); onClose(); }}
+                                onClick={async () => {
+                                  if (await onSelectProject(p.id)) onClose();
+                                }}
                                 className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-lg transition cursor-pointer"
                               >
                                 Open & Continue

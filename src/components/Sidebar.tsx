@@ -26,6 +26,10 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { BookProject, Chapter, TrackedChange } from '../types';
+import {
+  localSaveStatusLabel,
+  ProjectSaveState
+} from '../persistence/localSaveCoordinator';
 
 export type SidebarTab = 'editor' | 'cover' | 'frontmatter' | 'watermark' | 'exportSettings';
 
@@ -51,6 +55,9 @@ interface SidebarProps {
   onRejectAllChanges?: () => void;
   onAcceptSingleChange?: (blockId: string, changeId?: string) => void;
   onRejectSingleChange?: (blockId: string, changeId?: string) => void;
+  saveState: ProjectSaveState;
+  isOnline: boolean;
+  onRetrySave?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -75,6 +82,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRejectAllChanges,
   onAcceptSingleChange,
   onRejectSingleChange,
+  saveState,
+  isOnline,
+  onRetrySave
 }) => {
   // Drag and drop state for chapter reordering
   const [draggedChapterIndex, setDraggedChapterIndex] = useState<number | null>(null);
@@ -505,14 +515,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       </div>
 
-      {/* Cloud Sync Status Box */}
+      {/* Authoritative local persistence status */}
       <div className="p-3 border-t border-[#333333] bg-[#1E1E1E]">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-gray-500 uppercase font-bold">Cloud Sync</span>
-          <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span className="text-[10px] text-gray-500 uppercase font-bold">Local storage</span>
+          <span className={`h-2 w-2 rounded-full ${
+            saveState.status === 'error' || saveState.status === 'conflict'
+              ? 'bg-red-500'
+              : saveState.status === 'dirty' || saveState.status === 'saving'
+                ? 'bg-amber-500'
+                : 'bg-emerald-500'
+          }`} />
         </div>
-        <div className="text-[11px] text-gray-400">
-          Last saved: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div className="text-[11px] text-gray-400 flex items-center justify-between gap-2">
+          <span>{localSaveStatusLabel(saveState, isOnline)}</span>
+          {saveState.error?.retryable && onRetrySave ? (
+            <button onClick={onRetrySave} className="text-orange-400 font-bold hover:text-orange-300">
+              Retry
+            </button>
+          ) : null}
+        </div>
+        <div className="text-[10px] text-gray-500 mt-0.5">
+          {saveState.lastSavedAt
+            ? `${new Date(saveState.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Revision ${saveState.localRevision}`
+            : `Not yet saved · Revision ${saveState.localRevision}`}
         </div>
       </div>
     </aside>

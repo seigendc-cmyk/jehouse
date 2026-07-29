@@ -33,6 +33,11 @@ import {
 } from 'lucide-react';
 import { BookCategory, BookProject, UITheme } from '../types';
 import { SidebarTab } from './Sidebar';
+import {
+  applicationDocumentTitle,
+  localSaveStatusLabel,
+  ProjectSaveState
+} from '../persistence/localSaveCoordinator';
 
 interface NavbarProps {
   project: BookProject;
@@ -65,6 +70,8 @@ interface NavbarProps {
   isOnline?: boolean;
   deferredPwaPrompt?: any;
   onInstallPwa?: () => void;
+  saveState: ProjectSaveState;
+  activeDocumentLabel?: string;
 }
 
 
@@ -107,7 +114,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProjectManager,
   isOnline = true,
   deferredPwaPrompt,
-  onInstallPwa
+  onInstallPwa,
+  saveState,
+  activeDocumentLabel
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
@@ -148,7 +157,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="fixed top-2 left-2.5 right-2.5 h-14 border border-[#383838] bg-[#222222]/95 backdrop-blur-md rounded-xl px-3 sm:px-4 flex items-center justify-between text-[#E5E5E5] z-40 shadow-2xl ring-1 ring-white/10 select-none">
+    <header
+      aria-label={applicationDocumentTitle(project.title, activeDocumentLabel, saveState, isOnline)}
+      title={applicationDocumentTitle(project.title, activeDocumentLabel, saveState, isOnline)}
+      className="fixed top-2 left-2.5 right-2.5 h-14 border border-[#383838] bg-[#222222]/95 backdrop-blur-md rounded-xl px-3 sm:px-4 flex items-center justify-between text-[#E5E5E5] z-40 shadow-2xl ring-1 ring-white/10 select-none"
+    >
       
       {/* LEFT: Branding & Title & Traditional Dropdown Menus */}
       <div className="flex items-center gap-3" ref={menuRef}>
@@ -158,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="h-8 w-8 rounded-lg bg-[#FF6B00] flex items-center justify-center text-black font-black text-xs tracking-wider shadow-sm shrink-0">
             BP
           </div>
-          <div className="hidden sm:block">
+          <div className="hidden sm:block min-w-0">
             {isEditingTitle ? (
               <input
                 type="text"
@@ -170,13 +183,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="font-bold text-white bg-[#111] px-2 py-0.5 rounded border border-[#FF6B00] text-xs focus:outline-hidden"
               />
             ) : (
-              <h1 
-                onClick={() => setIsEditingTitle(true)}
-                className="font-bold text-white hover:text-[#FF6B00] cursor-pointer text-xs sm:text-sm flex items-center gap-1 transition-colors uppercase max-w-[180px] sm:max-w-[220px] truncate"
-                title="Click to edit book title"
-              >
-                {project.title}
-              </h1>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-zinc-500 font-bold">
+                  PressCraft Book Studio
+                </div>
+                <h1
+                  onClick={() => setIsEditingTitle(true)}
+                  className="font-bold text-white hover:text-[#FF6B00] cursor-pointer text-xs flex items-center gap-1 transition-colors max-w-[240px] truncate"
+                  title="Click to edit book title"
+                >
+                  {project.title.trim() || 'Untitled Book'}
+                  {activeDocumentLabel ? (
+                    <span className="text-zinc-500 font-medium">| {activeDocumentLabel}</span>
+                  ) : null}
+                </h1>
+              </div>
             )}
           </div>
 
@@ -600,19 +621,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onOpenCloudSync}
           className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-[#1a1a1a] border border-[#333] hover:border-zinc-500 transition-colors cursor-pointer"
-          title={isOnline ? "Online & Firestore Persistent Sync Ready" : "Offline Mode - Saved Locally"}
+          title="Cloud sync is disabled pending secure Firestore rules"
         >
-          {isOnline ? (
-            <>
-              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-400 font-semibold">Online & Synced</span>
-            </>
-          ) : (
-            <>
-              <CloudOff className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-amber-500 font-semibold">Offline Mode</span>
-            </>
-          )}
+          {isOnline ? <Cloud className="w-3.5 h-3.5 text-zinc-400" /> : <CloudOff className="w-3.5 h-3.5 text-amber-500" />}
+          <span className={saveState.status === 'error' || saveState.status === 'conflict' ? 'text-red-400 font-semibold' : 'text-zinc-300 font-semibold'}>
+            {localSaveStatusLabel(saveState, isOnline)}
+          </span>
         </button>
 
 
