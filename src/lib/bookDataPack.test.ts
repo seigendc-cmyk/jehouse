@@ -38,6 +38,18 @@ describe('mathematics-aware publishing data pack and export readiness', () => {
     });
   });
 
+  it('rejects a data pack whose semantic payload no longer matches its checksum', () => {
+    const pack = createBookDataPack(createEmptyBookProject());
+    const corrupted = {
+      ...pack,
+      projectData: { ...pack.projectData, title: 'Tampered after export' }
+    };
+    expect(validateBookDataPackCompatibility(corrupted)).toEqual({
+      compatible: false,
+      errors: ['Data-pack checksum mismatch.']
+    });
+  });
+
   it('waits for fonts and stable animation frames before print capture and has no remote KaTeX dependency', () => {
     const source = readFileSync(new URL('./exportUtils.ts', import.meta.url), 'utf8');
     const educationalSource = readFileSync(new URL('../educationalBooks/generatorUtils.ts', import.meta.url), 'utf8');
@@ -45,6 +57,8 @@ describe('mathematics-aware publishing data pack and export readiness', () => {
     expect(source).toContain('requestAnimationFrame');
     expect(source).toContain("output: 'mathml'");
     expect(source).not.toContain('cdn.jsdelivr.net/npm/katex');
+    expect(source).not.toContain('fonts.googleapis.com');
+    expect(source).not.toContain('getGoogleFontsHTMLForExport');
     expect(educationalSource).not.toContain('cdn.jsdelivr.net/npm/katex');
     expect(educationalSource).not.toContain('window.katex');
   });

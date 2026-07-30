@@ -1,6 +1,5 @@
 import { BookProject, ContentBlock, ExportSettings, CustomMargins, MarginPreset } from '../types';
 import katex from 'katex';
-import { getGoogleFontsHTMLForExport } from './googleFonts';
 import {
   getEffectiveTypography,
   resolveProjectTypography,
@@ -44,7 +43,7 @@ const escapeDropCapText=(value:string)=>value.replace(/[&<>"']/g,char=>({
 }[char]!));
 const escapeHtml = escapeDropCapText;
 
-function renderMathForExport(block: ContentBlock, policy: NonNullable<BookProject['mathPublishing']>['invalidMathPolicy']): string {
+export function renderMathForExport(block: ContentBlock, policy: NonNullable<BookProject['mathPublishing']>['invalidMathPolicy']): string {
   const source = mathSourceForBlock(block);
   const validation = validateMathSource(source);
   if (validation.status !== 'valid') {
@@ -60,7 +59,8 @@ function renderMathForExport(block: ContentBlock, policy: NonNullable<BookProjec
       maxExpand: 1_000,
       output: 'mathml'
     });
-    return `<div class="math-block ${block.type === 'math-inline' ? 'math-inline' : ''}" data-latex-source="${escapeHtml(source)}" aria-label="${escapeHtml(block.mathData?.accessibilityText || source)}">${mathml}${block.mathData?.equationNumber ? `<span class="equation-number">(${escapeHtml(block.mathData.equationNumber)})</span>` : ''}</div>`;
+    const boxedClass = source.includes('\\boxed') ? ' math-boxed' : '';
+    return `<div class="math-block ${block.type === 'math-inline' ? 'math-inline' : ''}${boxedClass}" data-latex-source="${escapeHtml(source)}" aria-label="${escapeHtml(block.mathData?.accessibilityText || source)}">${mathml}${block.mathData?.equationNumber ? `<span class="equation-number">(${escapeHtml(block.mathData.equationNumber)})</span>` : ''}</div>`;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Equation could not be rendered.';
     return policy === 'raw-latex'
@@ -74,7 +74,8 @@ function renderAccountingForExport(block: ContentBlock, project: BookProject): s
   if (block.type === 'journal-entry' && block.journalEntryData) {
     const data = block.journalEntryData;
     const totals = journalTotals(data);
-    return `<div class="accounting-block"><table><caption>${escapeHtml(data.title || 'General Journal')}</caption><thead><tr><th>Date</th><th>Details</th><th>Folio</th><th class="number">Debit</th><th class="number">Credit</th></tr></thead><tbody>${data.entries.map((entry) => `<tr><td>${escapeHtml(entry.date)}</td><th scope="row">${escapeHtml(entry.details)}</th><td>${escapeHtml(entry.folio || '')}</td><td class="number">${formatAccountingNumber(entry.debit ?? 0, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(entry.credit ?? 0, format, data.currencyOverride)}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="3">Total</th><td class="number">${formatAccountingNumber(totals.debit, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(totals.credit, format, data.currencyOverride)}</td></tr></tfoot></table>${data.validateBalance && !totals.balanced ? `<p class="accounting-warning">Out of balance by ${formatAccountingNumber(Math.abs(totals.difference), format, data.currencyOverride)}</p>` : ''}</div>`;
+    const multiPageClass = data.entries.length > 24 ? ' accounting-multipage' : '';
+    return `<div class="accounting-block${multiPageClass}"><table><caption>${escapeHtml(data.title || 'General Journal')}</caption><thead><tr><th>Date</th><th>Details</th><th>Folio</th><th class="number">Debit</th><th class="number">Credit</th></tr></thead><tbody>${data.entries.map((entry) => `<tr><td>${escapeHtml(entry.date)}</td><th scope="row">${escapeHtml(entry.details)}</th><td>${escapeHtml(entry.folio || '')}</td><td class="number">${formatAccountingNumber(entry.debit ?? 0, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(entry.credit ?? 0, format, data.currencyOverride)}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="3">Total</th><td class="number">${formatAccountingNumber(totals.debit, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(totals.credit, format, data.currencyOverride)}</td></tr></tfoot></table>${data.validateBalance && !totals.balanced ? `<p class="accounting-warning">Out of balance by ${formatAccountingNumber(Math.abs(totals.difference), format, data.currencyOverride)}</p>` : ''}</div>`;
   }
   if (block.type === 'trial-balance' && block.trialBalanceData) {
     const data = block.trialBalanceData;
@@ -87,6 +88,106 @@ function renderAccountingForExport(block: ContentBlock, project: BookProject): s
   }
   if (block.tableData) return `<div class="accounting-block"><table><thead><tr>${block.tableData.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${block.tableData.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   return '';
+}
+
+export interface AccountingDocumentTable {
+  title: string;
+  headers: string[];
+  rows: string[][];
+}
+
+export function accountingRowsForDocument(
+  block: ContentBlock,
+  project: BookProject,
+): AccountingDocumentTable | undefined {
+  const format = project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT;
+  if (block.type === 'journal-entry' && block.journalEntryData) {
+    const data = block.journalEntryData;
+    const totals = journalTotals(data);
+    return {
+      title: data.title || 'General Journal',
+      headers: ['Date', 'Details', 'Folio', 'Debit', 'Credit'],
+      rows: [
+        ...data.entries.map(entry => [
+          entry.date,
+          entry.details,
+          entry.folio || '',
+          formatAccountingNumber(entry.debit ?? 0, format, data.currencyOverride),
+          formatAccountingNumber(entry.credit ?? 0, format, data.currencyOverride),
+        ]),
+        [
+          '',
+          totals.balanced ? 'Total' : 'Total — out of balance',
+          '',
+          formatAccountingNumber(totals.debit, format, data.currencyOverride),
+          formatAccountingNumber(totals.credit, format, data.currencyOverride),
+        ],
+      ],
+    };
+  }
+  if (block.type === 'trial-balance' && block.trialBalanceData) {
+    const data = block.trialBalanceData;
+    const totals = trialBalanceTotals(data);
+    return {
+      title: data.title || 'Trial Balance',
+      headers: ['Account', 'Debit balance', 'Credit balance'],
+      rows: [
+        ...data.rows.map(row => [
+          row.accountName,
+          formatAccountingNumber(row.debit ?? 0, format, data.currencyOverride),
+          formatAccountingNumber(row.credit ?? 0, format, data.currencyOverride),
+        ]),
+        [
+          totals.balanced ? 'Total' : 'Total — out of balance',
+          formatAccountingNumber(totals.debit, format, data.currencyOverride),
+          formatAccountingNumber(totals.credit, format, data.currencyOverride),
+        ],
+      ],
+    };
+  }
+  if (block.type === 'financial-statement' && block.financialStatementData) {
+    const data = block.financialStatementData;
+    return {
+      title: [data.title || data.statementType.replace(/-/g, ' '), data.period].filter(Boolean).join(' — '),
+      headers: ['Item', 'Amount'],
+      rows: data.rows.map(row => [
+        `${'  '.repeat(row.level ?? 0)}${row.label}`,
+        row.amount === undefined ? '' : formatAccountingNumber(row.amount, format, data.currencyOverride),
+      ]),
+    };
+  }
+  if (block.type === 'ledger' && block.ledgerData) {
+    return {
+      title: block.text || 'Ledger / T-account',
+      headers: ['Date', 'Account', 'Debit', 'Credit', 'Notes'],
+      rows: block.ledgerData.map(row => [
+        row.date,
+        row.account,
+        row.debit,
+        row.credit,
+        row.notes || '',
+      ]),
+    };
+  }
+  if (block.tableData && ['accounting-table', 'table'].includes(block.type)) {
+    return {
+      title: block.tableData.title || block.text || 'Accounting table',
+      headers: block.tableData.headers,
+      rows: block.tableData.rows,
+    };
+  }
+  return undefined;
+}
+
+const escapeMarkdownCell = (value: string) => value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
+export function renderAccountingMarkdown(block: ContentBlock, project: BookProject): string {
+  const table = accountingRowsForDocument(block, project);
+  if (!table) return block.text ? `${block.text}\n\n` : '';
+  const header = `| ${table.headers.map(escapeMarkdownCell).join(' | ')} |`;
+  const divider = `| ${table.headers.map(() => '---').join(' | ')} |`;
+  const rows = table.rows.map(row => `| ${row.map(value => escapeMarkdownCell(value)).join(' | ')} |`).join('\n');
+  return `### ${table.title}\n\n${header}\n${divider}\n${rows}\n\n`;
 }
 
 /**
@@ -268,11 +369,6 @@ export function exportToPDF(project: BookProject) {
 <head>
   <meta charset="UTF-8">
   <title>${project.title} - Book PDF Compilation</title>
-  ${getGoogleFontsHTMLForExport([
-    exportSettings.googleSerifFont || '', 
-    exportSettings.googleSansFont || '',
-    exportSettings.fontPairing || ''
-  ])}
   <style>
     @page {
       size: ${pageSizeCss} ${orientation};
@@ -515,6 +611,7 @@ export function exportToPDF(project: BookProject) {
       overflow-wrap: anywhere;
     }
     .math-inline { display: inline; margin: 0 0.15em; }
+    .math-block.math-boxed math { display: inline-block; border: 1px solid currentColor; padding: 0.2em 0.35em; }
     .equation-number { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
     .math-warning, .accounting-warning {
       border: 1px solid #b45309;
@@ -524,14 +621,18 @@ export function exportToPDF(project: BookProject) {
       break-inside: avoid;
     }
     .accounting-block { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+    .accounting-block.accounting-multipage { break-inside: auto; page-break-inside: auto; }
     .accounting-block table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .accounting-block thead { display: table-header-group; }
+    .accounting-block tfoot { display: table-footer-group; }
+    .accounting-block tr { break-inside: avoid; page-break-inside: avoid; }
     .accounting-block caption { font-weight: 700; padding: 0.4rem; }
     .accounting-block caption small { display: block; font-weight: 400; }
     .accounting-block th, .accounting-block td { border: 1px solid #777; padding: 0.35rem; }
     .accounting-block .number { text-align: right; white-space: nowrap; }
     .accounting-block tfoot { border-top: 3px double #111; border-bottom: 3px double #111; font-weight: 700; }
     .accounting-block tr.total, .accounting-block tr.double-total { font-weight: 700; }
-    .accounting-block tr.double-total td { border-top: 3px double #111; border-bottom: 3px double #111; }
+    .accounting-block tr.double-total th, .accounting-block tr.double-total td { border-top: 3px double #111; border-bottom: 3px double #111; }
 
     table.ledger-table, table.data-table {
       width: 100%;
@@ -1283,7 +1384,9 @@ export function exportToMarkdown(project: BookProject) {
         const source = mathSourceForBlock(block);
         md += block.type === 'math-inline' ? `$${source}$\n\n` : `$$\n${source}\n$$\n\n`;
       }
-      else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'].includes(block.type)) md += `${block.text}\n\n`;
+      else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement', 'ledger'].includes(block.type)) {
+        md += renderAccountingMarkdown(block, project);
+      }
       else if (block.type === 'pagebreak') md += `\n---\n\n`;
       else if (block.type === 'scene-break') md += `\n${sceneBreakMark(resolveSceneBreak(block)) || '***'}\n\n`;
       else if (block.type === 'image') {
@@ -1550,7 +1653,7 @@ export async function saveToLocalDiskInDocuments(project: BookProject): Promise<
  * Export project as a Microsoft Word document (.docx)
  */
 export async function exportToWordDocx(project: BookProject): Promise<void> {
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
   const typography = getEffectiveTypography({
     typography: resolveProjectTypography(project),
     pageSize: project.exportSettings.trimSize,
@@ -1819,6 +1922,44 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
             spacing: { before: 140, after: 140 }
           })
         );
+      } else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement', 'ledger'].includes(block.type)) {
+        const accountingTable = accountingRowsForDocument(block, project);
+        if (accountingTable) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: accountingTable.title, bold: true, size: 22 })],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 180, after: 100 },
+              keepNext: true,
+            }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  tableHeader: true,
+                  children: accountingTable.headers.map(header => new TableCell({
+                    children: [new Paragraph({
+                      children: [new TextRun({ text: header, bold: true, size: 18 })],
+                    })],
+                  })),
+                }),
+                ...accountingTable.rows.map((row, rowIndex) => new TableRow({
+                  cantSplit: true,
+                  children: row.map(value => new TableCell({
+                    children: [new Paragraph({
+                      children: [new TextRun({
+                        text: value,
+                        bold: rowIndex === accountingTable.rows.length - 1 &&
+                          ['journal-entry', 'trial-balance'].includes(block.type),
+                        size: 18,
+                      })],
+                    })],
+                  })),
+                })),
+              ],
+            }),
+          );
+        }
       } else if (block.type === 'pagebreak') {
         children.push(
           new Paragraph({

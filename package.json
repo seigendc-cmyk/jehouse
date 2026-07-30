@@ -11,6 +11,8 @@
     "build": "npm run build:client && npm run build:pwa && npm run build:server",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
+    "qa:fixture": "tsx qa/scripts/generateMathAccountingQaFixture.ts",
+    "qa:production": "npm run qa:fixture && npm run build && node qa/scripts/runProductionQa.mjs",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
