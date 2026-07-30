@@ -27,6 +27,12 @@ import {
 import { BookProject, BookCategory, Chapter, ContentBlock } from '../types';
 
 import { createEmptyBookProject } from '../data/createEmptyBookProject';
+import {
+  createWorkbookTemplateChapters,
+  WorkbookTemplateId
+} from '../features/mathAccounting';
+
+type ProjectTemplateId = 'blank' | 'fiction' | 'nonfiction' | 'educational' | 'ai' | WorkbookTemplateId;
 
 interface ProjectManagerModalProps {
   isOpen: boolean;
@@ -67,7 +73,7 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   const [newSubtitle, setNewSubtitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
   const [newCategory, setNewCategory] = useState<BookCategory>('Fiction & Literature');
-  const [selectedTemplate, setSelectedTemplate] = useState<'blank' | 'fiction' | 'nonfiction' | 'educational' | 'ai'>('blank');
+  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplateId>('blank');
   
   // AI Outline Generator State
   const [aiPrompt, setAiPrompt] = useState('');
@@ -115,7 +121,18 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       }
     ];
 
-    if (selectedTemplate === 'fiction') {
+    if ([
+      'mathematics-workbook',
+      'accounting-workbook',
+      'teacher-mathematics',
+      'teacher-accounting'
+    ].includes(selectedTemplate)) {
+      let sequence = 0;
+      chapters = createWorkbookTemplateChapters(
+        selectedTemplate as WorkbookTemplateId,
+        (prefix) => `${prefix}-${Date.now()}-${++sequence}`
+      );
+    } else if (selectedTemplate === 'fiction') {
       chapters = [
         {
           id: `ch-1-${Date.now()}`,
@@ -632,6 +649,26 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       <div className="text-[10px] text-[#c9a59b]">Fresh canvas</div>
                     </div>
                   </button>
+                  {([
+                    ['mathematics-workbook', 'Mathematics Workbook', 'Worked methods and practice'],
+                    ['accounting-workbook', 'Accounting Workbook', 'Journals through statements'],
+                    ['teacher-mathematics', 'Teacher Mathematics Edition', 'Guidance and marking notes'],
+                    ['teacher-accounting', 'Teacher Accounting Edition', 'Validation-led teaching']
+                  ] as const).map(([id, label, description]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => { setSelectedTemplate(id); setNewCategory(id.includes('mathematics') ? 'Science, Tech & Math' : 'Academic & Textbook'); }}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        selectedTemplate === id
+                          ? 'bg-orange-600/20 border-orange-500 text-orange-300'
+                          : 'bg-[#381916] border-[#56241e] text-[#ebd3ca] hover:border-orange-500/40'
+                      }`}
+                    >
+                      <GraduationCap className="w-5 h-5 mb-2 text-orange-400" />
+                      <div><div className="font-bold text-xs">{label}</div><div className="text-[10px] text-[#c9a59b]">{description}</div></div>
+                    </button>
+                  ))}
 
                   <button
                     type="button"

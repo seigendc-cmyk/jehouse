@@ -14,7 +14,9 @@ const chromeProfile = path.join(os.tmpdir(), `presscraft-production-qa-${process
 const baseUrl = 'http://localhost:3000';
 const debugPort = 9333;
 
-const chromeCandidates = process.platform === 'win32'
+const chromeCandidates = process.env.PRESSCRAFT_QA_BROWSER
+  ? [process.env.PRESSCRAFT_QA_BROWSER]
+  : process.platform === 'win32'
   ? [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
@@ -431,6 +433,33 @@ try {
   await waitForText(main, 'Core equation forms');
 
   report.checks.initialFixtureLoad = true;
+  step('checking author mathematics and accounting workspace');
+  await clickText(main, 'Insert');
+  await waitForText(main, 'Paste Worked Problem');
+  const workspaceCommands = [
+    'Paste Worked Problem', 'Insert Inline Equation', 'Insert Display Equation',
+    'Insert Aligned Working', 'Insert Boxed Answer', 'Insert Formula',
+    'Insert Journal Entry', 'Insert Ledger', 'Insert Trial Balance',
+    'Insert Financial Statement', 'Validate Current Block',
+    'Run Chapter Preflight', 'Preview Print Layout',
+  ];
+  report.checks.authorWorkspaceCommands = await evaluate(
+    main,
+    `(${JSON.stringify(workspaceCommands)}).every(label =>
+      [...document.querySelectorAll('.pc-ribbon-button')].some(button => button.innerText.includes(label)))`,
+  );
+  await screenshot(main, 'author-workspace-ribbon.png');
+  report.screenshots.push('author-workspace-ribbon.png');
+  await clickText(main, 'Paste Worked Problem');
+  await waitForText(main, 'Detect Structure');
+  report.checks.pasteWorkedProblemPanel = await evaluate(
+    main,
+    `Boolean(document.querySelector('[aria-labelledby="paste-worked-problem-title"] textarea'))`,
+  );
+  await screenshot(main, 'paste-worked-problem-panel.png');
+  report.screenshots.push('paste-worked-problem-panel.png');
+  await clickText(main, 'Cancel');
+
   step('checking editor mathematics');
   const nestedFractionSource = '\\frac{1}{1+\\frac{1}{1+\\frac{1}{x}}}';
   report.checks.knownFractionRendered = await evaluate(
@@ -737,6 +766,8 @@ try {
   const requiredBooleanChecks = [
     'serviceWorkerReady',
     'initialFixtureLoad',
+    'authorWorkspaceCommands',
+    'pasteWorkedProblemPanel',
     'knownFractionRendered',
     'boxedAnswerRendered',
     'invalidEquationFallback',
