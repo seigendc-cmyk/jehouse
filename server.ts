@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer as createHttpServer } from "node:http";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -7,6 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+const httpServer = createHttpServer(app);
 const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
@@ -488,7 +490,12 @@ Return a valid JSON object matching this structure EXACTLY (no markdown backtick
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -500,7 +507,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`PressCraft Studio server running on http://localhost:${PORT}`);
   });
 }
