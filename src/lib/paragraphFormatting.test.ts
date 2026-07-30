@@ -21,6 +21,6 @@ describe('paragraph formatting',()=>{
  it('migrates schema 3 paragraph data to Legacy idempotently without content or ID changes',()=>{
    const project=createEmptyBookProject(); const stored=wrapLegacyProject(project) as any; stored.schemaVersion=3; delete stored.project.typography.paragraphs.schemaVersion;
    const before=structuredClone(stored.project.chapters); const migrated=migrateStoredProject(stored);
-   expect(migrated?.schemaVersion).toBe(5);expect(migrated?.project.typography?.paragraphs.presetId).toBe('legacy');expect(migrated?.project.chapters).toEqual(before);expect(migrateStoredProject(migrated)).toEqual(migrated);
+   expect(migrated?.schemaVersion).toBe(6);expect(migrated?.project.typography?.paragraphs.presetId).toBe('legacy');expect(migrated?.project.chapters).toEqual(before);expect(migrateStoredProject(migrated)).toEqual(migrated);
  });
 });

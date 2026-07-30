@@ -8,6 +8,14 @@ import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss,
 import { paragraphFormattingWithDropCap, resolveDropCapFormatting } from '../lib/dropCaps';
 import { DropCapText } from './DropCapText';
 import { resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign } from '../lib/sceneBreak';
+import { AccountingBlock } from './blocks/AccountingBlock';
+import { createMathData, mathSourceForBlock } from '../lib/mathValidation';
+import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
+import { BlockType } from '../types';
+
+const EquationRenderer = React.lazy(() =>
+  import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
+);
 
 interface FocusModeProps {
   chapter: Chapter;
@@ -136,6 +144,31 @@ export const FocusMode: React.FC<FocusModeProps> = ({
           {chapter.blocks.map((block, idx) => {
             const isFocused = focusedBlockIdx === idx;
             if(block.type==='scene-break'){const s=resolveSceneBreak(block);return <div key={block.id} role="separator" aria-label="Scene break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`,breakAfter:s.keepWithNext?'avoid':undefined}}>{s.style==='rule'?<hr />:<span aria-hidden={s.style!=='custom'}>{s.style==='whitespace'?'':sceneBreakMark(s)}</span>}</div>;}
+            if ((['latex', 'math-inline', 'math-display', 'math-aligned', 'formula'] as BlockType[]).includes(block.type)) {
+              return (
+                <div key={block.id} className="rounded border border-transparent p-2 hover:border-orange-400" onClick={() => setFocusedBlockIdx(idx)}>
+                  {isFocused ? (
+                    <div className="space-y-2">
+                      <textarea
+                        aria-label="Edit LaTeX source"
+                        className="w-full rounded border bg-transparent p-2 font-mono text-sm"
+                        value={mathSourceForBlock(block)}
+                        onChange={(event) => {
+                          const source = event.target.value;
+                          const mode = block.type === 'math-inline' ? 'inline' : block.type === 'math-aligned' ? 'aligned' : 'display';
+                          const updatedBlocks = chapter.blocks.map((item) => item.id === block.id ? { ...item, latexFormula: source, mathData: createMathData(source, mode) } : item);
+                          onUpdateChapter({ ...chapter, blocks: updatedBlocks });
+                        }}
+                      />
+                      <React.Suspense fallback={<span className="font-mono text-sm">{mathSourceForBlock(block)}</span>}><EquationRenderer data={block.mathData} formula={mathSourceForBlock(block)} displayMode={block.type !== 'math-inline'} /></React.Suspense>
+                    </div>
+                  ) : <React.Suspense fallback={<span className="font-mono text-sm">{mathSourceForBlock(block)}</span>}><EquationRenderer data={block.mathData} formula={mathSourceForBlock(block)} displayMode={block.type !== 'math-inline'} /></React.Suspense>}
+                </div>
+              );
+            }
+            if ((['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'] as BlockType[]).includes(block.type)) {
+              return <div key={block.id} onClick={() => setFocusedBlockIdx(idx)}><AccountingBlock block={block} format={DEFAULT_ACCOUNTING_FORMAT} readOnly /></div>;
+            }
 
             const paragraphFormatting=resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography);
             const dropCap=resolveDropCapFormatting({block,blocks:chapter.blocks,index:idx,typography:effectiveTypography,palette,paragraphFormatting});

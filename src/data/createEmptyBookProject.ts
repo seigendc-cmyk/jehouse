@@ -1,6 +1,7 @@
 import { BookCategory, BookProject } from '../types';
 import { getDefaultTypography } from '../lib/bookTypography';
 import { createColourSettings } from '../lib/bookColours';
+import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 
 export interface EmptyBookProjectOptions {
   title?: string;
@@ -106,6 +107,13 @@ export function createEmptyBookProject(
       enableHyphenation: true,
       autoHyphenation: true
     },
+    mathPublishing: {
+      renderer: 'katex',
+      rendererVersion: '0.18.1',
+      invalidMathPolicy: 'block-export',
+      allowedCommandsProfile: 'safe-default'
+    },
+    accountingFormat: structuredClone(DEFAULT_ACCOUNTING_FORMAT),
     typography,
     colourSettings: createColourSettings(typography),
     headerFooter: {

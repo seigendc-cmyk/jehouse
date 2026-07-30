@@ -1025,6 +1025,8 @@ export default function App() {
               chapter={activeChapter}
               typography={project.typography}
               colourSettings={project.colourSettings}
+              accountingFormat={project.accountingFormat}
+              onUpdateAccountingFormat={(accountingFormat) => handleUpdateProject({ accountingFormat })}
               watermark={project.watermark}
               trimSize={project.exportSettings.trimSize}
               headerFooter={project.headerFooter}

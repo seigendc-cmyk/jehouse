@@ -1,6 +1,6 @@
 import { BookProject } from '../types';
 
-export const PROJECT_SCHEMA_VERSION = 5;
+export const PROJECT_SCHEMA_VERSION = 6;
 
 export type SyncStatus =
   | 'local-only'
