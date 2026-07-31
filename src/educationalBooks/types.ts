@@ -310,9 +310,16 @@ export interface EducationalPage {
 
   // 3D Printing Dynamics Data
   threeDPrintingData?: ThreeDPrintingData;
-  
+   
   // Custom teacher notes
   teacherTip?: string;
+
+  // Academic Context Snapshot
+  academicContextSnapshot?: {
+    educationLevel: string;
+    gradeLabel: string;
+    subjectLabel: string;
+  };
 }
 
 export interface EducationalBookProject {

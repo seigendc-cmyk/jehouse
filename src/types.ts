@@ -638,6 +638,18 @@ export interface ProjectAsset {
   height?: number;
 }
 
+export interface WorkbookAcademicContext {
+  curriculumId?: string;
+  educationLevel: string;
+  gradeId?: string;
+  gradeLabel: string;
+  subjectId?: string;
+  subjectLabel: string;
+  customLevelLabel?: string;
+  customGradeLabel?: string;
+  customSubjectLabel?: string;
+}
+
 export interface BookProject {
   id: string;
   title: string;
@@ -679,4 +691,7 @@ export interface BookProject {
   isReviewModeActive?: boolean;
 
   showReviewMarkup?: boolean;
+
+  // Authoritative Academic Context
+  academicContext?: WorkbookAcademicContext;
 }

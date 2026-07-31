@@ -1,4 +1,4 @@
-import { BookCategory, BookProject } from '../types';
+import { BookCategory, BookProject, WorkbookAcademicContext } from '../types';
 import { getDefaultTypography } from '../lib/bookTypography';
 import { createColourSettings } from '../lib/bookColours';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
@@ -131,6 +131,11 @@ export function createEmptyBookProject(
     assets: [],
     bibliography: [],
     isReviewModeActive: false,
-    showReviewMarkup: true
+    showReviewMarkup: true,
+    academicContext: {
+      educationLevel: 'Primary',
+      gradeLabel: 'Unspecified Grade',
+      subjectLabel: 'Unspecified Subject'
+    }
   };
 }
