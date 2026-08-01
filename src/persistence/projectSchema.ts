@@ -115,10 +115,10 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
         };
         break;
       }
-      case 6:
+      case 5:
         migrated = {
           ...migrated,
-          schemaVersion: 7,
+          schemaVersion: 6,
           project: {
             ...migrated.project,
             mathPublishing: migrated.project.mathPublishing ?? {
@@ -127,23 +127,7 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
               invalidMathPolicy: 'block-export',
               allowedCommandsProfile: 'safe-default'
             },
-            accountingFormat: migrated.project.accountingFormat ?? structuredClone(DEFAULT_ACCOUNTING_FORMAT),
-            academicContext: (() => {
-              const p = migrated.project;
-              const existingLevel = (p as BookProject & { gradeLevel?: unknown; level?: unknown }).gradeLevel ?? (p as BookProject & { level?: unknown }).level;
-              const existingGrade = (p as BookProject & { selectedGrade?: unknown; grade?: unknown }).selectedGrade ?? (p as BookProject & { grade?: unknown }).grade;
-              const existingSubject = (p as BookProject & { selectedSubject?: unknown; subject?: unknown }).selectedSubject ?? (p as BookProject & { subject?: unknown }).subject;
-              const existingCourse = (p as BookProject & { course?: unknown }).course;
-              const existingCategory = (p as BookProject & { category?: unknown }).category;
-              return {
-                educationLevel: typeof existingLevel === 'string' && existingLevel.length > 0 ? existingLevel : (typeof existingCourse === 'string' && existingCourse.length > 0 ? existingCourse : 'Primary'),
-                gradeLabel: typeof existingGrade === 'string' && existingGrade.length > 0 ? existingGrade : (existingLevel === 'zimsec_primary' ? 'Grade 6' : existingLevel === 'zimsec_secondary' ? 'Form 3' : existingLevel === 'zimsec_a_level' ? 'Lower Sixth' : 'Unspecified Grade'),
-                subjectLabel: typeof existingSubject === 'string' && existingSubject.length > 0 ? existingSubject : (typeof existingCategory === 'string' && existingCategory.length > 0 ? existingCategory : 'Unspecified Subject'),
-                customLevelLabel: typeof existingLevel === 'string' && existingLevel.length > 0 ? undefined : 'Primary',
-                customGradeLabel: typeof existingGrade === 'string' && existingGrade.length > 0 ? undefined : undefined,
-                customSubjectLabel: typeof existingSubject === 'string' && existingSubject.length > 0 ? undefined : undefined
-              };
-            })()
+            accountingFormat: migrated.project.accountingFormat ?? structuredClone(DEFAULT_ACCOUNTING_FORMAT)
           }
         };
         break;
