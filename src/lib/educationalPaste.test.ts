@@ -66,6 +66,14 @@ describe('educational paste normalization', () => {
     expect(result.blocks[0].journalEntryData?.entries[0]).toMatchObject({ details: 'Cash', debit: 100 });
   });
 
+  it('imports Markdown lists as shared structural metadata with marker-free text', () => {
+    const result = normalizeEducationalPaste('3. Third\n4. Fourth\n  - Nested');
+    expect(result.blocks.map(block => block.text)).toEqual(['Third', 'Fourth', 'Nested']);
+    expect(result.blocks[0].listFormatting).toMatchObject({ type: 'ordered', startAt: 3, restart: true });
+    expect(result.blocks[1].listFormatting?.listId).toBe(result.blocks[0].listFormatting?.listId);
+    expect(result.blocks[2].listFormatting).toMatchObject({ type: 'unordered', level: 1 });
+  });
+
   it('records the complete transformation as one undoable editor transaction', () => {
     const project = createEmptyBookProject();
     const before = project;

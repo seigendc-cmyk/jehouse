@@ -19,6 +19,7 @@ import { mathSourceForBlock, validateMathSource } from './mathValidation';
 import { isMathBlock, runPublishingPreflight } from './publishingPreflight';
 import { createBookDataPack, validateBookDataPackCompatibility } from './bookDataPack';
 import { DEFAULT_ACCOUNTING_FORMAT, formatAccountingNumber, journalTotals, trialBalanceTotals } from './accounting';
+import { renderListBlockMarkdown, renderListRunHtml, resolveStructuredLists } from './structuredLists';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -1178,7 +1179,14 @@ export function exportToEPUB(project: BookProject) {
       return b;
     });
 
+    const epubLists = resolveStructuredLists(blocksWithImages, {accent:palette.colours.accent,body:palette.colours.bodyText});
+    const renderedEpubListIds = new Set<string>();
     const chapterHtml = blocksWithImages.map((b, blockIndex) => {
+      if (b.listFormatting) {
+        if (renderedEpubListIds.has(b.listFormatting.listId)) return '';
+        renderedEpubListIds.add(b.listFormatting.listId);
+        return renderListRunHtml(blocksWithImages.filter(candidate => candidate.listFormatting?.listId === b.listFormatting?.listId), epubLists);
+      }
       if (b.type === 'scene-break') return sceneBreakHtml(b);
       if (b.type === 'image' || b.imageUrl) {
         const src = resolveImageSrc(b);
@@ -1364,6 +1372,7 @@ export function exportToMarkdown(project: BookProject) {
   }
 
   project.chapters.forEach((ch) => {
+    const resolvedLists = resolveStructuredLists(ch.blocks);
     md += `## ${getChapterDisplayLabel(ch.number, ch.title)}\n`;
     if (ch.seasonNumber || ch.episodeNumber) {
       md += `*Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}*\n\n`;
@@ -1374,7 +1383,9 @@ export function exportToMarkdown(project: BookProject) {
     }
 
     ch.blocks.forEach((block) => {
-      if (block.type === 'heading') md += `### ${block.text}\n\n`;
+      const listItem = resolvedLists.get(block.id);
+      if (listItem) md += `${renderListBlockMarkdown(block, listItem)}\n`;
+      else if (block.type === 'heading') md += `### ${block.text}\n\n`;
       else if (block.type === 'subheading') md += `#### ${block.text}\n\n`;
       else if (block.type === 'clause') md += `**${block.text}**\n\n`;
       else if (block.type === 'quote') md += `> ${block.text}\n\n`;
@@ -1527,7 +1538,17 @@ export function exportToHTML(project: BookProject) {
     if (ch.seasonNumber || ch.episodeNumber) {
       html += `    <div class="episode-tag">Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}</div>\n`;
     }
+    const resolvedLists = resolveStructuredLists(ch.blocks, {accent:palette.colours.accent,body:palette.colours.bodyText});
+    const renderedListIds = new Set<string>();
     ch.blocks.forEach((block) => {
+      if (block.listFormatting) {
+        if (!renderedListIds.has(block.listFormatting.listId)) {
+          const run = ch.blocks.filter(candidate => candidate.listFormatting?.listId === block.listFormatting?.listId);
+          html += `    ${renderListRunHtml(run, resolvedLists)}\n`;
+          renderedListIds.add(block.listFormatting.listId);
+        }
+        return;
+      }
       const colour = resolveBlockTextColour(block, palette);
       const blockIndex=ch.blocks.indexOf(block),rawPf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index:blockIndex,typography,palette,paragraphFormatting:rawPf}),pf=paragraphFormattingWithDropCap(rawPf,dropCap),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (block.type === 'scene-break') html += `    ${sceneBreakHtml(block)}\n`;
@@ -1837,7 +1858,16 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
       const pf=paragraphFormattingWithDropCap(rawPf,dropCap);
       const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
       const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
-      if (block.type === 'scene-break') {
+      if (block.listFormatting) {
+        const item = resolveStructuredLists(ch.blocks, {accent:palette.colours.accent,body:palette.colours.bodyText}).get(block.id)!;
+        children.push(new Paragraph({
+          children: [new TextRun({ text: block.text, size: 24, color: blockColour })],
+          bullet: block.listFormatting.type === 'unordered' ? { level: item.level } : undefined,
+          numbering: block.listFormatting.type === 'ordered' ? { reference: block.listFormatting.listId, level: item.level } : undefined,
+          spacing: { before: Math.round(item.spacingBeforePt * 20), after: Math.round(item.spacingAfterPt * 20) },
+          keepNext: item.keepWithNext
+        }));
+      } else if (block.type === 'scene-break') {
         const s=resolveSceneBreak(block);
         children.push(new Paragraph({
           children:[new TextRun({text:s.style==='rule'?'────────':sceneBreakMark(s)})],
@@ -1986,6 +2016,12 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
   });
 
   const doc = new Document({
+    numbering: {
+      config: Array.from(new Set(project.chapters.flatMap(chapter => chapter.blocks.filter(block => block.listFormatting?.type === 'ordered').map(block => block.listFormatting!.listId)))).map(reference => ({
+        reference,
+        levels: Array.from({length: 5}, (_, level) => ({ level, format: 'decimal' as const, text: `%${level + 1}.`, alignment: AlignmentType.LEFT }))
+      }))
+    },
     sections: [
       {
         properties: {},

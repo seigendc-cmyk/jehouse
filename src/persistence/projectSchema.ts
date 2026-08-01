@@ -168,7 +168,7 @@ export function wrapLegacyProject(
         },
         accountingFormat: project.accountingFormat ?? structuredClone(DEFAULT_ACCOUNTING_FORMAT),
         academicContext: project.academicContext ?? {
-          educationLevel: (project as BookProject & { gradeLevel?: unknown }).gradeLevel ?? 'Primary',
+          educationLevel: String((project as BookProject & { gradeLevel?: unknown }).gradeLevel ?? 'Primary'),
           gradeLabel: 'Unspecified Grade',
           subjectLabel: 'Unspecified Subject'
         }

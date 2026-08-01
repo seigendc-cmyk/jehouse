@@ -19,8 +19,8 @@ export function translateEducationLevelToGradeLevel(educationLevel: string): Gra
     case 'Secondary': return 'middle';
     case 'Advanced Level': return 'zimsec_a_level';
     case 'Early Childhood Development': return 'primary';
-    case 'Tertiary': return 'secondary';
-    case 'Professional': return 'secondary';
+    case 'Tertiary': return 'high';
+    case 'Professional': return 'high';
     case 'Custom': return 'primary';
     default: return 'primary';
   }

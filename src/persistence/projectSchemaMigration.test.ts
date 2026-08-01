@@ -82,6 +82,17 @@ describe('stored-project migration compatibility', () => {
     expect(migrateStoredProject(before)?.project.chapters[0].blocks).toEqual(blocks);
   });
 
+  it('preserves semantic list identity and metadata without changing schema 6', () => {
+    const record = historicalRecord(6);
+    record.project.chapters[0].blocks[0].listFormatting = { listId: 'stable-list', type: 'ordered', level: 2, startAt: 4, restart: true };
+    const migrated = migrateStoredProject(record)!;
+    expect(migrated.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
+    expect(migrated.project.chapters[0].blocks[0]).toMatchObject({
+      id: 'paragraph-one', text: 'Preserve this manuscript text.',
+      listFormatting: { listId: 'stable-list', type: 'ordered', level: 2, startAt: 4, restart: true }
+    });
+  });
+
   it('preserves page dimensions and margins', () => {
     const before = historicalRecord(3);
     const page = structuredClone(before.project.pageSize);

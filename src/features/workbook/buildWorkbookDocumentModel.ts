@@ -1,4 +1,5 @@
-import { BookProject, ContentBlock, EducationalPage } from '../../types';
+import { BookProject, ContentBlock } from '../../types';
+import type { EducationalPage } from '../../educationalBooks/types';
 import { WorkbookAcademicContext } from '../../types';
 import { createDefaultAcademicContext } from './workbookAcademicContext';
 
@@ -167,7 +168,11 @@ function extractActivityFromPage(page: EducationalPage): WorkbookDocumentActivit
     type: page.type,
     title: page.title,
     instructions: page.instructions ?? '',
-    contentBlocks: (page.contentBlocks ?? []).map(normalizeContentBlock),
+    contentBlocks: (page.contentBlocks ?? []).map(block => normalizeContentBlock({
+      id: block.id,
+      type: block.type === 'subheading' || block.type === 'callout' ? block.type : block.type === 'bullet_list' ? 'item' : 'paragraph',
+      text: block.content || block.title || '',
+    })),
     answerKey: undefined,
     academicContextSnapshot: {
       educationLevel: '',

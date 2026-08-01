@@ -40,6 +40,7 @@ import { AccountingBlock } from './blocks/AccountingBlock';
 import { mathSourceForBlock } from '../lib/mathValidation';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 import { BlockType } from '../types';
+import { resolveStructuredLists } from '../lib/structuredLists';
 
 const EquationRenderer = React.lazy(() =>
   import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
@@ -621,6 +622,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                         const paragraphFormatting=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,index),isFirstQualifyingParagraph(ch.blocks,index)?0:index,effectiveTypography);
                         const dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index,typography:effectiveTypography,palette:colourPalette,paragraphFormatting});
                         const ps=paragraphCss(paragraphFormattingWithDropCap(paragraphFormatting,dropCap));
+                        const listItem=resolveStructuredLists(ch.blocks,{accent:colourPalette.colours.accent,body:colourPalette.colours.bodyText}).get(block.id);
                         if (block.type === 'heading') return <h2 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-lg font-bold font-serif">{block.text}</h2>;
                         if (block.type === 'subheading') return <h3 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-base font-semibold font-serif">{block.text}</h3>;
                         if (block.type === 'worked-example') return <h3 key={block.id} className="break-after-avoid border-l-4 border-orange-500 bg-orange-50 p-2 text-lg font-bold">{block.text}</h3>;
@@ -677,6 +679,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             </div>
                           );
                         }
+                        if(block.type==='paragraph'&&listItem)return <div key={block.id} role="listitem" aria-level={listItem.level+1} style={{display:'flex',paddingLeft:`${listItem.leftIndentPt}pt`,marginTop:`${listItem.spacingBeforePt}pt`,marginBottom:`${listItem.spacingAfterPt}pt`,color:resolveBlockTextColour(block,colourPalette)}}><span aria-hidden="true" style={{flex:'none',width:`${listItem.hangingIndentPt}pt`,marginRight:'6pt',textAlign:'right',color:listItem.markerColour,fontSize:`${listItem.markerSizePercent}%`}}>{listItem.markerText}</span><span>{block.text}</span></div>;
                         if(block.type==='paragraph')return <p key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}}><DropCapText text={block.text} resolved={dropCap}/></p>;
                         return <p key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}}>{block.text}</p>;
                       })}

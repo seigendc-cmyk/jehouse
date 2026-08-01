@@ -33,6 +33,9 @@ function renderNavbar(initialRibbonTab: 'home' | 'insert' = 'home') {
       activeDocumentLabel="Chapter 1: Introduction"
       isOnline={false}
       initialRibbonTab={initialRibbonTab}
+      canFormatList
+      activeListType="ordered"
+      onListCommand={noop}
     />
   );
 }
@@ -72,5 +75,19 @@ describe('professional application shell', () => {
       expect(markup).toContain(`>${label}</span>`);
     }
     expect(markup).toContain('Alt+Shift+M');
+  });
+
+  it('renders wired Home list commands with truthful active state', () => {
+    const markup = renderNavbar('home');
+    for (const label of ['Bullets', 'Numbering', 'Multilevel List', 'Decrease List Level', 'Increase List Level', 'Remove List Formatting']) {
+      expect(markup).toContain(`>${label}</span>`);
+    }
+    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain('Ctrl+Shift+7');
+  });
+
+  it('renders Insert list commands', () => {
+    const markup = renderNavbar('insert');
+    for (const label of ['Bulleted List', 'Numbered List', 'Multilevel List']) expect(markup).toContain(`>${label}</span>`);
   });
 });

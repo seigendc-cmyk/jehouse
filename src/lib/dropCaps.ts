@@ -61,7 +61,7 @@ export function resolveDropCapFormatting(input:{
     (settings.defaultContext==='chapter-and-scene'&&previous?.type==='scene-break') ||
     (settings.defaultContext==='chapter-scene-and-heading'&&['scene-break','heading','subheading'].includes(previous?.type??''))
   );
-  const eligible=block.type==='paragraph'&&block.text.trim().length>0;
+  const eligible=block.type==='paragraph'&&!block.listFormatting&&block.text.trim().length>0;
   const enabled=eligible&&(override?.enabled??contextual)&&override?.style!=='none';
   const opening=enabled?resolveFirstPrintableCharacter(block.text,override?.characterCount??settings.characterCount):null;
   const hangingConflict=paragraphFormatting.mode==='hanging';
@@ -80,7 +80,7 @@ export function resolveDropCapFormatting(input:{
     fontStyle:settings.fontStyle,colour,spacingRightPt:clamp(override?.spacingRightPt??settings.spacingRightPt,0,36),
     spacingTopPt:clamp(override?.spacingTopPt??settings.spacingTopPt,-18,36),
     baselineAdjustmentPt:clamp(settings.baselineAdjustmentPt,-18,18),opening,
-    reason:!eligible?'unsupported-block':hangingConflict?'hanging-indent-conflict':!opening?'no-printable-character':enabled?'enabled':'disabled'
+    reason:block.listFormatting?'list-item':!eligible?'unsupported-block':hangingConflict?'hanging-indent-conflict':!opening?'no-printable-character':enabled?'enabled':'disabled'
   };
 }
 
