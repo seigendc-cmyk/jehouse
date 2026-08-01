@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
+import { BookProject } from '../../types';
 import { EducationalBookProject, EducationalPage, PageType } from '../types';
 import { PRESET_EDUCATIONAL_BOOKS } from '../templates';
 import { PageEditor } from './PageEditor';
 import { WorksheetGeneratorPanel } from './WorksheetGeneratorPanel';
 import { EducationalBookPreview } from './EducationalBookPreview';
 import { MathRenderer } from './MathRenderer';
-import { 
-  GraduationCap, 
-  X, 
-  BookOpen, 
-  Plus, 
-  Wand2, 
-  Eye, 
-  KeyRound, 
-  Layers, 
+import { WorkbookHeader } from '../../features/workbook/WorkbookHeader';
+import {
+  translateGradeLevelToEducationLevel,
+  translateEducationLevelToGradeLevel,
+  resolveGradeLabelForLevel
+} from '../../features/workbook/workbookAcademicContext';
+import {
+  GraduationCap,
+  X,
+  BookOpen,
+  Plus,
+  Wand2,
+  Eye,
+  KeyRound,
+  Layers,
   Copy,
   ArrowUp,
   ArrowDown,
@@ -25,11 +32,15 @@ import {
 interface EducationalStudioModalProps {
   isOpen: boolean;
   onClose: () => void;
+  bookProject?: BookProject;
+  onUpdateBookProject?: (project: BookProject) => void;
 }
 
 export const EducationalStudioModal: React.FC<EducationalStudioModalProps> = ({
   isOpen,
   onClose,
+  bookProject,
+  onUpdateBookProject
 }) => {
   const [project, setProject] = useState<EducationalBookProject>(PRESET_EDUCATIONAL_BOOKS[0]);
   const [activeTab, setActiveTab] = useState<'pages' | 'builder' | 'preview' | 'answerKey'>('pages');
@@ -38,6 +49,104 @@ export const EducationalStudioModal: React.FC<EducationalStudioModalProps> = ({
   if (!isOpen) return null;
 
   const activePage = project.pages.find(p => p.id === selectedPageId) || project.pages[0];
+
+  const deriveBookProject = (eduProject: EducationalBookProject): BookProject => ({
+    id: eduProject.id,
+    title: eduProject.title,
+    subtitle: eduProject.subtitle,
+    author: eduProject.author,
+    category: 'Academic & Textbook' as BookProject['category'],
+    lastSaved: eduProject.createdDate,
+    cloudSynced: false,
+    chapters: eduProject.pages.map((page, idx) => ({
+      id: page.id,
+      number: page.chapterNumber ?? idx + 1,
+      title: page.chapterTitle ?? `Chapter ${idx + 1}`,
+      blocks: [{
+        id: page.id,
+        type: 'paragraph' as const,
+        text: page.title,
+        align: 'left' as const
+      }],
+      wordCount: 0
+    })),
+    cover: {
+      title: eduProject.title,
+      subtitle: eduProject.subtitle,
+      author: eduProject.author,
+      publisher: '',
+      coverBgColor: eduProject.coverColor ?? '#EA580C',
+      textColor: '#FFFFFF',
+      accentColor: '#C2410C',
+      spineWidthMm: 12,
+      backBlurb: '',
+      fullBleedImage: false,
+      imageOpacity: 100,
+      layoutStyle: 'modern-minimal'
+    },
+    frontMatter: {
+      includeTitlePage: true,
+      includeCopyright: false,
+      copyrightText: '',
+      isbn: '',
+      publisher: '',
+      includeDedication: false,
+      dedicationText: '',
+      includeForeword: false,
+      forewordAuthor: '',
+      forewordContent: '',
+      includeExecutiveSummary: false,
+      executiveSummaryContent: '',
+      includeTOC: true
+    },
+    watermark: {
+      enabled: false,
+      type: 'text',
+      text: 'DRAFT',
+      opacity: 0.08,
+      rotation: -35,
+      fontSize: 54
+    },
+    exportSettings: {
+      includeCover: true,
+      includeFrontMatter: true,
+      includeExecSummary: false,
+      includeTOC: true,
+      includeQuizzes: eduProject.includeAnswerKey,
+      includeWatermark: false,
+      includeFootnotes: true,
+      includeBibliography: false,
+      trimSize: '8.5x11',
+      fontPairing: 'Classic Serif',
+      marginPreset: 'standard',
+      showRunningHeader: true,
+      showPageNumbers: true,
+      enableHyphenation: true,
+      autoHyphenation: true
+    },
+    academicContext: {
+      educationLevel: translateGradeLevelToEducationLevel(eduProject.gradeLevel),
+      gradeId: undefined,
+      gradeLabel: resolveGradeLabelForLevel(eduProject.gradeLevel),
+      subjectId: undefined,
+      subjectLabel: eduProject.subject,
+      customLevelLabel: undefined,
+      customGradeLabel: undefined,
+      customSubjectLabel: undefined
+    }
+  });
+
+  const handleBookProjectUpdate = (updatedBookProject: BookProject) => {
+    const newContext = updatedBookProject.academicContext;
+    if (!newContext) return;
+    const newGradeLevel = translateEducationLevelToGradeLevel(newContext.educationLevel);
+    setProject(prev => ({
+      ...prev,
+      gradeLevel: newGradeLevel,
+      subject: newContext.subjectLabel,
+      academicContext: newContext
+    }));
+  };
 
   const handleUpdatePage = (updatedPage: EducationalPage) => {
     const updatedPages = project.pages.map(p => p.id === updatedPage.id ? updatedPage : p);
@@ -176,58 +285,66 @@ export const EducationalStudioModal: React.FC<EducationalStudioModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-      <div className="w-full max-w-6xl h-[92vh] bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        
-        {/* Studio Top Navbar */}
-        <header className="px-5 py-3.5 bg-zinc-900 border-b border-zinc-800 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-orange-500 text-black font-extrabold flex items-center justify-center">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={project.title}
-                  onChange={(e) => setProject({ ...project, title: e.target.value })}
-                  className="bg-transparent font-bold text-sm text-white focus:outline-hidden focus:ring-1 focus:ring-orange-500 rounded px-1"
-                />
+      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <div className="w-full max-w-6xl h-[92vh] bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          
+          {/* Studio Top Navbar */}
+          <header className="px-5 py-3.5 bg-zinc-900 border-b border-zinc-800 text-white flex flex-col gap-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-orange-500 text-black font-extrabold flex items-center justify-center">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={project.title}
+                      onChange={(e) => setProject({ ...project, title: e.target.value })}
+                      className="bg-transparent font-bold text-sm text-white focus:outline-hidden focus:ring-1 focus:ring-orange-500 rounded px-1"
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    Academic & Coloring Workbook Studio • Primary to Secondary Education
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-zinc-400">
-                Academic & Coloring Workbook Studio • Primary to Secondary Education
-              </p>
+
+              {/* Preset Selector & Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  onChange={(e) => {
+                    const found = PRESET_EDUCATIONAL_BOOKS.find(b => b.id === e.target.value);
+                    if (found) {
+                      setProject(found);
+                      setSelectedPageId(found.pages[0]?.id || '');
+                    }
+                  }}
+                  value={project.id}
+                  className="bg-zinc-800 border border-zinc-600 text-xs font-bold text-white rounded-lg px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
+                >
+                  <option value="edu-primary-1" className="bg-zinc-900 text-white font-medium">Primary: Heritage & Agriculture</option>
+                  <option value="edu-middle-1" className="bg-zinc-900 text-white font-medium">Middle School: Space Science & Algebra</option>
+                  <option value="edu-high-1" className="bg-zinc-900 text-white font-medium">High School: Biology & Cell Anatomy</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                  title="Close Educational Studio"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Preset Selector & Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              onChange={(e) => {
-                const found = PRESET_EDUCATIONAL_BOOKS.find(b => b.id === e.target.value);
-                if (found) {
-                  setProject(found);
-                  setSelectedPageId(found.pages[0]?.id || '');
-                }
-              }}
-              value={project.id}
-              className="bg-zinc-800 border border-zinc-600 text-xs font-bold text-white rounded-lg px-3 py-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
-            >
-              <option value="edu-primary-1" className="bg-zinc-900 text-white font-medium">Primary: Heritage & Agriculture</option>
-              <option value="edu-middle-1" className="bg-zinc-900 text-white font-medium">Middle School: Space Science & Algebra</option>
-              <option value="edu-high-1" className="bg-zinc-900 text-white font-medium">High School: Biology & Cell Anatomy</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              title="Close Educational Studio"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </header>
+            {/* Workbook Academic Context Header */}
+            <WorkbookHeader
+              project={deriveBookProject(project)}
+              onUpdateProject={handleBookProjectUpdate}
+            />
+          </header>
 
         {/* Tab Navigation Header */}
         <div className="px-5 py-2.5 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-4 text-xs font-semibold shrink-0">

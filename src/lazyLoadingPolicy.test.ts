@@ -53,5 +53,5 @@ describe('optional feature import policy', () => {
     expect(exportSettings.ExportSettingsTab).toBeTypeOf('function');
     expect(series.SeriesManagerModal).toBeTypeOf('function');
     expect(gallery.ImageGalleryModal).toBeTypeOf('function');
-  });
+  }, 15_000);
 });

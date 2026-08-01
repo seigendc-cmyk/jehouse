@@ -1,35 +1,35 @@
 import React, { useState } from 'react';
 import { EducationalPage, GradeLevel, PageType } from '../types';
-import { 
-  generateMathProblems, 
-  generateWordSearchGrid, 
-  getColoringThemeElements, 
-  generateFolktaleData, 
-  generateCommunityProjectData, 
+import {
+  generateMathProblems,
+  generateWordSearchGrid,
+  getColoringThemeElements,
+  generateFolktaleData,
+  generateCommunityProjectData,
   generateIndigenousLanguageData,
   generatePastExamPaper,
   generateRevisionTest,
   generateCadDraftingData,
   generateThreeDPrintingData
 } from '../generatorUtils';
-import { 
-  getAllCategories, 
-  saveCustomCategory, 
-  CategoryItem 
+import {
+  getAllCategories,
+  saveCustomCategory,
+  CategoryItem
 } from '../categories';
-import { 
-  Plus, 
-  Wand2, 
-  Calculator, 
-  Grid, 
-  Palette, 
-  HelpCircle, 
-  BookOpen, 
-  Users, 
-  Languages, 
-  FileText, 
-  CheckSquare, 
-  PlusCircle, 
+import {
+  Plus,
+  Wand2,
+  Calculator,
+  Grid,
+  Palette,
+  HelpCircle,
+  BookOpen,
+  Users,
+  Languages,
+  FileText,
+  CheckSquare,
+  PlusCircle,
   FolderPlus,
   Tag,
   Compass,
@@ -38,12 +38,18 @@ import {
 
 interface WorksheetGeneratorPanelProps {
   gradeLevel: GradeLevel;
+  academicContext?: {
+    educationLevel: string;
+    gradeLabel: string;
+    subjectLabel: string;
+  };
   onAddGeneratedPage: (page: EducationalPage) => void;
 }
 
 export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = ({
   gradeLevel,
-  onAddGeneratedPage,
+  academicContext,
+  onAddGeneratedPage
 }) => {
   const [categories, setCategories] = useState<CategoryItem[]>(() => getAllCategories());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('past_exam_papers');
@@ -100,12 +106,24 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
     setShowAddCategory(false);
   };
 
+  const handleAddGeneratedPage = (newPage: EducationalPage) => {
+    const pageWithSnapshot = {
+      ...newPage,
+      academicContextSnapshot: academicContext ?? {
+        educationLevel: 'Primary',
+        gradeLabel: gradeLevel === 'zimsec_primary' ? 'Grade 6' : gradeLevel === 'zimsec_secondary' ? 'Form 3' : gradeLevel === 'zimsec_a_level' ? 'Lower Sixth' : 'Grade 6',
+        subjectLabel: 'Unspecified Subject'
+      }
+    };
+    onAddGeneratedPage(pageWithSnapshot);
+  };
+
   const handleGenerate = () => {
     const newPageId = `page-${Date.now()}`;
 
     if (selectedType === 'past_exam_paper') {
       const examData = generatePastExamPaper(examSubject, gradeLevel, paperNumber);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'past_exam_paper',
@@ -118,7 +136,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'revision_test') {
       const testData = generateRevisionTest(examSubject, revisionTopic);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'revision_test',
@@ -131,7 +149,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'cad_drafting') {
       const cadData = generateCadDraftingData(cadSoftware, cadDraftingType);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'cad_drafting',
@@ -144,7 +162,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'three_d_printing') {
       const tdpData = generateThreeDPrintingData(printerTech, threeDTopic);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'three_d_printing',
@@ -157,7 +175,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'folktale_story') {
       const data = generateFolktaleData(folktaleTheme);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'folktale_story',
@@ -170,7 +188,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'community_project') {
       const projData = generateCommunityProjectData(projectTopic);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'community_project',
@@ -183,7 +201,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'language_translation') {
       const langData = generateIndigenousLanguageData(languageChoice, languageTopic);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'language_translation',
@@ -196,7 +214,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'math_worksheet') {
       const problems = generateMathProblems(mathCategory, mathCount);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'math_worksheet',
@@ -220,7 +238,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
 
       const grid = generateWordSearchGrid(words, 10);
 
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'word_puzzle',
@@ -232,7 +250,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else if (selectedType === 'coloring_lineart') {
       const elements = getColoringThemeElements(coloringTheme);
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'coloring_lineart',
@@ -244,7 +262,7 @@ export const WorksheetGeneratorPanel: React.FC<WorksheetGeneratorPanelProps> = (
       });
     } else {
       // Quiz
-      onAddGeneratedPage({
+      handleAddGeneratedPage({
         id: newPageId,
         pageNumber: 1,
         type: 'quiz_assessment',

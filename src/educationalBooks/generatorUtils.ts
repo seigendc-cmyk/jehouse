@@ -775,7 +775,6 @@ export function exportEducationalBookToPdfHtml(project: EducationalBookProject):
 <head>
   <meta charset="UTF-8">
   <title>${project.title} - Academic & Coloring Workbook</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <style>
     @page {
       size: letter portrait;
@@ -1127,7 +1126,13 @@ export function exportEducationalBookToPdfHtml(project: EducationalBookProject):
           ${mathList.map((prob, idx) => {
             let renderedMath = prob.expression;
             try {
-              renderedMath = katex.renderToString(prob.expression, { throwOnError: false, displayMode: true });
+              renderedMath = katex.renderToString(prob.expression, {
+                throwOnError: false,
+                displayMode: true,
+                output: 'mathml',
+                trust: false,
+                strict: 'warn',
+              });
             } catch (err) {
               renderedMath = `<span style="font-family: monospace; font-weight: bold;">${prob.expression}</span>`;
             }
@@ -1380,7 +1385,28 @@ export function exportEducationalBookToPdfHtml(project: EducationalBookProject):
  * This file can be saved and opened on any offline computer or tablet without internet access.
  */
 export function exportEducationalBookToOfflineShellHtml(project: EducationalBookProject): string {
-  const projectJson = JSON.stringify(project);
+  const offlineProject = {
+    ...project,
+    pages: project.pages.map(page => ({
+      ...page,
+      mathProblems: page.mathProblems?.map(problem => {
+        let renderedMath = problem.expression;
+        try {
+          renderedMath = katex.renderToString(problem.expression, {
+            throwOnError: false,
+            displayMode: true,
+            output: 'mathml',
+            trust: false,
+            strict: 'warn',
+          });
+        } catch {
+          // Keep the inert source as a readable offline fallback.
+        }
+        return { ...problem, renderedMath };
+      }),
+    })),
+  };
+  const projectJson = JSON.stringify(offlineProject).replace(/</g, '\\u003c');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1388,8 +1414,6 @@ export function exportEducationalBookToOfflineShellHtml(project: EducationalBook
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${project.title} - Standalone Offline App Shell</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
   <style>
     :root {
       --bg: #0f172a;
@@ -1838,12 +1862,7 @@ export function exportEducationalBookToOfflineShellHtml(project: EducationalBook
         bodyHtml = \`
           <div class="math-grid-offline">
             \${(page.mathProblems || []).map((prob, pIdx) => {
-              let katexHtml = prob.expression;
-              if (window.katex) {
-                try {
-                  katexHtml = window.katex.renderToString(prob.expression, { throwOnError: false, displayMode: true });
-                } catch(e) {}
-              }
+              const katexHtml = prob.renderedMath || prob.expression;
               return \`
                 <div class="math-card-offline">
                   <div style="font-size: 12px; font-weight: bold; color: #64748b;">Problem #\${pIdx + 1}</div>
@@ -2127,4 +2146,3 @@ export function downloadOfflineShellHtml(project: EducationalBookProject): void 
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-

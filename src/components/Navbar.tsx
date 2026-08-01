@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   BookOpen, BookMarked, Check, CloudOff, Database, Download, FileText,
   Focus, FolderOpen, GraduationCap, HelpCircle, Image, LayoutPanelLeft,
-  Library, Maximize2, Menu, PanelRight, Plus, Printer, Save, Search,
-  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2
+  Library, Maximize2, Menu, PanelRight, Printer, Save, Search,
+  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2,
+  Calculator, Clipboard, Code2, Table2, ClipboardCheck, CheckCircle2
 } from 'lucide-react';
 import { BookProject, UITheme } from '../types';
 import { SidebarTab } from './Sidebar';
@@ -12,6 +13,10 @@ import {
   localSaveStatusLabel,
   ProjectSaveState
 } from '../persistence/localSaveCoordinator';
+import {
+  MathAccountingCommand,
+  MATH_ACCOUNTING_COMMAND_LABELS
+} from '../features/mathAccounting';
 
 export type RibbonTab =
   | 'file' | 'home' | 'insert' | 'layout' | 'references'
@@ -58,6 +63,8 @@ interface NavbarProps {
   onToggleInspector?: () => void;
   canUndo?: boolean; canRedo?: boolean; undoLabel?: string; redoLabel?: string;
   onUndo?: () => void; onRedo?: () => void;
+  onMathAccountingCommand?: (command: MathAccountingCommand) => void;
+  initialRibbonTab?: RibbonTab;
 }
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -110,8 +117,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
   onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
+  ,onMathAccountingCommand, initialRibbonTab = 'home'
 }) => {
-  const [selectedTab, setSelectedTab] = useState<RibbonTab>('home');
+  const [selectedTab, setSelectedTab] = useState<RibbonTab>(initialRibbonTab);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -128,6 +136,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const selectWorkspace = (tab: SidebarTab) => {
     onSelectTab?.(tab);
   };
+  const runMathAccountingCommand = (command: MathAccountingCommand) => {
+    selectWorkspace('editor');
+    onMathAccountingCommand?.(command);
+  };
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (!event.altKey || !event.shiftKey || event.key.toLowerCase() !== 'm') return;
+      event.preventDefault();
+      setSelectedTab('insert');
+      runMathAccountingCommand('paste-worked-problem');
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [onMathAccountingCommand, onSelectTab]);
 
   const renderRibbon = () => {
     switch (selectedTab) {
@@ -168,8 +193,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RibbonGroup label="Images">
             <RibbonButton label="Image Gallery" icon={Image} onClick={onOpenImageGallery} />
           </RibbonGroup>
-          <RibbonGroup label="Content Blocks">
-            <RibbonButton label="Tables, Charts & Equations" icon={Plus} onClick={() => selectWorkspace('editor')} title="Use the manuscript insertion toolbar" />
+          <RibbonGroup label="Mathematics">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['paste-worked-problem']} icon={Clipboard} onClick={() => runMathAccountingCommand('paste-worked-problem')} title="Paste Worked Problem (Alt+Shift+M)" />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-inline-equation']} icon={Code2} onClick={() => runMathAccountingCommand('insert-inline-equation')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-display-equation']} icon={Calculator} onClick={() => runMathAccountingCommand('insert-display-equation')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-aligned-working']} icon={Calculator} onClick={() => runMathAccountingCommand('insert-aligned-working')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-boxed-answer']} icon={CheckCircle2} onClick={() => runMathAccountingCommand('insert-boxed-answer')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-formula']} icon={Code2} onClick={() => runMathAccountingCommand('insert-formula')} />
+          </RibbonGroup>
+          <RibbonGroup label="Accounting">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-journal-entry']} icon={Table2} onClick={() => runMathAccountingCommand('insert-journal-entry')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-ledger']} icon={Table2} onClick={() => runMathAccountingCommand('insert-ledger')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-trial-balance']} icon={Table2} onClick={() => runMathAccountingCommand('insert-trial-balance')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-financial-statement']} icon={Table2} onClick={() => runMathAccountingCommand('insert-financial-statement')} />
+          </RibbonGroup>
+          <RibbonGroup label="Validation & Output">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['validate-current-block']} icon={ClipboardCheck} onClick={() => runMathAccountingCommand('validate-current-block')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['run-chapter-preflight']} icon={CheckCircle2} onClick={() => runMathAccountingCommand('run-chapter-preflight')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['preview-print-layout']} icon={Printer} onClick={() => runMathAccountingCommand('preview-print-layout')} />
           </RibbonGroup>
         </>;
       case 'layout':

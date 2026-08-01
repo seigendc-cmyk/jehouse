@@ -26,6 +26,21 @@ import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { applyUpdateWhenSafe } from './pwa/updatePolicy';
 import { getDocumentDisplayLabel } from './lib/documentDisplayLabel';
 import { FormattingHistoryController, HistoryScope } from './lib/formattingHistory';
+import {
+  createMathAccountingBlock,
+  INSERT_MATH_ACCOUNTING_COMMANDS,
+  MathAccountingCommand,
+  MATH_ACCOUNTING_COMMAND_LABELS
+} from './features/mathAccounting';
+import {
+  PublishingPreflightIssue,
+  runPublishingPreflight
+} from './lib/publishingPreflight';
+import {
+  isInspectablePublishingBlock,
+  MathAccountingInspector
+} from './components/MathAccountingInspector';
+import { DEFAULT_ACCOUNTING_FORMAT } from './lib/accounting';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -156,6 +171,9 @@ export default function App() {
     () => typeof window === 'undefined' || window.innerWidth > 900
   );
   const [inspectorVisible, setInspectorVisible] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string>();
+  const [pasteWorkedProblemRequest, setPasteWorkedProblemRequest] = useState(0);
+  const [publishingIssues, setPublishingIssues] = useState<PublishingPreflightIssue[]>([]);
 
   // Modals & Drawers
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState<boolean>(false);
@@ -494,6 +512,56 @@ export default function App() {
   const handleFormattingChapter=(updatedChapter:Chapter,label:string,scope:HistoryScope,mergeKey?:string,activeBlockId?:string)=>{
     const next={...activeProjectRef.current,chapters:activeProjectRef.current.chapters.map(c=>c.id===updatedChapter.id?updatedChapter:c)};
     executeFormattingTransaction(label,scope,next,mergeKey,activeBlockId);
+  };
+  const handleMathAccountingCommand = (command: MathAccountingCommand) => {
+    setActiveTab('editor');
+    if (command === 'paste-worked-problem') {
+      setPasteWorkedProblemRequest((request) => request + 1);
+      return;
+    }
+    if (command === 'preview-print-layout') {
+      setIsPrintPreviewOpen(true);
+      return;
+    }
+    const chapter = activeProjectRef.current.chapters.find((item) => item.id === activeChapterId)
+      ?? activeProjectRef.current.chapters[0];
+    if (!chapter) return;
+    if (command === 'validate-current-block' || command === 'run-chapter-preflight') {
+      const report = runPublishingPreflight(activeProjectRef.current);
+      const chapterIssues = report.issues.filter((issue) => issue.chapterId === chapter.id);
+      const issues = command === 'validate-current-block'
+        ? chapterIssues.filter((issue) => issue.blockId === selectedBlockId)
+        : chapterIssues;
+      setPublishingIssues(issues);
+      const targetBlockId = command === 'run-chapter-preflight'
+        ? chapterIssues[0]?.blockId
+        : selectedBlockId;
+      if (targetBlockId) {
+        setSelectedBlockId(targetBlockId);
+        setHistoryActiveBlockId(targetBlockId);
+      }
+      setInspectorVisible(true);
+      if (window.innerWidth <= 900) setNavigationVisible(false);
+      return;
+    }
+    if (!INSERT_MATH_ACCOUNTING_COMMANDS.has(command)) return;
+    const block = createMathAccountingBlock(command, `b-${crypto.randomUUID()}`);
+    if (!block) return;
+    const selectedIndex = chapter.blocks.findIndex((item) => item.id === selectedBlockId);
+    const blocks = [...chapter.blocks];
+    blocks.splice(selectedIndex >= 0 ? selectedIndex + 1 : blocks.length, 0, block);
+    handleFormattingChapter(
+      { ...chapter, blocks },
+      MATH_ACCOUNTING_COMMAND_LABELS[command],
+      'structure',
+      undefined,
+      block.id
+    );
+    setSelectedBlockId(block.id);
+    setHistoryActiveBlockId(block.id);
+    setPublishingIssues([]);
+    setInspectorVisible(true);
+    if (window.innerWidth <= 900) setNavigationVisible(false);
   };
 
   useEffect(()=>{
@@ -978,6 +1046,7 @@ export default function App() {
         redoLabel={historyRef.current.redoLabel}
         onUndo={undoFormatting}
         onRedo={redoFormatting}
+        onMathAccountingCommand={handleMathAccountingCommand}
       />
       <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
@@ -1025,6 +1094,8 @@ export default function App() {
               chapter={activeChapter}
               typography={project.typography}
               colourSettings={project.colourSettings}
+              accountingFormat={project.accountingFormat}
+              onUpdateAccountingFormat={(accountingFormat) => handleUpdateProject({ accountingFormat })}
               watermark={project.watermark}
               trimSize={project.exportSettings.trimSize}
               headerFooter={project.headerFooter}
@@ -1039,6 +1110,8 @@ export default function App() {
               onUpdateChapter={handleUpdateChapter}
               onFormattingTransaction={handleFormattingChapter}
               requestedActiveBlockId={historyActiveBlockId}
+              pasteWorkedProblemRequest={pasteWorkedProblemRequest}
+              onActiveBlockChange={setSelectedBlockId}
               onUpdateTrimSize={(trimSize) =>
                 handleUpdateProject({
                   exportSettings: { ...project.exportSettings, trimSize }
@@ -1143,14 +1216,52 @@ export default function App() {
               <strong>Properties</strong>
               <button onClick={() => setInspectorVisible(false)} aria-label="Close inspector">×</button>
             </div>
-            <dl className="pc-property-list">
+            {publishingIssues.length > 0 && (
+              <nav className="pc-preflight-navigation" aria-label="Chapter preflight issues">
+                <strong>Chapter preflight</strong>
+                {publishingIssues.map((issue) => (
+                  <button
+                    type="button"
+                    key={issue.id}
+                    className={issue.blockId === selectedBlockId ? 'is-active' : ''}
+                    onClick={() => {
+                      if (!issue.blockId) return;
+                      setSelectedBlockId(issue.blockId);
+                      setHistoryActiveBlockId(issue.blockId);
+                    }}
+                  >
+                    <span>{issue.severity}</span>{issue.message}
+                  </button>
+                ))}
+              </nav>
+            )}
+            {isInspectablePublishingBlock(activeChapter.blocks.find((block) => block.id === selectedBlockId)) ? (
+              <MathAccountingInspector
+                block={activeChapter.blocks.find((block) => block.id === selectedBlockId)!}
+                format={project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT}
+                issues={publishingIssues.filter((issue) => issue.blockId === selectedBlockId)}
+                onChange={(partial, label, mergeKey) => {
+                  const blocks = activeChapter.blocks.map((block) =>
+                    block.id === selectedBlockId ? { ...block, ...partial } : block
+                  );
+                  handleFormattingChapter(
+                    { ...activeChapter, blocks },
+                    label,
+                    'block-formatting',
+                    mergeKey,
+                    selectedBlockId
+                  );
+                }}
+                onFormatChange={(accountingFormat) => handleUpdateProject({ accountingFormat })}
+              />
+            ) : <dl className="pc-property-list">
               <div><dt>Document</dt><dd>{activeDocumentLabel || 'Manuscript'}</dd></div>
               <div><dt>Title</dt><dd>{project.title || 'Untitled Book'}</dd></div>
               <div><dt>Author</dt><dd>{project.author || 'Not specified'}</dd></div>
               <div><dt>Chapters</dt><dd>{project.chapters.length}</dd></div>
               <div><dt>Local revision</dt><dd>{saveState.localRevision}</dd></div>
               <div><dt>Cloud sync</dt><dd>Disabled pending security approval</dd></div>
-            </dl>
+            </dl>}
           </aside>
         )}
 

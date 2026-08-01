@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer as createHttpServer } from "node:http";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -7,7 +8,28 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+const httpServer = createHttpServer(app);
 const PORT = 3000;
+let viteDevServer: Awaited<ReturnType<typeof createViteServer>> | undefined;
+
+httpServer.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(
+      `Cannot start PressCraft Studio: port ${PORT} is already in use. ` +
+      "Stop the existing Book Publisher development server and try again.",
+    );
+  } else {
+    console.error("PressCraft Studio server error:", error);
+  }
+
+  if (viteDevServer) {
+    void viteDevServer.close().finally(() => {
+      process.exitCode = 1;
+    });
+  } else {
+    process.exitCode = 1;
+  }
+});
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -487,11 +509,16 @@ Return a valid JSON object matching this structure EXACTLY (no markdown backtick
 // Vite / Static Serving Setup
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+    viteDevServer = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    app.use(viteDevServer.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -500,9 +527,12 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`PressCraft Studio server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+void startServer().catch((error) => {
+  console.error("Failed to start PressCraft Studio:", error);
+  process.exitCode = 1;
+});

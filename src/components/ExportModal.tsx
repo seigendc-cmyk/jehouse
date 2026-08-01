@@ -17,6 +17,7 @@ import {
   saveToLocalDiskInDocuments,
   resolveMargins
 } from '../lib/exportUtils';
+import { runPublishingPreflight } from '../lib/publishingPreflight';
 
 interface ExportModalProps {
   project: BookProject;
@@ -40,6 +41,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   if (!isOpen) return null;
 
   const { exportSettings } = project;
+  const preflight = runPublishingPreflight(project);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,6 +86,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <section className={`rounded border p-3 text-xs ${preflight.valid ? 'border-emerald-700 bg-emerald-950/20' : 'border-red-700 bg-red-950/20'}`} aria-label="Publishing preflight">
+          <div className="font-bold">{preflight.valid ? 'Publishing preflight passed' : 'Publishing preflight requires attention'} · {preflight.validEquations} valid equations · {preflight.invalidEquations} invalid equations</div>
+          {preflight.issues.length > 0 && <ul className="mt-2 max-h-28 list-disc overflow-y-auto pl-5">{preflight.issues.map((issue) => <li key={issue.id} className={issue.severity === 'error' ? 'text-red-300' : 'text-amber-300'}>{issue.message}{issue.blockId ? ` (block ${issue.blockId})` : ''}</li>)}</ul>}
+        </section>
 
         {/* Trim & Typography Controls */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
@@ -506,4 +513,3 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     </div>
   );
 };
-
