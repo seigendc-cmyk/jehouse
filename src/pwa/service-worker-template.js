@@ -63,15 +63,20 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => {
-        const cache = await caches.open(SHELL_CACHE);
-        return cache.match('/index.html');
+        const cached = await caches.match('/index.html');
+        return cached || Response.error();
       })
     );
     return;
   }
 
   if (SHELL_URLS.has(url.pathname)) {
-    event.respondWith(caches.open(SHELL_CACHE).then((cache) => cache.match(url.pathname)));
+    event.respondWith(
+      caches.open(SHELL_CACHE).then(async (cache) => {
+        const cached = await cache.match(url.pathname);
+        return cached || fetch(request);
+      })
+    );
     return;
   }
 
