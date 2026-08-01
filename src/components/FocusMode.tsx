@@ -12,6 +12,7 @@ import { AccountingBlock } from './blocks/AccountingBlock';
 import { createMathData, mathSourceForBlock } from '../lib/mathValidation';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 import { BlockType } from '../types';
+import { resolveStructuredLists } from '../lib/structuredLists';
 
 const EquationRenderer = React.lazy(() =>
   import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
@@ -58,6 +59,7 @@ export const FocusMode: React.FC<FocusModeProps> = ({
     color: darkMode ? undefined : effectiveTypography.body.textColour
   };
   const palette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
+  const resolvedLists = resolveStructuredLists(chapter.blocks, { accent: palette.colours.accent, body: palette.colours.bodyText });
 
   // Simple Web Audio API typewriter sound simulator
   const playTypewriterClick = () => {
@@ -173,13 +175,17 @@ export const FocusMode: React.FC<FocusModeProps> = ({
             const paragraphFormatting=resolveParagraphFormatting(block,findPreviousParagraphContext(chapter.blocks,idx),isFirstQualifyingParagraph(chapter.blocks,idx)?0:idx,effectiveTypography);
             const dropCap=resolveDropCapFormatting({block,blocks:chapter.blocks,index:idx,typography:effectiveTypography,palette,paragraphFormatting});
             const resolvedParagraph=paragraphFormattingWithDropCap(paragraphFormatting,dropCap);
+            const listItem=resolvedLists.get(block.id);
             return (
               <div 
                 key={block.id} 
+                role={listItem ? 'listitem' : undefined}
+                aria-level={listItem ? listItem.level + 1 : undefined}
                 className={`transition-opacity duration-300 ${isFocused ? 'opacity-100' : 'opacity-35 hover:opacity-75'}`}
                 onClick={() => setFocusedBlockIdx(idx)}
-                style={darkMode ? undefined : {color:resolveBlockTextColour(block,palette)}}
+                style={{...(darkMode ? {} : {color:resolveBlockTextColour(block,palette)}),...(listItem ? {paddingLeft:`${listItem.leftIndentPt}pt`,marginTop:`${listItem.spacingBeforePt}pt`,marginBottom:`${listItem.spacingAfterPt}pt`} : {})}}
               >
+                {listItem && <span aria-hidden="true" className="float-left text-right" style={{width:`${listItem.hangingIndentPt}pt`,marginLeft:`-${listItem.hangingIndentPt + 6}pt`,color:listItem.markerColour,fontSize:`${listItem.markerSizePercent}%`}}>{listItem.markerText}</span>}
                 {block.type === 'heading' ? (
                   <input
                     type="text"

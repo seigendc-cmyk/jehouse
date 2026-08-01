@@ -4,7 +4,7 @@ import {
   Focus, FolderOpen, GraduationCap, HelpCircle, Image, LayoutPanelLeft,
   Library, Maximize2, Menu, PanelRight, Printer, Save, Search,
   Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2,
-  Calculator, Clipboard, Code2, Table2, ClipboardCheck, CheckCircle2
+  Calculator, Clipboard, Code2, Table2, ClipboardCheck, CheckCircle2, List, ListOrdered, ListTree, IndentIncrease, IndentDecrease, ListX
 } from 'lucide-react';
 import { BookProject, UITheme } from '../types';
 import { SidebarTab } from './Sidebar';
@@ -65,6 +65,9 @@ interface NavbarProps {
   onUndo?: () => void; onRedo?: () => void;
   onMathAccountingCommand?: (command: MathAccountingCommand) => void;
   initialRibbonTab?: RibbonTab;
+  onListCommand?: (command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering') => void;
+  canFormatList?: boolean;
+  activeListType?: 'unordered' | 'ordered';
 }
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -91,6 +94,7 @@ function RibbonButton({
       onClick={onClick}
       disabled={disabled}
       title={title ?? label}
+      aria-pressed={active}
       className={`pc-ribbon-button ${active ? 'is-active' : ''}`}
     >
       <Icon className="h-4 w-4" />
@@ -117,7 +121,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
   onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
-  ,onMathAccountingCommand, initialRibbonTab = 'home'
+  ,onMathAccountingCommand, initialRibbonTab = 'home', onListCommand, canFormatList = false, activeListType
 }) => {
   const [selectedTab, setSelectedTab] = useState<RibbonTab>(initialRibbonTab);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -184,6 +188,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <RibbonButton label="Formatting" icon={Type} onClick={() => selectWorkspace('editor')} title="Open the manuscript formatting toolbar" />
             <RibbonButton label="Manuscript" icon={FileText} onClick={() => selectWorkspace('editor')} active={activeTab === 'editor'} />
           </RibbonGroup>
+          <RibbonGroup label="Lists">
+            <RibbonButton label="Bullets" icon={List} onClick={() => onListCommand?.('bullets')} disabled={!canFormatList} active={activeListType === 'unordered'} title="Bullets (Ctrl+Shift+8)" />
+            <RibbonButton label="Numbering" icon={ListOrdered} onClick={() => onListCommand?.('numbering')} disabled={!canFormatList} active={activeListType === 'ordered'} title="Numbering (Ctrl+Shift+7)" />
+            <RibbonButton label="Multilevel List" icon={ListTree} onClick={() => onListCommand?.('multilevel')} disabled={!canFormatList} />
+            <RibbonButton label="Decrease List Level" icon={IndentDecrease} onClick={() => onListCommand?.('decrease')} disabled={!activeListType} />
+            <RibbonButton label="Increase List Level" icon={IndentIncrease} onClick={() => onListCommand?.('increase')} disabled={!activeListType} />
+            <RibbonButton label="Remove List Formatting" icon={ListX} onClick={() => onListCommand?.('remove')} disabled={!activeListType} />
+          </RibbonGroup>
           <RibbonGroup label="Review">
             <RibbonButton label="Proofread" icon={Check} onClick={onOpenProofread} />
           </RibbonGroup>
@@ -192,6 +204,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         return <>
           <RibbonGroup label="Images">
             <RibbonButton label="Image Gallery" icon={Image} onClick={onOpenImageGallery} />
+          </RibbonGroup>
+          <RibbonGroup label="Lists">
+            <RibbonButton label="Bulleted List" icon={List} onClick={() => onListCommand?.('insert-bullets')} disabled={!canFormatList} />
+            <RibbonButton label="Numbered List" icon={ListOrdered} onClick={() => onListCommand?.('insert-numbering')} disabled={!canFormatList} />
+            <RibbonButton label="Multilevel List" icon={ListTree} onClick={() => onListCommand?.('multilevel')} disabled={!canFormatList} />
           </RibbonGroup>
           <RibbonGroup label="Mathematics">
             <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['paste-worked-problem']} icon={Clipboard} onClick={() => runMathAccountingCommand('paste-worked-problem')} title="Paste Worked Problem (Alt+Shift+M)" />

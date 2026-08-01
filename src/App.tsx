@@ -41,6 +41,7 @@ import {
   MathAccountingInspector
 } from './components/MathAccountingInspector';
 import { DEFAULT_ACCOUNTING_FORMAT } from './lib/accounting';
+import { mergeWithPreviousList, sanitizeCustomMarker, splitListAt } from './lib/structuredLists';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -173,6 +174,7 @@ export default function App() {
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string>();
   const [pasteWorkedProblemRequest, setPasteWorkedProblemRequest] = useState(0);
+  const [listCommandRequest, setListCommandRequest] = useState<{ id: number; command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering' }>();
   const [publishingIssues, setPublishingIssues] = useState<PublishingPreflightIssue[]>([]);
 
   // Modals & Drawers
@@ -944,6 +946,7 @@ export default function App() {
   }
 
   const activeChapter = project.chapters.find((c) => c.id === activeChapterId) || project.chapters[0];
+  const selectedBlock = activeChapter?.blocks.find((block) => block.id === selectedBlockId) ?? activeChapter?.blocks[0];
   const activeDocumentLabel = getDocumentDisplayLabel({
     workspace: activeTab,
     chapterNumber: activeChapter?.number,
@@ -1047,6 +1050,9 @@ export default function App() {
         onUndo={undoFormatting}
         onRedo={redoFormatting}
         onMathAccountingCommand={handleMathAccountingCommand}
+        onListCommand={(command) => { setActiveTab('editor'); setListCommandRequest({ id: Date.now(), command }); }}
+        canFormatList={selectedBlock?.type === 'paragraph' || selectedBlock?.type === 'item'}
+        activeListType={selectedBlock?.listFormatting?.type}
       />
       <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
@@ -1112,6 +1118,8 @@ export default function App() {
               requestedActiveBlockId={historyActiveBlockId}
               pasteWorkedProblemRequest={pasteWorkedProblemRequest}
               onActiveBlockChange={setSelectedBlockId}
+              listCommandRequest={listCommandRequest}
+              onOpenListSettings={() => setInspectorVisible(true)}
               onUpdateTrimSize={(trimSize) =>
                 handleUpdateProject({
                   exportSettings: { ...project.exportSettings, trimSize }
@@ -1234,6 +1242,23 @@ export default function App() {
                   </button>
                 ))}
               </nav>
+            )}
+            {selectedBlock?.listFormatting && (
+              <section className="space-y-2 border-b border-zinc-700 p-3 text-xs" aria-label="List Settings">
+                <strong>List Settings</strong>
+                <label className="block">List type<select aria-label="List type" value={selectedBlock.listFormatting.type} onChange={(event) => setListCommandRequest({ id: Date.now(), command: event.target.value === 'unordered' ? 'bullets' : 'numbering' })} className="block w-full"><option value="unordered">Unordered</option><option value="ordered">Ordered</option></select></label>
+                {selectedBlock.listFormatting.type === 'unordered' ? <label className="block">Marker Style<select aria-label="Marker Style" value={selectedBlock.listFormatting.unorderedStyle ?? 'disc'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,unorderedStyle:event.target.value as any}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker style','block-formatting',undefined,selectedBlock.id); }} className="block w-full">{['disc','circle','square','dash','arrow','check','custom'].map(value=><option key={value} value={value}>{value}</option>)}</select></label> : <label className="block">Number Style<select aria-label="Number Style" value={selectedBlock.listFormatting.orderedStyle ?? 'decimal'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,orderedStyle:event.target.value as any}}:block);handleFormattingChapter({...activeChapter,blocks},'Change numbering style','block-formatting',undefined,selectedBlock.id); }} className="block w-full">{['decimal','lower-alpha','upper-alpha','lower-roman','upper-roman','decimal-leading-zero','decimal-outline'].map(value=><option key={value} value={value}>{value}</option>)}</select></label>}
+                {selectedBlock.listFormatting.unorderedStyle === 'custom' && <label className="block">Custom marker<input aria-label="Custom marker" maxLength={8} value={selectedBlock.listFormatting.customMarker ?? ''} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,customMarker:sanitizeCustomMarker(event.target.value)}}:block);handleFormattingChapter({...activeChapter,blocks},'Change custom list marker','block-formatting','list-custom-marker',selectedBlock.id); }} /></label>}
+                {selectedBlock.listFormatting.type === 'ordered' && <><label className="block">Start At<input aria-label="Start At" type="number" min="1" value={selectedBlock.listFormatting.startAt ?? 1} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,startAt:Math.max(1,Number(event.target.value)),restart:true}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list start number','block-formatting','list-start',selectedBlock.id); }} /></label><label><input type="checkbox" checked={selectedBlock.listFormatting.restart ?? false} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,restart:event.target.checked}}:block);handleFormattingChapter({...activeChapter,blocks},'Restart numbering','block-formatting',undefined,selectedBlock.id); }} /> Restart Numbering</label></>}
+                <label className="block">Marker colour<input aria-label="Marker colour" type="color" value={selectedBlock.listFormatting.markerColour ?? selectedBlock.textColour ?? '#111111'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,markerColour:event.target.value}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker colour','block-formatting','list-colour',selectedBlock.id); }} /></label>
+                <label className="block">Marker size<input aria-label="Marker size" type="number" min="50" max="200" value={selectedBlock.listFormatting.markerSizePercent ?? 100} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,markerSizePercent:Number(event.target.value)}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker size','block-formatting','list-size',selectedBlock.id); }} /></label>
+                <label className="block">Spacing before<input aria-label="List spacing before" type="number" min="0" value={selectedBlock.listFormatting.spacingBeforePt ?? 0} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,spacingBeforePt:Math.max(0,Number(event.target.value))}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list spacing','block-formatting','list-spacing',selectedBlock.id); }} /></label>
+                <label className="block">Spacing after<input aria-label="List spacing after" type="number" min="0" value={selectedBlock.listFormatting.spacingAfterPt ?? 4} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,spacingAfterPt:Math.max(0,Number(event.target.value))}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list spacing','block-formatting','list-spacing',selectedBlock.id); }} /></label>
+                <label><input type="checkbox" checked={selectedBlock.listFormatting.keepWithNext ?? false} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,keepWithNext:event.target.checked}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list pagination','block-formatting',undefined,selectedBlock.id); }} /> Keep with next</label>
+                <div className="flex gap-1"><button onClick={() => setListCommandRequest({id:Date.now(),command:'decrease'})}>Decrease Level</button><button onClick={() => setListCommandRequest({id:Date.now(),command:'increase'})}>Increase Level</button></div>
+                <div className="flex flex-wrap gap-1"><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=mergeWithPreviousList(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Continue previous list','block-formatting',undefined,selectedBlock.id);}}>Continue Previous List</button><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=splitListAt(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Split list here','block-formatting',undefined,selectedBlock.id);}}>Split List Here</button><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=mergeWithPreviousList(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Merge with previous list','block-formatting',undefined,selectedBlock.id);}}>Merge with Previous Compatible List</button></div>
+                <button onClick={() => setListCommandRequest({id:Date.now(),command:'remove'})}>Remove List</button>
+              </section>
             )}
             {isInspectablePublishingBlock(activeChapter.blocks.find((block) => block.id === selectedBlockId)) ? (
               <MathAccountingInspector

@@ -72,6 +72,10 @@ import {
 import { createMathData, mathSourceForBlock } from '../lib/mathValidation';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 import {
+  changeListLevel, convertBlocksToList, createListId, isListEligibleBlock, listFormatting,
+  removeListFormatting, resolveStructuredLists, sanitizeCustomMarker
+} from '../lib/structuredLists';
+import {
   chapterTitleIncludesNumber,
   getChapterDisplayLabel
 } from '../lib/documentDisplayLabel';
@@ -112,6 +116,8 @@ interface EditorCanvasProps {
   requestedActiveBlockId?: string;
   pasteWorkedProblemRequest?: number;
   onActiveBlockChange?: (blockId?: string) => void;
+  listCommandRequest?: { id: number; command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering' };
+  onOpenListSettings?: () => void;
 }
 
 const FONT_FAMILIES = [
@@ -163,6 +169,8 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   requestedActiveBlockId,
   pasteWorkedProblemRequest = 0,
   onActiveBlockChange,
+  listCommandRequest,
+  onOpenListSettings,
 }) => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(chapter.blocks[0]?.id || null);
   const [showRulers, setShowRulers] = useState<boolean>(true);
@@ -193,6 +201,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   const [pastePanelOpen, setPastePanelOpen] = useState(false);
   const [pasteSource, setPasteSource] = useState('');
   const lastPasteRequest = useRef(0);
+  const lastListCommandRequest = useRef(0);
   const firstAmbiguityRef = useRef<HTMLSelectElement | null>(null);
 
   const showToast = (msg: string) => {
@@ -203,6 +212,44 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     if(onFormattingTransaction)onFormattingTransaction(next,label,scope,mergeKey,blockId??activeBlockId??undefined);
     else onUpdateChapter(next);
   };
+  const applyListCommand = (command: NonNullable<EditorCanvasProps['listCommandRequest']>['command'], blockId = activeBlockId) => {
+    const index = chapter.blocks.findIndex((block) => block.id === blockId);
+    const block = chapter.blocks[index];
+    if (!block || (!isListEligibleBlock(block) && command !== 'insert-bullets' && command !== 'insert-numbering')) return;
+    if (command === 'insert-bullets' || command === 'insert-numbering') {
+      if (block.type === 'paragraph' && block.text.length === 0) {
+        const type = command === 'insert-bullets' ? 'unordered' : 'ordered';
+        const blocks = convertBlocksToList(chapter.blocks, [block.id], type);
+        commitChapter({ ...chapter, blocks }, type === 'unordered' ? 'Insert bulleted list' : 'Insert numbered list', 'structure', undefined, block.id);
+        return;
+      }
+      const newBlock: ContentBlock = { id: `b-${crypto.randomUUID()}`, type: 'paragraph', text: '', listFormatting: listFormatting(command === 'insert-bullets' ? 'unordered' : 'ordered') };
+      const blocks = [...chapter.blocks]; blocks.splice(index + 1, 0, newBlock);
+      commitChapter({ ...chapter, blocks }, command === 'insert-bullets' ? 'Insert bulleted list' : 'Insert numbered list', 'structure', undefined, newBlock.id);
+      setActiveBlockId(newBlock.id);
+      setTimeout(() => document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${newBlock.id}"]`)?.focus(), 0);
+      return;
+    }
+    let blocks = chapter.blocks;
+    let label = 'Change list formatting';
+    if (command === 'remove') { blocks = blocks.map((candidate) => candidate.id === block.id ? removeListFormatting(candidate) : candidate); label = 'Remove list formatting'; }
+    else if (command === 'increase') { blocks = changeListLevel(blocks, index, 1); label = 'Increase list level'; }
+    else if (command === 'decrease') { blocks = changeListLevel(blocks, index, -1); label = 'Decrease list level'; }
+    else {
+      const type = command === 'bullets' ? 'unordered' : 'ordered';
+      const existingId = block.listFormatting?.type === type ? block.listFormatting.listId : createListId();
+      blocks = blocks.map((candidate) => candidate.id === block.id
+        ? { ...candidate, type: 'paragraph', listFormatting: listFormatting(type, existingId, command === 'multilevel' ? { orderedStyle: 'decimal-outline' } : {}) }
+        : candidate);
+      label = command === 'bullets' ? 'Apply bullets' : command === 'multilevel' ? 'Apply multilevel list' : 'Apply numbering';
+    }
+    if (blocks !== chapter.blocks) commitChapter({ ...chapter, blocks }, label, 'block-formatting', undefined, block.id);
+  };
+  useEffect(() => {
+    if (!listCommandRequest || listCommandRequest.id === lastListCommandRequest.current) return;
+    lastListCommandRequest.current = listCommandRequest.id;
+    applyListCommand(listCommandRequest.command);
+  }, [listCommandRequest]);
   useEffect(()=>{
     if(!requestedActiveBlockId)return;
     const safeBlockId=chapter.blocks.some(b=>b.id===requestedActiveBlockId)
@@ -329,6 +376,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     const newBlock: ContentBlock = JSON.parse(JSON.stringify(blockToPaste));
     newBlock.id = `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    if (newBlock.listFormatting) newBlock.listFormatting.listId = createListId();
 
     insertPastedBlocks([newBlock], afterId, `Paste ${newBlock.type === 'scene-break' ? 'scene break' : 'block'}`);
   };
@@ -498,6 +546,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
   const activePalette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
+  const resolvedLists = resolveStructuredLists(chapter.blocks, { accent: activePalette.colours.accent, body: activePalette.colours.bodyText });
   const resolvedTypography = resolveProjectTypography({typography});
   const paragraphStyleFor = (block:ContentBlock) => {
     const index=chapter.blocks.indexOf(block);
@@ -848,8 +897,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             </button>
 
             {/* Indent controls */}
+            <button onClick={() => applyListCommand('bullets')} disabled={!isListEligibleBlock(activeBlock)} aria-pressed={activeBlock.listFormatting?.type === 'unordered'} className={`px-1.5 py-1 rounded disabled:opacity-30 ${activeBlock.listFormatting?.type === 'unordered' ? 'bg-[#FF6B00] text-black' : 'text-gray-300 hover:bg-[#333]'}`} title="Bullets (Ctrl+Shift+8)">• Bullets</button>
+            <button onClick={() => applyListCommand('numbering')} disabled={!isListEligibleBlock(activeBlock)} aria-pressed={activeBlock.listFormatting?.type === 'ordered'} className={`px-1.5 py-1 rounded disabled:opacity-30 ${activeBlock.listFormatting?.type === 'ordered' ? 'bg-[#FF6B00] text-black' : 'text-gray-300 hover:bg-[#333]'}`} title="Numbering (Ctrl+Shift+7)">1. Numbering</button>
+            <button onClick={() => applyListCommand('multilevel')} disabled={!isListEligibleBlock(activeBlock)} className="px-1.5 py-1 rounded text-gray-300 hover:bg-[#333] disabled:opacity-30" title="Multilevel List">1.1 Multilevel</button>
             <button
-              onClick={() => updateBlock(activeBlock.id, { indentLevel: Math.max(0, (activeBlock.indentLevel || 0) - 1) })}
+              onClick={() => activeBlock.listFormatting ? applyListCommand('decrease') : updateBlock(activeBlock.id, { indentLevel: Math.max(0, (activeBlock.indentLevel || 0) - 1) })}
               className="p-1 rounded hover:bg-[#333333] text-gray-300 cursor-pointer"
               title="Outdent"
             >
@@ -857,12 +909,14 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             </button>
 
             <button
-              onClick={() => updateBlock(activeBlock.id, { indentLevel: Math.min(3, (activeBlock.indentLevel || 0) + 1) })}
+              onClick={() => activeBlock.listFormatting ? applyListCommand('increase') : updateBlock(activeBlock.id, { indentLevel: Math.min(3, (activeBlock.indentLevel || 0) + 1) })}
               className="p-1 rounded hover:bg-[#333333] text-gray-300 cursor-pointer"
               title="Indent"
             >
               <Indent className="w-3.5 h-3.5" />
             </button>
+            {activeBlock.listFormatting && <button onClick={() => applyListCommand('remove')} className="px-1.5 py-1 rounded text-rose-300 hover:bg-[#333]" title="Remove List Formatting">Remove List</button>}
+            {activeBlock.listFormatting && <button onClick={onOpenListSettings} className="px-1.5 py-1 rounded text-gray-300 hover:bg-[#333]" title="List Settings">List Settings</button>}
 
             <div className="h-4 w-px bg-[#444] mx-1" />
 
@@ -1039,6 +1093,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           <BarChart2 className="w-3 h-3 text-orange-400" />
           <span>Graph</span>
         </button>
+
+        <button onClick={() => applyListCommand('insert-bullets')} disabled={!activeBlockId} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] disabled:opacity-30" title="Add Bulleted List Item"><span aria-hidden="true">•</span><span>Bulleted List Item</span></button>
+        <button onClick={() => applyListCommand('insert-numbering')} disabled={!activeBlockId} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] disabled:opacity-30" title="Add Numbered List Item"><span aria-hidden="true">1.</span><span>Numbered List Item</span></button>
 
         <button
           onClick={() => activeBlockId && addBlock(activeBlockId, 'table')}
@@ -1520,9 +1577,42 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
                       {/* Standard Paragraph */}
                       {block.type === 'paragraph' && (
+                        <div role={block.listFormatting ? 'listitem' : undefined} aria-level={block.listFormatting ? block.listFormatting.level + 1 : undefined} className="flex items-start" style={block.listFormatting ? { paddingLeft: `${resolvedLists.get(block.id)!.leftIndentPt}pt`, marginTop: `${resolvedLists.get(block.id)!.spacingBeforePt}pt`, marginBottom: `${resolvedLists.get(block.id)!.spacingAfterPt}pt` } : undefined}>
+                        {block.listFormatting && <span aria-hidden="true" className="shrink-0 text-right font-serif" style={{ width: `${resolvedLists.get(block.id)!.hangingIndentPt}pt`, marginRight: '6pt', color: resolvedLists.get(block.id)!.markerColour, fontSize: `${resolvedLists.get(block.id)!.markerSizePercent}%` }}>{resolvedLists.get(block.id)!.markerText}</span>}
                         <textarea
+                          data-block-id={block.id}
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
+                          onKeyDown={(event) => {
+                            if (event.ctrlKey && event.shiftKey && (event.key === '7' || event.key === '8')) {
+                              event.preventDefault();
+                              applyListCommand(event.key === '7' ? 'numbering' : 'bullets', block.id);
+                              return;
+                            }
+                            if (!block.listFormatting) return;
+                            const index = chapter.blocks.findIndex((candidate) => candidate.id === block.id);
+                            if (event.key === 'Tab') {
+                              event.preventDefault();
+                              applyListCommand(event.shiftKey ? 'decrease' : 'increase', block.id);
+                              return;
+                            }
+                            if (event.key === 'Backspace' && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0 && block.text.length === 0) {
+                              event.preventDefault();
+                              applyListCommand(block.listFormatting.level > 0 ? 'decrease' : 'remove', block.id);
+                              return;
+                            }
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            if (block.text.length === 0) {
+                              applyListCommand('remove', block.id);
+                              return;
+                            }
+                            const nextBlock: ContentBlock = { ...block, id: `b-${crypto.randomUUID()}`, text: '', trackedChanges: undefined, isInsertedInReview: isReviewModeActive || undefined, listFormatting: { ...block.listFormatting, restart: undefined, startAt: undefined } };
+                            const blocks = [...chapter.blocks]; blocks.splice(index + 1, 0, nextBlock);
+                            commitChapter({ ...chapter, blocks }, 'Create next list item', 'structure', undefined, nextBlock.id);
+                            setActiveBlockId(nextBlock.id);
+                            setTimeout(() => document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${nextBlock.id}"]`)?.focus(), 0);
+                          }}
                           onPaste={(event) => {
                             const text = event.clipboardData.getData('text/plain');
                             const result = normalizeEducationalPaste(text, () => `b-${crypto.randomUUID()}`);
@@ -1542,9 +1632,10 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           rows={Math.max(2, Math.ceil(block.text.length / 80))}
                           style={{
                             ...paragraphStyleFor(block),
+                            ...(block.listFormatting ? { textIndent: 0, paddingLeft: 0 } : {}),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 16}px`,
-                            paddingLeft: `${(block.indentLevel || 0) * 1.5}rem`,
+                            paddingLeft: block.listFormatting ? 0 : `${(block.indentLevel || 0) * 1.5}rem`,
                             textAlign: block.align || 'left',
                             fontWeight: block.bold ? 'bold' : 'normal',
                             fontStyle: block.italic ? 'italic' : 'normal',
@@ -1554,6 +1645,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           className="w-full bg-transparent border-none focus:outline-hidden resize-none leading-relaxed text-zinc-800 dark:text-zinc-200 font-serif"
                           placeholder="Type paragraph text here..."
                         />
+                        </div>
                       )}
 
                       {/* Page Break Block */}

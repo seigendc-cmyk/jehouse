@@ -4,6 +4,7 @@ import {
   TrialBalanceData
 } from '../types';
 import { createMathData, validateMathSource } from './mathValidation';
+import { createListId, listFormatting } from './structuredLists';
 
 export type PasteAmbiguityChoice = 'math-inline' | 'math-display' | 'code' | 'plain-text';
 
@@ -137,6 +138,7 @@ export function normalizeEducationalPaste(
   const warnings: PasteWarning[] = [];
   const counts = { headings: 0, paragraphs: 0, inlineMath: 0, displayMath: 0, alignedMath: 0, code: 0, accounting: 0, invalidMath: 0 };
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
+  let activePasteList: { id: string; type: 'unordered' | 'ordered' } | undefined;
 
   const addMath = (raw: string, mathSource: string, mode: 'inline' | 'display' | 'aligned', line: number) => {
     const validation = validateMathSource(mathSource);
@@ -161,6 +163,7 @@ export function normalizeEducationalPaste(
     const rawLine = lines[index];
     const trimmed = rawLine.trim();
     if (!trimmed) {
+      activePasteList = undefined;
       index += 1;
       continue;
     }
@@ -189,6 +192,20 @@ export function normalizeEducationalPaste(
       index += 1;
       continue;
     }
+    const markdownList = rawLine.match(/^(\s*)([-+*]|\d+[.)])\s+(.+)$/);
+    if (markdownList) {
+      const type = /^\d/.test(markdownList[2]) ? 'ordered' : 'unordered';
+      if (!activePasteList || activePasteList.type !== type) activePasteList = { id: createListId(), type };
+      const level = Math.min(4, Math.floor(markdownList[1].replace(/\t/g, '  ').length / 2));
+      const startAt = type === 'ordered' ? Number(markdownList[2].match(/^\d+/)?.[0] ?? 1) : undefined;
+      blocks.push({ id: idFactory(), type: 'paragraph', text: markdownList[3], listFormatting: listFormatting(type, activePasteList.id, {
+        level, ...(startAt !== undefined && startAt !== 1 ? { startAt, restart: true } : {})
+      }) });
+      counts.paragraphs += 1;
+      index += 1;
+      continue;
+    }
+    activePasteList = undefined;
     const wholeBacktick = trimmed.match(/^`([^`]+)`$/s);
     if (wholeBacktick) {
       const mathSource = wholeBacktick[1].trim();

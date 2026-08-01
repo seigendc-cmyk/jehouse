@@ -62,6 +62,25 @@ export interface LedgerRow {
   notes?: string;
 }
 
+export type UnorderedListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'arrow' | 'check' | 'custom';
+export type OrderedListStyle = 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | 'decimal-leading-zero' | 'decimal-outline';
+
+export interface ListFormatting {
+  listId: string;
+  type: 'unordered' | 'ordered';
+  level: number;
+  unorderedStyle?: UnorderedListStyle;
+  orderedStyle?: OrderedListStyle;
+  customMarker?: string;
+  startAt?: number;
+  restart?: boolean;
+  spacingBeforePt?: number;
+  spacingAfterPt?: number;
+  markerColour?: string;
+  markerSizePercent?: number;
+  keepWithNext?: boolean;
+}
+
 export interface MathBlockData {
   source: string;
   sourceFormat: 'latex';
@@ -212,6 +231,8 @@ export interface ContentBlock {
   lineHeight?: number; // Custom line height multiplier e.g. 1.4, 1.6
   /** Explicit colour for the complete block. Omit to inherit from book typography. */
   textColour?: string;
+  /** Structural list presentation. Markers are never stored in `text`. */
+  listFormatting?: ListFormatting;
   paragraphFormatting?: BlockParagraphFormatting;
   dropCapFormatting?: BlockDropCapFormatting;
   sceneBreak?: SceneBreakSettings;
@@ -665,6 +686,9 @@ export interface BookProject {
   chapters: Chapter[];
   watermark: WatermarkConfig;
   exportSettings: ExportSettings;
+  /** Preserved legacy layout fields; canonical dimensions remain in exportSettings. */
+  pageSize?: unknown;
+  margins?: unknown;
   mathPublishing?: {
     renderer: 'katex';
     rendererVersion: string;
