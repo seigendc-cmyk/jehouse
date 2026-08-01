@@ -57,6 +57,10 @@ export function usePwaLifecycle(): PwaLifecycle {
       promptRef.current = null;
       setInstallState('installed');
     };
+    const checkForUpdate = () => void registrationRef.current?.update().catch(() => undefined);
+    const checkVisibleUpdate = () => {
+      if (document.visibilityState === 'visible') checkForUpdate();
+    };
     window.addEventListener('beforeinstallprompt', handleInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
@@ -84,6 +88,8 @@ export function usePwaLifecycle(): PwaLifecycle {
           setRegistrationState('registered');
           markWaitingUpdate(registration);
           registration.addEventListener('updatefound', () => watchInstallingWorker(registration));
+          window.addEventListener('online', checkForUpdate);
+          document.addEventListener('visibilitychange', checkVisibleUpdate);
         })
         .catch((error: unknown) => {
           setRegistrationError(
@@ -103,6 +109,8 @@ export function usePwaLifecycle(): PwaLifecycle {
       return () => {
         window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
         window.removeEventListener('appinstalled', handleInstalled);
+        window.removeEventListener('online', checkForUpdate);
+        document.removeEventListener('visibilitychange', checkVisibleUpdate);
         navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       };
     }
