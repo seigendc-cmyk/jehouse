@@ -16,3 +16,7 @@ export const desktopSciPathReader: SciPathReader = {
 export async function saveSciToPath(path: string, contents: string): Promise<string> {
   return invoke<string>('write_sci_file', { path, contents });
 }
+
+export async function saveSciToDocuments(fileName: string, contents: string): Promise<string> {
+  return invoke<string>('write_sci_to_documents', { fileName, contents });
+}

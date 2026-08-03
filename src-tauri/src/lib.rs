@@ -21,7 +21,7 @@ pub fn run() {
   let initial = file_open::sci_paths(std::env::args(), &std::env::current_dir().unwrap_or_default());
   let builder = tauri::Builder::default().manage(PendingSciFiles(Mutex::new(initial)));
   single_instance::install(builder)
-    .invoke_handler(tauri::generate_handler![file_open::read_sci_file, file_open::write_sci_file, take_pending_sci_files])
+    .invoke_handler(tauri::generate_handler![file_open::read_sci_file, file_open::write_sci_file, file_open::write_sci_to_documents, take_pending_sci_files])
     .run(tauri::generate_context!())
     .expect("error while running PressCraft");
 }

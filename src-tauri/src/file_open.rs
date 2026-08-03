@@ -35,3 +35,17 @@ pub fn write_sci_file(path: String, contents: String) -> Result<String, String> 
   fs::write(&requested, contents.as_bytes()).map_err(|_| "NOT_WRITABLE".to_string())?;
   Ok(requested.canonicalize().unwrap_or(requested).to_string_lossy().into_owned())
 }
+
+#[tauri::command]
+pub fn write_sci_to_documents(file_name: String, contents: String) -> Result<String, String> {
+  let documents = dirs::document_dir().ok_or_else(|| "DOCUMENTS_UNAVAILABLE".to_string())?;
+  let folder = documents.join("Book Publisher");
+  fs::create_dir_all(&folder).map_err(|_| "NOT_WRITABLE".to_string())?;
+  let safe_name: String = file_name.chars()
+    .map(|character| if matches!(character, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') { '_' } else { character })
+    .collect();
+  let safe_name = safe_name.trim().trim_end_matches(&['.', ' '][..]);
+  if safe_name.is_empty() || safe_name == "." || safe_name == ".." { return Err("INVALID_FILENAME".into()); }
+  let file_name = if safe_name.to_lowercase().ends_with(".sci") { safe_name.to_string() } else { format!("{safe_name}.sci") };
+  write_sci_file(folder.join(file_name).to_string_lossy().into_owned(), contents)
+}

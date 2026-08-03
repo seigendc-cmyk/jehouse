@@ -43,7 +43,7 @@ import {
 import { DEFAULT_ACCOUNTING_FORMAT } from './lib/accounting';
 import { mergeWithPreviousList, sanitizeCustomMarker, splitListAt } from './lib/structuredLists';
 import { listenForSciFileOpen } from './desktop/desktopFileOpenEvents';
-import { desktopSciPathReader, isTauriDesktop, saveSciToPath } from './desktop/desktopFileOpenGateway';
+import { desktopSciPathReader, isTauriDesktop, saveSciToDocuments, saveSciToPath } from './desktop/desktopFileOpenGateway';
 import { desktopSessionState } from './desktop/desktopSessionState';
 import { openSciProjectFromPath } from './features/sciFile/application/openSciProjectFromPath';
 import { SciOpenError, serializeSciProject } from './features/sciFile';
@@ -265,11 +265,17 @@ export default function App() {
         void (async () => {
           await saveCoordinatorRef.current?.saveNow();
           const sourcePath = desktopSessionState.getSourcePath();
-          if (sourcePath && isTauriDesktop()) {
-            try { await saveSciToPath(sourcePath, serializeSciProject(activeProjectRef.current)); }
+          if (isTauriDesktop()) {
+            try {
+              const contents = serializeSciProject(activeProjectRef.current);
+              const savedPath = sourcePath
+                ? await saveSciToPath(sourcePath, contents)
+                : await saveSciToDocuments(activeProjectRef.current.title || 'Untitled Book', contents);
+              desktopSessionState.setSourcePath(savedPath);
+            }
             catch (error) {
               console.error('[SCI save]', error);
-              setStartupError('PressCraft could not save the SCI file to its original location.');
+              setStartupError('PressCraft could not save the SCI file to the selected location.');
             }
           }
         })();

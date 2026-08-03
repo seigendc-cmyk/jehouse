@@ -28,6 +28,11 @@ The external source path is session-only and is never serialized. Opening never 
 Explicit Ctrl+S updates that path; normal IndexedDB autosave retains its existing behavior and does
 not overwrite the external source.
 
+For a project without an external source path, desktop Ctrl+S and “Save to Local Disk” create the
+folder `%USERPROFILE%\Documents\Book Publisher` when necessary and save the project there as an
+`.sci` file. Windows-invalid filename characters are replaced safely. Browser/PWA builds cannot
+choose a folder without user permission, so they retain the platform file picker or download flow.
+
 ## Association and icon
 
 `src-tauri/tauri.conf.json` declares `.sci`, its display metadata, MIME type, and Editor role in

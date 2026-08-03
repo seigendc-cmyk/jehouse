@@ -1628,6 +1628,14 @@ export function exportToHTML(project: BookProject) {
  * Save project directly to local disk in Documents folder (File System Access API or Download trigger)
  */
 export async function saveToLocalDiskInDocuments(project: BookProject): Promise<boolean> {
+  const { isTauriDesktop, saveSciToDocuments } = await import('../desktop/desktopFileOpenGateway');
+  if (isTauriDesktop()) {
+    const { serializeSciProject } = await import('../features/sciFile');
+    const savedPath = await saveSciToDocuments(project.title || 'Untitled Book', serializeSciProject(project));
+    const { desktopSessionState } = await import('../desktop/desktopSessionState');
+    desktopSessionState.setSourcePath(savedPath);
+    return true;
+  }
   const jsonContent = JSON.stringify(project, null, 2);
   const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'presscraft_book';
   const fileName = `${cleanTitle}_document.m2b`;
