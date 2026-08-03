@@ -52,6 +52,7 @@ interface NavbarProps {
   onOpenImageGallery?: () => void;
   onOpenProjectManager?: () => void;
   onImportBookSci?: () => void;
+  onExportBookSci?: () => void;
   isOnline?: boolean;
   canInstall?: boolean;
   onInstallPwa?: () => void;
@@ -118,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenFocusMode, onOpenProofread, onOpenStoryContinuation, onOpenExportModal,
   onOpenPrintPreview, onOpenSeriesManager, onOpenTypography, onOpenCloudSync, onSaveToLocalDisk,
   onOpenSQLiteConsole, onOpenEducationalStudio, onOpenCompanyProfile,
-  onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager, onImportBookSci,
+  onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager, onImportBookSci, onExportBookSci,
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
   onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
@@ -168,6 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <RibbonButton label="New / Open" icon={FolderOpen} onClick={onOpenProjectManager} />
             <RibbonButton label="Import Book SCI" icon={Upload} onClick={onImportBookSci} />
             <RibbonButton label="Save" icon={Save} onClick={onSaveToLocalDisk} />
+            <RibbonButton label="Export Book SCI" icon={Download} onClick={onExportBookSci} />
           </RibbonGroup>
           <RibbonGroup label="Output">
             <RibbonButton label="Export" icon={Download} onClick={onOpenExportModal} />

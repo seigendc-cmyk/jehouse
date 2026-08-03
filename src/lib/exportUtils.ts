@@ -1678,6 +1678,29 @@ export async function saveToLocalDiskInDocuments(project: BookProject): Promise<
   return true;
 }
 
+/** Export the canonical portable SCI project format. */
+export async function exportBookSci(project: BookProject): Promise<boolean> {
+  const { serializeSciProject } = await import('../features/sciFile');
+  const contents = serializeSciProject(project);
+  const cleanTitle = project.title.trim().replace(/[<>:"/\\|?*]+/g, '_').replace(/[. ]+$/g, '') || 'Untitled Book';
+  const fileName = `${cleanTitle}.sci`;
+  const { isTauriDesktop, saveSciToDocuments } = await import('../desktop/desktopFileOpenGateway');
+  if (isTauriDesktop()) {
+    await saveSciToDocuments(fileName, contents);
+    return true;
+  }
+  const blob = new Blob([contents], { type: 'application/vnd.presscraft.sci;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 /**
  * Export project as a Microsoft Word document (.docx)
  */

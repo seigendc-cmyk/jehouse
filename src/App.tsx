@@ -1103,6 +1103,9 @@ export default function App() {
           setIsProjectManagerOpen(true);
         }}
         onImportBookSci={() => sciImportInputRef.current?.click()}
+        onExportBookSci={() => {
+          void import('./lib/exportUtils').then(({ exportBookSci }) => exportBookSci(project));
+        }}
         isOnline={isOnline}
         canInstall={pwa.canInstall}
         onInstallPwa={() => void pwa.requestInstall()}

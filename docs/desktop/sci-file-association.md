@@ -32,6 +32,8 @@ For a project without an external source path, desktop Ctrl+S and “Save to Loc
 folder `%USERPROFILE%\Documents\Book Publisher` when necessary and save the project there as an
 `.sci` file. Windows-invalid filename characters are replaced safely. Browser/PWA builds cannot
 choose a folder without user permission, so they retain the platform file picker or download flow.
+The File ribbon and Export dialog also expose **Export Book SCI** explicitly. Desktop exports go to
+that folder; browser/PWA exports download the same validated portable `.sci` envelope.
 
 ## Association and icon
 

@@ -7,6 +7,7 @@ import {
   exportToPDF, 
   exportToEPUB, 
   exportProjectJSON, 
+  exportBookSci,
   exportOfflineShellJSON, 
   parseOfflineShellJSON,
   exportToMarkdown,
@@ -386,7 +387,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-[#FF6B00]" />
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Local Disk Storage & Document Package (.m2b)</h4>
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider">SCI Book Project & Local Disk Storage</h4>
             </div>
             <span className="text-[10px] bg-[#333333] text-gray-300 px-2 py-0.5 rounded font-mono">v1.0.0-local-disk</span>
           </div>
@@ -396,8 +397,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <button
-              onClick={() => saveToLocalDiskInDocuments(project)}
+              onClick={() => void exportBookSci(project)}
               className="flex items-center gap-2 py-2 px-3 rounded bg-[#FF6B00] hover:bg-orange-600 text-black font-bold text-xs transition-colors shadow-sm cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Book SCI</span>
+            </button>
+            <button
+              onClick={() => saveToLocalDiskInDocuments(project)}
+              className="flex items-center gap-2 py-2 px-3 rounded bg-[#333333] hover:bg-[#444444] text-white font-bold text-xs transition-colors border border-[#444] cursor-pointer"
             >
               <HardDrive className="w-4 h-4" />
               <span>Save to Local Disk (Documents)</span>

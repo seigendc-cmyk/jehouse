@@ -92,6 +92,8 @@ describe('professional application shell', () => {
   });
 
   it('offers SCI import from the File menu', () => {
-    expect(renderNavbar('file')).toContain('>Import Book SCI</span>');
+    const markup = renderNavbar('file');
+    expect(markup).toContain('>Import Book SCI</span>');
+    expect(markup).toContain('>Export Book SCI</span>');
   });
 });
