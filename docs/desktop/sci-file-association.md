@@ -41,7 +41,7 @@ and invokes the packaged executable with the selected path as one argument. The 
 icon is `assets/branding/sci-file-icon.png`; it has not been supplied. Place the unchanged official
 PNG there and run `npm run desktop:icon:sci`. The generated `src-tauri/icons/sci-file.ico` contains
 16, 24, 32, 48, 64, 128, and 256 pixel frames. The application icon remains separate under
-`public/icons`.
+`public/icons`. The official source and generated ICO are now present.
 
 Tauri's portable file-association declaration does not expose a distinct Windows document-icon or
 custom ProgID field. Before release, configure an installer-owned WiX/NSIS extension only if the
@@ -58,5 +58,5 @@ invalid/corrupt/oversized files, dirty-work cancellation, and uninstall. Confirm
 only PressCraft-owned association values. Browser/PWA imports remain available through the project
 and export file pickers and use the same parser.
 
-Known limitations: the official icon is still required; the current UI is single-document; Windows
+Known limitations: the current UI is single-document; Windows
 installer/registry QA requires Rust, WebView2 tooling, and an installed bundle.
