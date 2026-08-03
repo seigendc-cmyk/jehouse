@@ -42,6 +42,11 @@ import {
 } from './components/MathAccountingInspector';
 import { DEFAULT_ACCOUNTING_FORMAT } from './lib/accounting';
 import { mergeWithPreviousList, sanitizeCustomMarker, splitListAt } from './lib/structuredLists';
+import { listenForSciFileOpen } from './desktop/desktopFileOpenEvents';
+import { desktopSciPathReader, isTauriDesktop, saveSciToPath } from './desktop/desktopFileOpenGateway';
+import { desktopSessionState } from './desktop/desktopSessionState';
+import { openSciProjectFromPath } from './features/sciFile/application/openSciProjectFromPath';
+import { SciOpenError, serializeSciProject } from './features/sciFile';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -107,6 +112,7 @@ export default function App() {
   const [recentProjects, setRecentProjects] = useState<ProjectSummary[]>([]);
   const [recoveryVersions, setRecoveryVersions] = useState<ProjectVersion[]>([]);
   const [startupError, setStartupError] = useState<string>();
+  const externalOpenBusy = useRef(false);
   const projectRecords = useRef<Map<string, StoredProject>>(new Map());
 
   const activeProject = projects.find(p => p.id === activeProjectId) ?? null;
@@ -256,7 +262,17 @@ export default function App() {
     const handleSaveShortcut = (event: KeyboardEvent) => {
       if (isImmediateSaveShortcut(event)) {
         event.preventDefault();
-        void saveCoordinatorRef.current?.saveNow();
+        void (async () => {
+          await saveCoordinatorRef.current?.saveNow();
+          const sourcePath = desktopSessionState.getSourcePath();
+          if (sourcePath && isTauriDesktop()) {
+            try { await saveSciToPath(sourcePath, serializeSciProject(activeProjectRef.current)); }
+            catch (error) {
+              console.error('[SCI save]', error);
+              setStartupError('PressCraft could not save the SCI file to its original location.');
+            }
+          }
+        })();
       }
     };
     window.addEventListener('keydown', handleSaveShortcut);
@@ -273,6 +289,48 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveState]);
+
+  useEffect(() => {
+    if (!isStorageLoaded || !isTauriDesktop()) return;
+    let disposed = false;
+    let unlisten = () => undefined;
+    const openPaths = async (paths: string[]) => {
+      if (externalOpenBusy.current) return;
+      externalOpenBusy.current = true;
+      try {
+        const first = paths.find((path) => path.toLocaleLowerCase().endsWith('.sci'));
+        if (!first) throw new SciOpenError('INVALID_EXTENSION', 'Windows did not provide a valid .sci file to open.');
+        const opened = await openSciProjectFromPath(first, desktopSciPathReader);
+        if (hasActiveProject && needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+          const saveFirst = window.confirm('This project has unsaved changes. Select OK to save before opening the SCI file, or Cancel for more options.');
+          if (saveFirst) await saveCoordinatorRef.current?.saveNow();
+          if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+            const discard = window.confirm("Select OK to open the SCI file without saving the current changes, or Cancel to keep editing.");
+            if (!discard) throw new SciOpenError('CANCELLED', 'Project opening was cancelled because unsaved work remains.');
+          }
+        }
+        if (disposed) return;
+        const next = opened.project;
+        setProjects((current) => [next, ...current.filter((item) => item.id !== next.id)]);
+        setActiveProjectId(next.id);
+        activeProjectRef.current = next;
+        setActiveChapterId(next.chapters[0]?.id || 'ch-1');
+        clearFormattingHistory();
+        saveCoordinatorRef.current?.setProject(next, null);
+        desktopSessionState.setSourcePath(opened.sourcePath);
+        const now = new Date().toISOString();
+        setRecentProjects((current) => [{ projectId: next.id, title: next.title, author: next.author,
+          category: next.category, localRevision: 0, updatedAt: now, lastSavedAt: now,
+          syncStatus: 'local-only' }, ...current.filter((item) => item.projectId !== next.id)]);
+        setStartupError(paths.length > 1 ? 'PressCraft currently opens one project at a time. The first valid SCI file was opened.' : undefined);
+      } catch (error) {
+        console.error('[SCI file open]', error);
+        setStartupError(error instanceof SciOpenError ? error.message : 'PressCraft could not read this SCI file because of permissions or filesystem access.');
+      } finally { externalOpenBusy.current = false; }
+    };
+    void listenForSciFileOpen((paths) => void openPaths(paths)).then((stop) => { unlisten = stop; });
+    return () => { disposed = true; unlisten(); };
+  }, [isStorageLoaded, hasActiveProject, saveState]);
 
   // Keep activeChapterId in sync when project changes
   useEffect(() => {
@@ -440,6 +498,7 @@ export default function App() {
       }
     }
     setActiveProjectId(null);
+    desktopSessionState.setSourcePath(undefined);
     clearFormattingHistory();
     saveCoordinatorRef.current?.clearProject();
     setSaveState(createInitialSaveState());
