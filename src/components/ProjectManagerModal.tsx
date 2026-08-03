@@ -317,6 +317,17 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     reader.readAsText(file);
   };
 
+  const handleImportSCI = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try { onCreateProject((await deserializeSciFile(file)).project); }
+    catch (error) {
+      console.error('[SCI browser import]', error);
+      alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+    }
+  };
+
   const calculateTotalWords = (project: BookProject) => {
     let words = 0;
     project.chapters.forEach(ch => {
@@ -422,10 +433,15 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             </button>
 
             <div className="pt-4">
+              <label className="mb-2 flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-dashed border-orange-500/60 bg-orange-500/10 text-xs font-bold text-orange-300 hover:bg-orange-500/20 hover:text-white cursor-pointer transition">
+                <Upload className="w-3.5 h-3.5 text-orange-400" />
+                <span>Import Book SCI</span>
+                <input type="file" accept=".sci,application/vnd.presscraft.sci" onChange={handleImportSCI} className="hidden" />
+              </label>
               <label className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-dashed border-[#56241e] dark:border-zinc-700 text-xs font-semibold text-[#ebd3ca] hover:text-white hover:border-orange-500/50 cursor-pointer transition">
                 <Upload className="w-3.5 h-3.5 text-orange-400" />
                 <span>Import Book JSON</span>
-                <input type="file" accept=".sci,.json,application/vnd.presscraft.sci,application/json" onChange={handleImportJSON} className="hidden" />
+                <input type="file" accept=".json,application/json" onChange={handleImportJSON} className="hidden" />
               </label>
             </div>
           </div>

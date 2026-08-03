@@ -7,7 +7,7 @@ import { Navbar } from './Navbar';
 
 const noop = () => undefined;
 
-function renderNavbar(initialRibbonTab: 'home' | 'insert' = 'home') {
+function renderNavbar(initialRibbonTab: 'file' | 'home' | 'insert' = 'home') {
   const project = { ...createEmptyBookProject(), title: 'The Real Project' };
   return renderToStaticMarkup(
     <Navbar
@@ -89,5 +89,9 @@ describe('professional application shell', () => {
   it('renders Insert list commands', () => {
     const markup = renderNavbar('insert');
     for (const label of ['Bulleted List', 'Numbered List', 'Multilevel List']) expect(markup).toContain(`>${label}</span>`);
+  });
+
+  it('offers SCI import from the File menu', () => {
+    expect(renderNavbar('file')).toContain('>Import Book SCI</span>');
   });
 });

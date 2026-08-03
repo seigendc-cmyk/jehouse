@@ -46,7 +46,7 @@ import { listenForSciFileOpen } from './desktop/desktopFileOpenEvents';
 import { desktopSciPathReader, isTauriDesktop, saveSciToDocuments, saveSciToPath } from './desktop/desktopFileOpenGateway';
 import { desktopSessionState } from './desktop/desktopSessionState';
 import { openSciProjectFromPath } from './features/sciFile/application/openSciProjectFromPath';
-import { SciOpenError, serializeSciProject } from './features/sciFile';
+import { deserializeSciFile, SciOpenError, serializeSciProject } from './features/sciFile';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -113,6 +113,7 @@ export default function App() {
   const [recoveryVersions, setRecoveryVersions] = useState<ProjectVersion[]>([]);
   const [startupError, setStartupError] = useState<string>();
   const externalOpenBusy = useRef(false);
+  const sciImportInputRef = useRef<HTMLInputElement>(null);
   const projectRecords = useRef<Map<string, StoredProject>>(new Map());
 
   const activeProject = projects.find(p => p.id === activeProjectId) ?? null;
@@ -425,6 +426,21 @@ export default function App() {
     saveCoordinatorRef.current?.setProject(newProj, null);
     saveCoordinatorRef.current?.markDirty(newProj);
     setIsProjectManagerOpen(false);
+  };
+
+  const handleImportBookSci = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const imported = await deserializeSciFile(file);
+      desktopSessionState.setSourcePath(undefined);
+      await handleCreateProject(imported.project);
+      setStartupError(undefined);
+    } catch (error) {
+      console.error('[SCI menu import]', error);
+      setStartupError(error instanceof SciOpenError ? error.message : 'PressCraft could not import this SCI file.');
+    }
   };
 
   const handleUpdateProjectInList = (updatedProj: BookProject) => {
@@ -1086,6 +1102,7 @@ export default function App() {
           setProjectManagerInitialTab('active');
           setIsProjectManagerOpen(true);
         }}
+        onImportBookSci={() => sciImportInputRef.current?.click()}
         isOnline={isOnline}
         canInstall={pwa.canInstall}
         onInstallPwa={() => void pwa.requestInstall()}
@@ -1118,6 +1135,14 @@ export default function App() {
         onListCommand={(command) => { setActiveTab('editor'); setListCommandRequest({ id: Date.now(), command }); }}
         canFormatList={selectedBlock?.type === 'paragraph' || selectedBlock?.type === 'item'}
         activeListType={selectedBlock?.listFormatting?.type}
+      />
+      <input
+        ref={sciImportInputRef}
+        type="file"
+        accept=".sci,application/vnd.presscraft.sci"
+        onChange={(event) => void handleImportBookSci(event)}
+        className="hidden"
+        aria-label="Import Book SCI"
       />
       <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
