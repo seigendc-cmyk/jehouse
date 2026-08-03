@@ -17,7 +17,8 @@
     "qa:fixture": "tsx qa/scripts/generateMathAccountingQaFixture.ts",
     "qa:production": "npm run qa:fixture && npm run build && node qa/scripts/runProductionQa.mjs",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "preview": "node dist/server.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
