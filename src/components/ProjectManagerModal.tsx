@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { deserializeSciFile } from '../features/sciFile';
 import {
   BookOpen,
   Plus,
@@ -283,9 +284,18 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     downloadAnchor.remove();
   };
 
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLocaleLowerCase().endsWith('.sci')) {
+      try { onCreateProject((await deserializeSciFile(file)).project); }
+      catch (error) {
+        console.error('[SCI browser import]', error);
+        alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+      }
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -415,7 +425,7 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
               <label className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-dashed border-[#56241e] dark:border-zinc-700 text-xs font-semibold text-[#ebd3ca] hover:text-white hover:border-orange-500/50 cursor-pointer transition">
                 <Upload className="w-3.5 h-3.5 text-orange-400" />
                 <span>Import Book JSON</span>
-                <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                <input type="file" accept=".sci,.json,application/vnd.presscraft.sci,application/json" onChange={handleImportJSON} className="hidden" />
               </label>
             </div>
           </div>

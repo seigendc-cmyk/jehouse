@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { deserializeSciFile } from '../features/sciFile';
 import { Download, FileText, BookOpen, Check, X, Printer, Package, HardDrive, Upload, FileCode, Eye } from 'lucide-react';
 import { BookProject, ExportSettings, TrimSize, FontPairing, MarginPreset } from '../types';
 import { GOOGLE_FONTS } from '../lib/googleFonts';
@@ -43,9 +44,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const { exportSettings } = project;
   const preflight = runPublishingPreflight(project);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLocaleLowerCase().endsWith('.sci')) {
+      try {
+        onImportProject?.((await deserializeSciFile(file)).project);
+        onClose();
+      } catch (error) {
+        console.error('[SCI browser import]', error);
+        alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+      }
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -410,7 +422,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,.m2b"
+              accept=".sci,.json,.m2b,application/vnd.presscraft.sci"
               onChange={handleFileUpload}
               className="hidden"
             />
