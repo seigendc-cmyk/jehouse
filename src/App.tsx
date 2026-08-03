@@ -26,6 +26,27 @@ import { usePwaLifecycle } from './hooks/usePwaLifecycle';
 import { applyUpdateWhenSafe } from './pwa/updatePolicy';
 import { getDocumentDisplayLabel } from './lib/documentDisplayLabel';
 import { FormattingHistoryController, HistoryScope } from './lib/formattingHistory';
+import {
+  createMathAccountingBlock,
+  INSERT_MATH_ACCOUNTING_COMMANDS,
+  MathAccountingCommand,
+  MATH_ACCOUNTING_COMMAND_LABELS
+} from './features/mathAccounting';
+import {
+  PublishingPreflightIssue,
+  runPublishingPreflight
+} from './lib/publishingPreflight';
+import {
+  isInspectablePublishingBlock,
+  MathAccountingInspector
+} from './components/MathAccountingInspector';
+import { DEFAULT_ACCOUNTING_FORMAT } from './lib/accounting';
+import { mergeWithPreviousList, sanitizeCustomMarker, splitListAt } from './lib/structuredLists';
+import { listenForSciFileOpen } from './desktop/desktopFileOpenEvents';
+import { desktopSciPathReader, isTauriDesktop, saveSciToDocuments, saveSciToPath } from './desktop/desktopFileOpenGateway';
+import { desktopSessionState } from './desktop/desktopSessionState';
+import { openSciProjectFromPath } from './features/sciFile/application/openSciProjectFromPath';
+import { deserializeSciFile, SciOpenError, serializeSciProject } from './features/sciFile';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -91,6 +112,8 @@ export default function App() {
   const [recentProjects, setRecentProjects] = useState<ProjectSummary[]>([]);
   const [recoveryVersions, setRecoveryVersions] = useState<ProjectVersion[]>([]);
   const [startupError, setStartupError] = useState<string>();
+  const externalOpenBusy = useRef(false);
+  const sciImportInputRef = useRef<HTMLInputElement>(null);
   const projectRecords = useRef<Map<string, StoredProject>>(new Map());
 
   const activeProject = projects.find(p => p.id === activeProjectId) ?? null;
@@ -156,6 +179,10 @@ export default function App() {
     () => typeof window === 'undefined' || window.innerWidth > 900
   );
   const [inspectorVisible, setInspectorVisible] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string>();
+  const [pasteWorkedProblemRequest, setPasteWorkedProblemRequest] = useState(0);
+  const [listCommandRequest, setListCommandRequest] = useState<{ id: number; command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering' }>();
+  const [publishingIssues, setPublishingIssues] = useState<PublishingPreflightIssue[]>([]);
 
   // Modals & Drawers
   const [isProjectManagerOpen, setIsProjectManagerOpen] = useState<boolean>(false);
@@ -236,7 +263,23 @@ export default function App() {
     const handleSaveShortcut = (event: KeyboardEvent) => {
       if (isImmediateSaveShortcut(event)) {
         event.preventDefault();
-        void saveCoordinatorRef.current?.saveNow();
+        void (async () => {
+          await saveCoordinatorRef.current?.saveNow();
+          const sourcePath = desktopSessionState.getSourcePath();
+          if (isTauriDesktop()) {
+            try {
+              const contents = serializeSciProject(activeProjectRef.current);
+              const savedPath = sourcePath
+                ? await saveSciToPath(sourcePath, contents)
+                : await saveSciToDocuments(activeProjectRef.current.title || 'Untitled Book', contents);
+              desktopSessionState.setSourcePath(savedPath);
+            }
+            catch (error) {
+              console.error('[SCI save]', error);
+              setStartupError('PressCraft could not save the SCI file to the selected location.');
+            }
+          }
+        })();
       }
     };
     window.addEventListener('keydown', handleSaveShortcut);
@@ -253,6 +296,48 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveState]);
+
+  useEffect(() => {
+    if (!isStorageLoaded || !isTauriDesktop()) return;
+    let disposed = false;
+    let unlisten = () => undefined;
+    const openPaths = async (paths: string[]) => {
+      if (externalOpenBusy.current) return;
+      externalOpenBusy.current = true;
+      try {
+        const first = paths.find((path) => path.toLocaleLowerCase().endsWith('.sci'));
+        if (!first) throw new SciOpenError('INVALID_EXTENSION', 'Windows did not provide a valid .sci file to open.');
+        const opened = await openSciProjectFromPath(first, desktopSciPathReader);
+        if (hasActiveProject && needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+          const saveFirst = window.confirm('This project has unsaved changes. Select OK to save before opening the SCI file, or Cancel for more options.');
+          if (saveFirst) await saveCoordinatorRef.current?.saveNow();
+          if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+            const discard = window.confirm("Select OK to open the SCI file without saving the current changes, or Cancel to keep editing.");
+            if (!discard) throw new SciOpenError('CANCELLED', 'Project opening was cancelled because unsaved work remains.');
+          }
+        }
+        if (disposed) return;
+        const next = opened.project;
+        setProjects((current) => [next, ...current.filter((item) => item.id !== next.id)]);
+        setActiveProjectId(next.id);
+        activeProjectRef.current = next;
+        setActiveChapterId(next.chapters[0]?.id || 'ch-1');
+        clearFormattingHistory();
+        saveCoordinatorRef.current?.setProject(next, null);
+        desktopSessionState.setSourcePath(opened.sourcePath);
+        const now = new Date().toISOString();
+        setRecentProjects((current) => [{ projectId: next.id, title: next.title, author: next.author,
+          category: next.category, localRevision: 0, updatedAt: now, lastSavedAt: now,
+          syncStatus: 'local-only' }, ...current.filter((item) => item.projectId !== next.id)]);
+        setStartupError(paths.length > 1 ? 'PressCraft currently opens one project at a time. The first valid SCI file was opened.' : undefined);
+      } catch (error) {
+        console.error('[SCI file open]', error);
+        setStartupError(error instanceof SciOpenError ? error.message : 'PressCraft could not read this SCI file because of permissions or filesystem access.');
+      } finally { externalOpenBusy.current = false; }
+    };
+    void listenForSciFileOpen((paths) => void openPaths(paths)).then((stop) => { unlisten = stop; });
+    return () => { disposed = true; unlisten(); };
+  }, [isStorageLoaded, hasActiveProject, saveState]);
 
   // Keep activeChapterId in sync when project changes
   useEffect(() => {
@@ -343,6 +428,21 @@ export default function App() {
     setIsProjectManagerOpen(false);
   };
 
+  const handleImportBookSci = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const imported = await deserializeSciFile(file);
+      desktopSessionState.setSourcePath(undefined);
+      await handleCreateProject(imported.project);
+      setStartupError(undefined);
+    } catch (error) {
+      console.error('[SCI menu import]', error);
+      setStartupError(error instanceof SciOpenError ? error.message : 'PressCraft could not import this SCI file.');
+    }
+  };
+
   const handleUpdateProjectInList = (updatedProj: BookProject) => {
     setProjects((prev) => prev.map((p) => (p.id === updatedProj.id ? updatedProj : p)));
     if (updatedProj.id === activeProjectId) {
@@ -420,6 +520,7 @@ export default function App() {
       }
     }
     setActiveProjectId(null);
+    desktopSessionState.setSourcePath(undefined);
     clearFormattingHistory();
     saveCoordinatorRef.current?.clearProject();
     setSaveState(createInitialSaveState());
@@ -494,6 +595,56 @@ export default function App() {
   const handleFormattingChapter=(updatedChapter:Chapter,label:string,scope:HistoryScope,mergeKey?:string,activeBlockId?:string)=>{
     const next={...activeProjectRef.current,chapters:activeProjectRef.current.chapters.map(c=>c.id===updatedChapter.id?updatedChapter:c)};
     executeFormattingTransaction(label,scope,next,mergeKey,activeBlockId);
+  };
+  const handleMathAccountingCommand = (command: MathAccountingCommand) => {
+    setActiveTab('editor');
+    if (command === 'paste-worked-problem') {
+      setPasteWorkedProblemRequest((request) => request + 1);
+      return;
+    }
+    if (command === 'preview-print-layout') {
+      setIsPrintPreviewOpen(true);
+      return;
+    }
+    const chapter = activeProjectRef.current.chapters.find((item) => item.id === activeChapterId)
+      ?? activeProjectRef.current.chapters[0];
+    if (!chapter) return;
+    if (command === 'validate-current-block' || command === 'run-chapter-preflight') {
+      const report = runPublishingPreflight(activeProjectRef.current);
+      const chapterIssues = report.issues.filter((issue) => issue.chapterId === chapter.id);
+      const issues = command === 'validate-current-block'
+        ? chapterIssues.filter((issue) => issue.blockId === selectedBlockId)
+        : chapterIssues;
+      setPublishingIssues(issues);
+      const targetBlockId = command === 'run-chapter-preflight'
+        ? chapterIssues[0]?.blockId
+        : selectedBlockId;
+      if (targetBlockId) {
+        setSelectedBlockId(targetBlockId);
+        setHistoryActiveBlockId(targetBlockId);
+      }
+      setInspectorVisible(true);
+      if (window.innerWidth <= 900) setNavigationVisible(false);
+      return;
+    }
+    if (!INSERT_MATH_ACCOUNTING_COMMANDS.has(command)) return;
+    const block = createMathAccountingBlock(command, `b-${crypto.randomUUID()}`);
+    if (!block) return;
+    const selectedIndex = chapter.blocks.findIndex((item) => item.id === selectedBlockId);
+    const blocks = [...chapter.blocks];
+    blocks.splice(selectedIndex >= 0 ? selectedIndex + 1 : blocks.length, 0, block);
+    handleFormattingChapter(
+      { ...chapter, blocks },
+      MATH_ACCOUNTING_COMMAND_LABELS[command],
+      'structure',
+      undefined,
+      block.id
+    );
+    setSelectedBlockId(block.id);
+    setHistoryActiveBlockId(block.id);
+    setPublishingIssues([]);
+    setInspectorVisible(true);
+    if (window.innerWidth <= 900) setNavigationVisible(false);
   };
 
   useEffect(()=>{
@@ -876,6 +1027,7 @@ export default function App() {
   }
 
   const activeChapter = project.chapters.find((c) => c.id === activeChapterId) || project.chapters[0];
+  const selectedBlock = activeChapter?.blocks.find((block) => block.id === selectedBlockId) ?? activeChapter?.blocks[0];
   const activeDocumentLabel = getDocumentDisplayLabel({
     workspace: activeTab,
     chapterNumber: activeChapter?.number,
@@ -950,6 +1102,10 @@ export default function App() {
           setProjectManagerInitialTab('active');
           setIsProjectManagerOpen(true);
         }}
+        onImportBookSci={() => sciImportInputRef.current?.click()}
+        onExportBookSci={() => {
+          void import('./lib/exportUtils').then(({ exportBookSci }) => exportBookSci(project));
+        }}
         isOnline={isOnline}
         canInstall={pwa.canInstall}
         onInstallPwa={() => void pwa.requestInstall()}
@@ -978,6 +1134,18 @@ export default function App() {
         redoLabel={historyRef.current.redoLabel}
         onUndo={undoFormatting}
         onRedo={redoFormatting}
+        onMathAccountingCommand={handleMathAccountingCommand}
+        onListCommand={(command) => { setActiveTab('editor'); setListCommandRequest({ id: Date.now(), command }); }}
+        canFormatList={selectedBlock?.type === 'paragraph' || selectedBlock?.type === 'item'}
+        activeListType={selectedBlock?.listFormatting?.type}
+      />
+      <input
+        ref={sciImportInputRef}
+        type="file"
+        accept=".sci,application/vnd.presscraft.sci"
+        onChange={(event) => void handleImportBookSci(event)}
+        className="hidden"
+        aria-label="Import Book SCI"
       />
       <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
@@ -1025,6 +1193,8 @@ export default function App() {
               chapter={activeChapter}
               typography={project.typography}
               colourSettings={project.colourSettings}
+              accountingFormat={project.accountingFormat}
+              onUpdateAccountingFormat={(accountingFormat) => handleUpdateProject({ accountingFormat })}
               watermark={project.watermark}
               trimSize={project.exportSettings.trimSize}
               headerFooter={project.headerFooter}
@@ -1039,6 +1209,10 @@ export default function App() {
               onUpdateChapter={handleUpdateChapter}
               onFormattingTransaction={handleFormattingChapter}
               requestedActiveBlockId={historyActiveBlockId}
+              pasteWorkedProblemRequest={pasteWorkedProblemRequest}
+              onActiveBlockChange={setSelectedBlockId}
+              listCommandRequest={listCommandRequest}
+              onOpenListSettings={() => setInspectorVisible(true)}
               onUpdateTrimSize={(trimSize) =>
                 handleUpdateProject({
                   exportSettings: { ...project.exportSettings, trimSize }
@@ -1143,14 +1317,69 @@ export default function App() {
               <strong>Properties</strong>
               <button onClick={() => setInspectorVisible(false)} aria-label="Close inspector">×</button>
             </div>
-            <dl className="pc-property-list">
+            {publishingIssues.length > 0 && (
+              <nav className="pc-preflight-navigation" aria-label="Chapter preflight issues">
+                <strong>Chapter preflight</strong>
+                {publishingIssues.map((issue) => (
+                  <button
+                    type="button"
+                    key={issue.id}
+                    className={issue.blockId === selectedBlockId ? 'is-active' : ''}
+                    onClick={() => {
+                      if (!issue.blockId) return;
+                      setSelectedBlockId(issue.blockId);
+                      setHistoryActiveBlockId(issue.blockId);
+                    }}
+                  >
+                    <span>{issue.severity}</span>{issue.message}
+                  </button>
+                ))}
+              </nav>
+            )}
+            {selectedBlock?.listFormatting && (
+              <section className="space-y-2 border-b border-zinc-700 p-3 text-xs" aria-label="List Settings">
+                <strong>List Settings</strong>
+                <label className="block">List type<select aria-label="List type" value={selectedBlock.listFormatting.type} onChange={(event) => setListCommandRequest({ id: Date.now(), command: event.target.value === 'unordered' ? 'bullets' : 'numbering' })} className="block w-full"><option value="unordered">Unordered</option><option value="ordered">Ordered</option></select></label>
+                {selectedBlock.listFormatting.type === 'unordered' ? <label className="block">Marker Style<select aria-label="Marker Style" value={selectedBlock.listFormatting.unorderedStyle ?? 'disc'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,unorderedStyle:event.target.value as any}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker style','block-formatting',undefined,selectedBlock.id); }} className="block w-full">{['disc','circle','square','dash','arrow','check','custom'].map(value=><option key={value} value={value}>{value}</option>)}</select></label> : <label className="block">Number Style<select aria-label="Number Style" value={selectedBlock.listFormatting.orderedStyle ?? 'decimal'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,orderedStyle:event.target.value as any}}:block);handleFormattingChapter({...activeChapter,blocks},'Change numbering style','block-formatting',undefined,selectedBlock.id); }} className="block w-full">{['decimal','lower-alpha','upper-alpha','lower-roman','upper-roman','decimal-leading-zero','decimal-outline'].map(value=><option key={value} value={value}>{value}</option>)}</select></label>}
+                {selectedBlock.listFormatting.unorderedStyle === 'custom' && <label className="block">Custom marker<input aria-label="Custom marker" maxLength={8} value={selectedBlock.listFormatting.customMarker ?? ''} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,customMarker:sanitizeCustomMarker(event.target.value)}}:block);handleFormattingChapter({...activeChapter,blocks},'Change custom list marker','block-formatting','list-custom-marker',selectedBlock.id); }} /></label>}
+                {selectedBlock.listFormatting.type === 'ordered' && <><label className="block">Start At<input aria-label="Start At" type="number" min="1" value={selectedBlock.listFormatting.startAt ?? 1} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,startAt:Math.max(1,Number(event.target.value)),restart:true}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list start number','block-formatting','list-start',selectedBlock.id); }} /></label><label><input type="checkbox" checked={selectedBlock.listFormatting.restart ?? false} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,restart:event.target.checked}}:block);handleFormattingChapter({...activeChapter,blocks},'Restart numbering','block-formatting',undefined,selectedBlock.id); }} /> Restart Numbering</label></>}
+                <label className="block">Marker colour<input aria-label="Marker colour" type="color" value={selectedBlock.listFormatting.markerColour ?? selectedBlock.textColour ?? '#111111'} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,markerColour:event.target.value}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker colour','block-formatting','list-colour',selectedBlock.id); }} /></label>
+                <label className="block">Marker size<input aria-label="Marker size" type="number" min="50" max="200" value={selectedBlock.listFormatting.markerSizePercent ?? 100} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,markerSizePercent:Number(event.target.value)}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list marker size','block-formatting','list-size',selectedBlock.id); }} /></label>
+                <label className="block">Spacing before<input aria-label="List spacing before" type="number" min="0" value={selectedBlock.listFormatting.spacingBeforePt ?? 0} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,spacingBeforePt:Math.max(0,Number(event.target.value))}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list spacing','block-formatting','list-spacing',selectedBlock.id); }} /></label>
+                <label className="block">Spacing after<input aria-label="List spacing after" type="number" min="0" value={selectedBlock.listFormatting.spacingAfterPt ?? 4} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,spacingAfterPt:Math.max(0,Number(event.target.value))}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list spacing','block-formatting','list-spacing',selectedBlock.id); }} /></label>
+                <label><input type="checkbox" checked={selectedBlock.listFormatting.keepWithNext ?? false} onChange={(event) => { const blocks=activeChapter.blocks.map(block=>block.id===selectedBlock.id?{...block,listFormatting:{...block.listFormatting!,keepWithNext:event.target.checked}}:block);handleFormattingChapter({...activeChapter,blocks},'Change list pagination','block-formatting',undefined,selectedBlock.id); }} /> Keep with next</label>
+                <div className="flex gap-1"><button onClick={() => setListCommandRequest({id:Date.now(),command:'decrease'})}>Decrease Level</button><button onClick={() => setListCommandRequest({id:Date.now(),command:'increase'})}>Increase Level</button></div>
+                <div className="flex flex-wrap gap-1"><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=mergeWithPreviousList(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Continue previous list','block-formatting',undefined,selectedBlock.id);}}>Continue Previous List</button><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=splitListAt(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Split list here','block-formatting',undefined,selectedBlock.id);}}>Split List Here</button><button onClick={() => {const index=activeChapter.blocks.findIndex(block=>block.id===selectedBlock.id);const blocks=mergeWithPreviousList(activeChapter.blocks,index);handleFormattingChapter({...activeChapter,blocks},'Merge with previous list','block-formatting',undefined,selectedBlock.id);}}>Merge with Previous Compatible List</button></div>
+                <button onClick={() => setListCommandRequest({id:Date.now(),command:'remove'})}>Remove List</button>
+              </section>
+            )}
+            {isInspectablePublishingBlock(activeChapter.blocks.find((block) => block.id === selectedBlockId)) ? (
+              <MathAccountingInspector
+                block={activeChapter.blocks.find((block) => block.id === selectedBlockId)!}
+                format={project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT}
+                issues={publishingIssues.filter((issue) => issue.blockId === selectedBlockId)}
+                onChange={(partial, label, mergeKey) => {
+                  const blocks = activeChapter.blocks.map((block) =>
+                    block.id === selectedBlockId ? { ...block, ...partial } : block
+                  );
+                  handleFormattingChapter(
+                    { ...activeChapter, blocks },
+                    label,
+                    'block-formatting',
+                    mergeKey,
+                    selectedBlockId
+                  );
+                }}
+                onFormatChange={(accountingFormat) => handleUpdateProject({ accountingFormat })}
+              />
+            ) : <dl className="pc-property-list">
               <div><dt>Document</dt><dd>{activeDocumentLabel || 'Manuscript'}</dd></div>
               <div><dt>Title</dt><dd>{project.title || 'Untitled Book'}</dd></div>
               <div><dt>Author</dt><dd>{project.author || 'Not specified'}</dd></div>
               <div><dt>Chapters</dt><dd>{project.chapters.length}</dd></div>
               <div><dt>Local revision</dt><dd>{saveState.localRevision}</dd></div>
               <div><dt>Cloud sync</dt><dd>Disabled pending security approval</dd></div>
-            </dl>
+            </dl>}
           </aside>
         )}
 

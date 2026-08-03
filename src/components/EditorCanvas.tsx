@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bold, 
   Italic, 
@@ -50,7 +50,7 @@ import {
   Check,
   CheckCircle2
 } from 'lucide-react';
-import { Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange, BookColourSettings, BookTypographySettings } from '../types';
+import { AccountingNumberFormat, Chapter, ContentBlock, BlockType, WatermarkConfig, TrimSize, PageOrientation, HeaderFooterConfig, TrackedChange, BookColourSettings, BookTypographySettings } from '../types';
 import { normalizeHexColour, resolveActivePalette, resolveBlockTextColour } from '../lib/bookColours';
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss, resolveParagraphFormatting } from '../lib/paragraphFormatting';
 import { resolveProjectTypography } from '../lib/bookTypography';
@@ -61,7 +61,20 @@ import { HorizontalRuler, VerticalRuler, RulerUnit } from './Rulers';
 import { SpreadsheetBlock } from './blocks/SpreadsheetBlock';
 import { TableBlock } from './blocks/TableBlock';
 import { CaptionBlock } from './blocks/CaptionBlock';
+import { AccountingBlock } from './blocks/AccountingBlock';
 import { GitCompare, CheckCheck, XCircle, EyeOff } from 'lucide-react';
+import {
+  applyAmbiguityChoice,
+  EducationalPasteResult,
+  normalizeEducationalPaste,
+  PasteAmbiguityChoice
+} from '../lib/educationalPaste';
+import { createMathData, mathSourceForBlock } from '../lib/mathValidation';
+import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
+import {
+  changeListLevel, convertBlocksToList, createListId, isListEligibleBlock, listFormatting,
+  removeListFormatting, resolveStructuredLists, sanitizeCustomMarker
+} from '../lib/structuredLists';
 import {
   chapterTitleIncludesNumber,
   getChapterDisplayLabel
@@ -97,8 +110,14 @@ interface EditorCanvasProps {
   onOpenImageGallery?: () => void;
   typography?: BookTypographySettings;
   colourSettings?: BookColourSettings;
+  accountingFormat?: AccountingNumberFormat;
+  onUpdateAccountingFormat?: (format: AccountingNumberFormat) => void;
   onFormattingTransaction?: (chapter:Chapter,label:string,scope:HistoryScope,mergeKey?:string,activeBlockId?:string)=>void;
   requestedActiveBlockId?: string;
+  pasteWorkedProblemRequest?: number;
+  onActiveBlockChange?: (blockId?: string) => void;
+  listCommandRequest?: { id: number; command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering' };
+  onOpenListSettings?: () => void;
 }
 
 const FONT_FAMILIES = [
@@ -144,8 +163,14 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   onOpenImageGallery,
   typography,
   colourSettings,
+  accountingFormat,
+  onUpdateAccountingFormat,
   onFormattingTransaction,
   requestedActiveBlockId,
+  pasteWorkedProblemRequest = 0,
+  onActiveBlockChange,
+  listCommandRequest,
+  onOpenListSettings,
 }) => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(chapter.blocks[0]?.id || null);
   const [showRulers, setShowRulers] = useState<boolean>(true);
@@ -168,6 +193,16 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   // Copy/Paste State
   const [clipboardBlock, setClipboardBlock] = useState<ContentBlock | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingPaste, setPendingPaste] = useState<{
+    result: EducationalPasteResult;
+    afterId?: string;
+    choices: Record<string, PasteAmbiguityChoice>;
+  } | null>(null);
+  const [pastePanelOpen, setPastePanelOpen] = useState(false);
+  const [pasteSource, setPasteSource] = useState('');
+  const lastPasteRequest = useRef(0);
+  const lastListCommandRequest = useRef(0);
+  const firstAmbiguityRef = useRef<HTMLSelectElement | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -177,6 +212,44 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     if(onFormattingTransaction)onFormattingTransaction(next,label,scope,mergeKey,blockId??activeBlockId??undefined);
     else onUpdateChapter(next);
   };
+  const applyListCommand = (command: NonNullable<EditorCanvasProps['listCommandRequest']>['command'], blockId = activeBlockId) => {
+    const index = chapter.blocks.findIndex((block) => block.id === blockId);
+    const block = chapter.blocks[index];
+    if (!block || (!isListEligibleBlock(block) && command !== 'insert-bullets' && command !== 'insert-numbering')) return;
+    if (command === 'insert-bullets' || command === 'insert-numbering') {
+      if (block.type === 'paragraph' && block.text.length === 0) {
+        const type = command === 'insert-bullets' ? 'unordered' : 'ordered';
+        const blocks = convertBlocksToList(chapter.blocks, [block.id], type);
+        commitChapter({ ...chapter, blocks }, type === 'unordered' ? 'Insert bulleted list' : 'Insert numbered list', 'structure', undefined, block.id);
+        return;
+      }
+      const newBlock: ContentBlock = { id: `b-${crypto.randomUUID()}`, type: 'paragraph', text: '', listFormatting: listFormatting(command === 'insert-bullets' ? 'unordered' : 'ordered') };
+      const blocks = [...chapter.blocks]; blocks.splice(index + 1, 0, newBlock);
+      commitChapter({ ...chapter, blocks }, command === 'insert-bullets' ? 'Insert bulleted list' : 'Insert numbered list', 'structure', undefined, newBlock.id);
+      setActiveBlockId(newBlock.id);
+      setTimeout(() => document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${newBlock.id}"]`)?.focus(), 0);
+      return;
+    }
+    let blocks = chapter.blocks;
+    let label = 'Change list formatting';
+    if (command === 'remove') { blocks = blocks.map((candidate) => candidate.id === block.id ? removeListFormatting(candidate) : candidate); label = 'Remove list formatting'; }
+    else if (command === 'increase') { blocks = changeListLevel(blocks, index, 1); label = 'Increase list level'; }
+    else if (command === 'decrease') { blocks = changeListLevel(blocks, index, -1); label = 'Decrease list level'; }
+    else {
+      const type = command === 'bullets' ? 'unordered' : 'ordered';
+      const existingId = block.listFormatting?.type === type ? block.listFormatting.listId : createListId();
+      blocks = blocks.map((candidate) => candidate.id === block.id
+        ? { ...candidate, type: 'paragraph', listFormatting: listFormatting(type, existingId, command === 'multilevel' ? { orderedStyle: 'decimal-outline' } : {}) }
+        : candidate);
+      label = command === 'bullets' ? 'Apply bullets' : command === 'multilevel' ? 'Apply multilevel list' : 'Apply numbering';
+    }
+    if (blocks !== chapter.blocks) commitChapter({ ...chapter, blocks }, label, 'block-formatting', undefined, block.id);
+  };
+  useEffect(() => {
+    if (!listCommandRequest || listCommandRequest.id === lastListCommandRequest.current) return;
+    lastListCommandRequest.current = listCommandRequest.id;
+    applyListCommand(listCommandRequest.command);
+  }, [listCommandRequest]);
   useEffect(()=>{
     if(!requestedActiveBlockId)return;
     const safeBlockId=chapter.blocks.some(b=>b.id===requestedActiveBlockId)
@@ -184,6 +257,19 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       :chapter.blocks[0]?.id;
     if(safeBlockId)setActiveBlockId(safeBlockId);
   },[requestedActiveBlockId,chapter.blocks]);
+  useEffect(() => {
+    const safeBlockId = chapter.blocks.some((block) => block.id === activeBlockId)
+      ? activeBlockId
+      : chapter.blocks[0]?.id ?? null;
+    if (safeBlockId !== activeBlockId) setActiveBlockId(safeBlockId);
+    onActiveBlockChange?.(safeBlockId ?? undefined);
+  }, [activeBlockId, chapter.id, chapter.blocks, onActiveBlockChange]);
+  useEffect(() => {
+    if (pasteWorkedProblemRequest <= 0 || pasteWorkedProblemRequest === lastPasteRequest.current) return;
+    lastPasteRequest.current = pasteWorkedProblemRequest;
+    setPasteSource('');
+    setPastePanelOpen(true);
+  }, [pasteWorkedProblemRequest]);
 
   // Recalculate word count whenever blocks update
   useEffect(() => {
@@ -226,38 +312,61 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     showToast(`Duplicated ${target.type.toUpperCase()} block`);
   };
 
+  const insertPastedBlocks = (blocks: ContentBlock[], afterId?: string, label = 'Paste structured educational content') => {
+    if (blocks.length === 0) return;
+    const targetId = afterId || activeBlockId || chapter.blocks[chapter.blocks.length - 1]?.id;
+    const targetIdx = chapter.blocks.findIndex((block) => block.id === targetId);
+    const updatedBlocks = [...chapter.blocks];
+    updatedBlocks.splice(targetIdx >= 0 ? targetIdx + 1 : updatedBlocks.length, 0, ...blocks);
+    commitChapter({ ...chapter, blocks: updatedBlocks }, label, 'structure', undefined, blocks[0].id);
+    setActiveBlockId(blocks[0].id);
+    showToast(`Pasted ${blocks.length} structured block${blocks.length === 1 ? '' : 's'}`);
+  };
+  const reviewWorkedProblemSource = () => {
+    if (!pasteSource.trim()) return;
+    const result = normalizeEducationalPaste(pasteSource, () => `b-${crypto.randomUUID()}`);
+    setPendingPaste({
+      result,
+      afterId: activeBlockId ?? undefined,
+      choices: Object.fromEntries(result.ambiguities.map((item) => [item.id, item.suggestedChoice]))
+    });
+    setPastePanelOpen(false);
+  };
+
   // Paste Block handler
   const pasteBlock = async (afterId?: string) => {
     let blockToPaste = clipboardBlock;
+    let rawClipboardText: string | null = null;
 
     try {
       const clipboardText = await navigator.clipboard.readText();
       if (clipboardText) {
+        rawClipboardText = clipboardText;
         try {
           const parsed = JSON.parse(clipboardText);
           if (parsed && parsed.presscraft_block && parsed.block) {
             blockToPaste = parsed.block;
-          } else if (clipboardText.trim()) {
-            blockToPaste = {
-              id: `b-${Date.now()}`,
-              type: 'paragraph',
-              text: clipboardText,
-              fontStyle: 'serif'
-            };
-          }
+          } else if (clipboardText.trim()) blockToPaste = null;
         } catch (err) {
-          if (clipboardText.trim()) {
-            blockToPaste = {
-              id: `b-${Date.now()}`,
-              type: 'paragraph',
-              text: clipboardText,
-              fontStyle: 'serif'
-            };
-          }
+          if (clipboardText.trim()) blockToPaste = null;
         }
       }
     } catch (e) {
       // Memory fallback
+    }
+
+    if (rawClipboardText?.trim() && !blockToPaste) {
+      const result = normalizeEducationalPaste(rawClipboardText, () => `b-${crypto.randomUUID()}`);
+      if (result.requiresReview) {
+        setPendingPaste({
+          result,
+          afterId,
+          choices: Object.fromEntries(result.ambiguities.map((item) => [item.id, item.suggestedChoice]))
+        });
+      } else {
+        insertPastedBlocks(result.blocks, afterId);
+      }
+      return;
     }
 
     if (!blockToPaste) {
@@ -267,20 +376,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
     const newBlock: ContentBlock = JSON.parse(JSON.stringify(blockToPaste));
     newBlock.id = `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    if (newBlock.listFormatting) newBlock.listFormatting.listId = createListId();
 
-    const targetId = afterId || activeBlockId || chapter.blocks[chapter.blocks.length - 1]?.id;
-    const targetIdx = chapter.blocks.findIndex((b) => b.id === targetId);
-    
-    const updatedBlocks = [...chapter.blocks];
-    if (targetIdx >= 0) {
-      updatedBlocks.splice(targetIdx + 1, 0, newBlock);
-    } else {
-      updatedBlocks.push(newBlock);
-    }
-
-    commitChapter({ ...chapter, blocks: updatedBlocks },`Paste ${newBlock.type==='scene-break'?'scene break':'block'}`,newBlock.type==='scene-break'?'scene-break':'structure',undefined,newBlock.id);
-    setActiveBlockId(newBlock.id);
-    showToast(`Pasted ${newBlock.type.toUpperCase()} block`);
+    insertPastedBlocks([newBlock], afterId, `Paste ${newBlock.type === 'scene-break' ? 'scene break' : 'block'}`);
   };
 
   // Copy Entire Chapter handler
@@ -383,6 +481,20 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       fontStyle: 'serif',
       isInsertedInReview: isReviewModeActive ? true : undefined
     };
+    if (['latex', 'math-inline', 'math-display', 'math-aligned', 'formula'].includes(type)) {
+      const mode = type === 'math-inline' ? 'inline' : type === 'math-aligned' ? 'aligned' : 'display';
+      newBlock.text = '';
+      newBlock.latexFormula = 'E = mc^2';
+      newBlock.mathData = createMathData('E = mc^2', mode);
+    }
+    if (type === 'journal-entry') {
+      newBlock.text = '';
+      newBlock.journalEntryData = { entries: [], validateBalance: true };
+    }
+    if (type === 'trial-balance') {
+      newBlock.text = '';
+      newBlock.trialBalanceData = { rows: [], validateEquality: true };
+    }
 
     const targetIdx = chapter.blocks.findIndex((b) => b.id === afterId);
     const updatedBlocks = [...chapter.blocks];
@@ -434,6 +546,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   const activeBlock = chapter.blocks.find((b) => b.id === activeBlockId) || chapter.blocks[0];
   const activePalette = resolveActivePalette(colourSettings ?? {schemaVersion:1,activePaletteId:'classic-black',customPalettes:[],recentColours:[]});
+  const resolvedLists = resolveStructuredLists(chapter.blocks, { accent: activePalette.colours.accent, body: activePalette.colours.bodyText });
   const resolvedTypography = resolveProjectTypography({typography});
   const paragraphStyleFor = (block:ContentBlock) => {
     const index=chapter.blocks.indexOf(block);
@@ -605,11 +718,36 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             <option value="caption">Figure / Table Caption</option>
             <option value="pagebreak">Page Break / New Page</option>
             <option value="latex">LaTeX Formula</option>
+            <option value="math-inline">Inline Mathematics</option>
+            <option value="math-display">Display Mathematics</option>
+            <option value="math-aligned">Aligned Working</option>
+            <option value="worked-example">Worked Example</option>
+            <option value="solution-step">Solution Step</option>
+            <option value="theorem">Theorem</option>
+            <option value="definition">Definition</option>
+            <option value="formula">Formula</option>
             <option value="code">Code Snippet</option>
+            <option value="journal-entry">Journal Entry</option>
+            <option value="trial-balance">Trial Balance</option>
+            <option value="financial-statement">Financial Statement</option>
             <option value="ledger">Financial Ledger</option>
             <option value="quiz">Interactive Quiz</option>
             <option value="image">Image Attachment</option>
           </select>
+        )}
+
+        {activeBlock && ['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement', 'ledger'].includes(activeBlock.type) && (
+          <div className="flex items-center gap-1 rounded border border-emerald-700/60 bg-emerald-950/30 px-2 py-0.5" aria-label="Book accounting number format">
+            <span className="text-[10px] font-bold text-emerald-300">Book currency</span>
+            <input value={(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT).currency} onChange={(event) => onUpdateAccountingFormat?.({ ...(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT), currency: event.target.value.toUpperCase().slice(0, 5) })} className="w-12 rounded bg-zinc-900 px-1 text-[10px]" aria-label="Currency code" />
+            <select value={(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT).decimalPlaces} onChange={(event) => onUpdateAccountingFormat?.({ ...(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT), decimalPlaces: Number(event.target.value) })} className="rounded bg-zinc-900 text-[10px]" aria-label="Decimal places">
+              {[0, 1, 2, 3, 4].map((value) => <option key={value} value={value}>{value} dp</option>)}
+            </select>
+            <select value={(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT).negativeStyle} onChange={(event) => onUpdateAccountingFormat?.({ ...(accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT), negativeStyle: event.target.value as AccountingNumberFormat['negativeStyle'] })} className="rounded bg-zinc-900 text-[10px]" aria-label="Negative number style">
+              <option value="parentheses">Accounting parentheses</option>
+              <option value="minus">Minus sign</option>
+            </select>
+          </div>
         )}
         {activeBlock?.type==='paragraph'&&(
           <div className="flex items-center gap-1 rounded border border-[#444] px-1.5 py-0.5" title="Applies a drop cap to the opening character of this paragraph. Manuscript text is unchanged.">
@@ -759,8 +897,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             </button>
 
             {/* Indent controls */}
+            <button onClick={() => applyListCommand('bullets')} disabled={!isListEligibleBlock(activeBlock)} aria-pressed={activeBlock.listFormatting?.type === 'unordered'} className={`px-1.5 py-1 rounded disabled:opacity-30 ${activeBlock.listFormatting?.type === 'unordered' ? 'bg-[#FF6B00] text-black' : 'text-gray-300 hover:bg-[#333]'}`} title="Bullets (Ctrl+Shift+8)">• Bullets</button>
+            <button onClick={() => applyListCommand('numbering')} disabled={!isListEligibleBlock(activeBlock)} aria-pressed={activeBlock.listFormatting?.type === 'ordered'} className={`px-1.5 py-1 rounded disabled:opacity-30 ${activeBlock.listFormatting?.type === 'ordered' ? 'bg-[#FF6B00] text-black' : 'text-gray-300 hover:bg-[#333]'}`} title="Numbering (Ctrl+Shift+7)">1. Numbering</button>
+            <button onClick={() => applyListCommand('multilevel')} disabled={!isListEligibleBlock(activeBlock)} className="px-1.5 py-1 rounded text-gray-300 hover:bg-[#333] disabled:opacity-30" title="Multilevel List">1.1 Multilevel</button>
             <button
-              onClick={() => updateBlock(activeBlock.id, { indentLevel: Math.max(0, (activeBlock.indentLevel || 0) - 1) })}
+              onClick={() => activeBlock.listFormatting ? applyListCommand('decrease') : updateBlock(activeBlock.id, { indentLevel: Math.max(0, (activeBlock.indentLevel || 0) - 1) })}
               className="p-1 rounded hover:bg-[#333333] text-gray-300 cursor-pointer"
               title="Outdent"
             >
@@ -768,12 +909,14 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             </button>
 
             <button
-              onClick={() => updateBlock(activeBlock.id, { indentLevel: Math.min(3, (activeBlock.indentLevel || 0) + 1) })}
+              onClick={() => activeBlock.listFormatting ? applyListCommand('increase') : updateBlock(activeBlock.id, { indentLevel: Math.min(3, (activeBlock.indentLevel || 0) + 1) })}
               className="p-1 rounded hover:bg-[#333333] text-gray-300 cursor-pointer"
               title="Indent"
             >
               <Indent className="w-3.5 h-3.5" />
             </button>
+            {activeBlock.listFormatting && <button onClick={() => applyListCommand('remove')} className="px-1.5 py-1 rounded text-rose-300 hover:bg-[#333]" title="Remove List Formatting">Remove List</button>}
+            {activeBlock.listFormatting && <button onClick={onOpenListSettings} className="px-1.5 py-1 rounded text-gray-300 hover:bg-[#333]" title="List Settings">List Settings</button>}
 
             <div className="h-4 w-px bg-[#444] mx-1" />
 
@@ -951,6 +1094,9 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           <span>Graph</span>
         </button>
 
+        <button onClick={() => applyListCommand('insert-bullets')} disabled={!activeBlockId} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] disabled:opacity-30" title="Add Bulleted List Item"><span aria-hidden="true">•</span><span>Bulleted List Item</span></button>
+        <button onClick={() => applyListCommand('insert-numbering')} disabled={!activeBlockId} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] disabled:opacity-30" title="Add Numbered List Item"><span aria-hidden="true">1.</span><span>Numbered List Item</span></button>
+
         <button
           onClick={() => activeBlockId && addBlock(activeBlockId, 'table')}
           className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] transition-colors cursor-pointer"
@@ -970,12 +1116,19 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         </button>
 
         <button
-          onClick={() => activeBlockId && addBlock(activeBlockId, 'latex')}
+          onClick={() => activeBlockId && addBlock(activeBlockId, 'math-display')}
           className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333] transition-colors cursor-pointer"
-          title="Insert LaTeX Formula"
+          title="Insert display equation"
         >
           <Calculator className="w-3 h-3 text-sky-400" />
-          <span>Math</span>
+          <span>Display Math</span>
+        </button>
+
+        <button onClick={() => activeBlockId && addBlock(activeBlockId, 'math-inline')} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333]" title="Insert inline equation">
+          <Calculator className="w-3 h-3 text-sky-400" /><span>Inline Math</span>
+        </button>
+        <button onClick={() => activeBlockId && addBlock(activeBlockId, 'math-aligned')} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#1A1A1A] hover:bg-[#FF6B00] hover:text-black text-gray-300 border border-[#333333]" title="Insert aligned mathematical working">
+          <Calculator className="w-3 h-3 text-sky-400" /><span>Aligned</span>
         </button>
 
         <button
@@ -1412,16 +1565,77 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                       )}
 
                       {/* Standard Paragraph */}
+                      {block.type === 'worked-example' && (
+                        <input value={block.text} onChange={(event) => updateBlock(block.id, { text: event.target.value })} className="w-full rounded-t border-l-4 border-orange-500 bg-orange-50 p-3 text-lg font-bold text-zinc-900" aria-label="Worked example heading" />
+                      )}
+                      {block.type === 'solution-step' && (
+                        <input value={block.text} onChange={(event) => updateBlock(block.id, { text: event.target.value })} className="w-full border-l-4 border-sky-500 bg-sky-50 p-2 font-semibold text-zinc-900" aria-label="Solution step heading" />
+                      )}
+                      {(block.type === 'theorem' || block.type === 'definition') && (
+                        <textarea value={block.text} onChange={(event) => updateBlock(block.id, { text: event.target.value })} rows={3} className="w-full rounded border border-violet-300 bg-violet-50 p-3 text-zinc-900" aria-label={block.type} />
+                      )}
+
+                      {/* Standard Paragraph */}
                       {block.type === 'paragraph' && (
+                        <div role={block.listFormatting ? 'listitem' : undefined} aria-level={block.listFormatting ? block.listFormatting.level + 1 : undefined} className="flex items-start" style={block.listFormatting ? { paddingLeft: `${resolvedLists.get(block.id)!.leftIndentPt}pt`, marginTop: `${resolvedLists.get(block.id)!.spacingBeforePt}pt`, marginBottom: `${resolvedLists.get(block.id)!.spacingAfterPt}pt` } : undefined}>
+                        {block.listFormatting && <span aria-hidden="true" className="shrink-0 text-right font-serif" style={{ width: `${resolvedLists.get(block.id)!.hangingIndentPt}pt`, marginRight: '6pt', color: resolvedLists.get(block.id)!.markerColour, fontSize: `${resolvedLists.get(block.id)!.markerSizePercent}%` }}>{resolvedLists.get(block.id)!.markerText}</span>}
                         <textarea
+                          data-block-id={block.id}
                           value={block.text}
                           onChange={(e) => updateBlock(block.id, { text: e.target.value })}
+                          onKeyDown={(event) => {
+                            if (event.ctrlKey && event.shiftKey && (event.key === '7' || event.key === '8')) {
+                              event.preventDefault();
+                              applyListCommand(event.key === '7' ? 'numbering' : 'bullets', block.id);
+                              return;
+                            }
+                            if (!block.listFormatting) return;
+                            const index = chapter.blocks.findIndex((candidate) => candidate.id === block.id);
+                            if (event.key === 'Tab') {
+                              event.preventDefault();
+                              applyListCommand(event.shiftKey ? 'decrease' : 'increase', block.id);
+                              return;
+                            }
+                            if (event.key === 'Backspace' && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0 && block.text.length === 0) {
+                              event.preventDefault();
+                              applyListCommand(block.listFormatting.level > 0 ? 'decrease' : 'remove', block.id);
+                              return;
+                            }
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            if (block.text.length === 0) {
+                              applyListCommand('remove', block.id);
+                              return;
+                            }
+                            const nextBlock: ContentBlock = { ...block, id: `b-${crypto.randomUUID()}`, text: '', trackedChanges: undefined, isInsertedInReview: isReviewModeActive || undefined, listFormatting: { ...block.listFormatting, restart: undefined, startAt: undefined } };
+                            const blocks = [...chapter.blocks]; blocks.splice(index + 1, 0, nextBlock);
+                            commitChapter({ ...chapter, blocks }, 'Create next list item', 'structure', undefined, nextBlock.id);
+                            setActiveBlockId(nextBlock.id);
+                            setTimeout(() => document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${nextBlock.id}"]`)?.focus(), 0);
+                          }}
+                          onPaste={(event) => {
+                            const text = event.clipboardData.getData('text/plain');
+                            const result = normalizeEducationalPaste(text, () => `b-${crypto.randomUUID()}`);
+                            const isStructured = result.blocks.length > 1 || result.counts.inlineMath + result.counts.displayMath + result.counts.alignedMath + result.counts.accounting > 0;
+                            if (!isStructured) return;
+                            event.preventDefault();
+                            if (result.requiresReview) {
+                              setPendingPaste({
+                                result,
+                                afterId: block.id,
+                                choices: Object.fromEntries(result.ambiguities.map((item) => [item.id, item.suggestedChoice]))
+                              });
+                            } else {
+                              insertPastedBlocks(result.blocks, block.id);
+                            }
+                          }}
                           rows={Math.max(2, Math.ceil(block.text.length / 80))}
                           style={{
                             ...paragraphStyleFor(block),
+                            ...(block.listFormatting ? { textIndent: 0, paddingLeft: 0 } : {}),
                             fontFamily: block.fontFamily || 'Georgia, serif',
                             fontSize: `${block.fontSize || 16}px`,
-                            paddingLeft: `${(block.indentLevel || 0) * 1.5}rem`,
+                            paddingLeft: block.listFormatting ? 0 : `${(block.indentLevel || 0) * 1.5}rem`,
                             textAlign: block.align || 'left',
                             fontWeight: block.bold ? 'bold' : 'normal',
                             fontStyle: block.italic ? 'italic' : 'normal',
@@ -1431,6 +1645,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                           className="w-full bg-transparent border-none focus:outline-hidden resize-none leading-relaxed text-zinc-800 dark:text-zinc-200 font-serif"
                           placeholder="Type paragraph text here..."
                         />
+                        </div>
                       )}
 
                       {/* Page Break Block */}
@@ -1502,22 +1717,59 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                         />
                       )}
 
-                      {/* LaTeX Block */}
-                      {block.type === 'latex' && (
+                      {/* Structured mathematics block: editable source remains authoritative. */}
+                      {(['latex', 'math-inline', 'math-display', 'math-aligned', 'formula'] as BlockType[]).includes(block.type) && (
                         <div className="bg-zinc-50 dark:bg-zinc-800/60 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 space-y-3">
                           <div className="flex items-center justify-between text-xs font-semibold text-orange-600 dark:text-orange-400">
-                            <span className="flex items-center gap-1"><Calculator className="w-3.5 h-3.5" /> LaTeX Math Formula</span>
+                            <span className="flex items-center gap-1"><Calculator className="w-3.5 h-3.5" /> Mathematics · editable LaTeX source</span>
+                            <span>{block.mathData?.parseStatus ?? 'legacy'}</span>
                           </div>
-                          <input
-                            type="text"
-                            value={block.latexFormula || ''}
-                            onChange={(e) => updateBlock(block.id, { latexFormula: e.target.value })}
+                          <textarea
+                            value={mathSourceForBlock(block)}
+                            onChange={(event) => {
+                              const source = event.target.value;
+                              const mode = block.type === 'math-inline' ? 'inline' : block.type === 'math-aligned' ? 'aligned' : 'display';
+                              updateBlock(block.id, { latexFormula: source, mathData: createMathData(source, mode) });
+                            }}
+                            rows={block.type === 'math-aligned' ? 5 : 2}
                             className="w-full font-mono text-xs p-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-hidden"
                             placeholder="e.g. \\int_{a}^{b} f(x) dx = F(b) - F(a)"
                           />
+                          <div className="flex flex-wrap gap-1" aria-label="Mathematics authoring toolbar">
+                            {[
+                              ['Fraction', '\\frac{a}{b}'],
+                              ['Root', '\\sqrt{x}'],
+                              ['Exponent', 'x^{2}'],
+                              ['Subscript', 'x_{n}'],
+                              ['Brackets', '\\left(x\\right)'],
+                              ['Sum', '\\sum_{i=1}^{n} i'],
+                              ['Integral', '\\int_{a}^{b} f(x)\\,dx'],
+                              ['Matrix', '\\begin{matrix}a & b \\\\ c & d\\end{matrix}'],
+                              ['Box answer', '\\boxed{x=4}']
+                            ].map(([label, token]) => (
+                              <button
+                                key={label}
+                                type="button"
+                                className="rounded border border-zinc-300 px-2 py-1 text-[10px] hover:border-orange-500"
+                                onClick={() => {
+                                  const current = mathSourceForBlock(block);
+                                  const source = `${current}${current ? ' ' : ''}${token}`;
+                                  const mode = block.type === 'math-inline' ? 'inline' : block.type === 'math-aligned' ? 'aligned' : 'display';
+                                  updateBlock(block.id, { latexFormula: source, mathData: createMathData(source, mode) });
+                                }}
+                              >{label}</button>
+                            ))}
+                            <button type="button" className="rounded border px-2 py-1 text-[10px]" onClick={() => void navigator.clipboard.writeText(mathSourceForBlock(block))}>Copy LaTeX</button>
+                            <button type="button" className="rounded border px-2 py-1 text-[10px]" onClick={() => duplicateBlock(block.id)}>Duplicate</button>
+                            <button type="button" className="rounded border px-2 py-1 text-[10px]" onClick={() => updateBlock(block.id, { type: 'paragraph', text: mathSourceForBlock(block), mathData: undefined, latexFormula: undefined })}>Plain source</button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <input aria-label="Equation number" value={block.mathData?.equationNumber ?? ''} onChange={(event) => updateBlock(block.id, { mathData: { ...(block.mathData ?? createMathData(mathSourceForBlock(block), 'display')), equationNumber: event.target.value || undefined } })} className="rounded border p-2 text-xs" placeholder="Equation number (optional)" />
+                            <input aria-label="Equation accessibility description" value={block.mathData?.accessibilityText ?? ''} onChange={(event) => updateBlock(block.id, { mathData: { ...(block.mathData ?? createMathData(mathSourceForBlock(block), 'display')), accessibilityText: event.target.value || undefined } })} className="rounded border p-2 text-xs" placeholder="Screen-reader description" />
+                          </div>
                           <div className="p-3 bg-white dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-800 text-center overflow-x-auto">
                             <React.Suspense fallback={<div role="status" className="text-xs text-zinc-500">Preparing equation renderer…</div>}>
-                              <EquationRenderer formula={block.latexFormula || 'E = mc^2'} />
+                              <EquationRenderer data={block.mathData} formula={mathSourceForBlock(block)} displayMode={block.type !== 'math-inline'} />
                             </React.Suspense>
                           </div>
                         </div>
@@ -1546,7 +1798,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                         </div>
                       )}
 
-                      {/* Financial Ledger Block */}
+                      {(['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'] as BlockType[]).includes(block.type) && (
+                        <AccountingBlock block={block} format={accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT} onChange={(partial) => updateBlock(block.id, partial)} />
+                      )}
+
+                      {/* Legacy Financial Ledger Block */}
                       {block.type === 'ledger' && block.ledgerData && (
                         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 space-y-2 text-xs">
                           <div className="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
@@ -2077,6 +2333,80 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         </div>
 
       </div>
+
+      {pastePanelOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="paste-worked-problem-title" onKeyDown={(event) => { if (event.key === 'Escape') setPastePanelOpen(false); }}>
+          <div className="w-full max-w-2xl rounded-xl border border-zinc-700 bg-zinc-950 p-5 text-zinc-100 shadow-2xl">
+            <h2 id="paste-worked-problem-title" className="text-lg font-bold">Paste Worked Problem</h2>
+            <p className="mt-1 text-sm text-zinc-400">Paste Markdown, prose, backtick LaTeX, display equations, solution steps, or supported accounting tables. Nothing is inserted until you review it.</p>
+            <label className="mt-4 block text-sm font-semibold">
+              Source content
+              <textarea
+                autoFocus
+                value={pasteSource}
+                onChange={(event) => setPasteSource(event.target.value)}
+                className="mt-2 min-h-64 w-full rounded border border-zinc-700 bg-zinc-900 p-3 font-mono text-sm"
+                placeholder={'## Worked example\nSolve `2x + 1 = 7`.\n\n$$x = 3$$'}
+              />
+            </label>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setPastePanelOpen(false)} className="rounded px-3 py-2 text-sm text-zinc-400">Cancel</button>
+              <button type="button" disabled={!pasteSource.trim()} onClick={() => { insertPastedBlocks([{ id: `b-${crypto.randomUUID()}`, type: 'paragraph', text: pasteSource }], activeBlockId ?? undefined, 'Paste worked problem as plain text'); setPastePanelOpen(false); }} className="rounded border border-zinc-700 px-3 py-2 text-sm disabled:opacity-50">Paste as Plain Text</button>
+              <button type="button" disabled={!pasteSource.trim()} onClick={reviewWorkedProblemSource} className="rounded bg-orange-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Detect Structure</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingPaste && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="paste-review-title">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 p-5 text-zinc-100 shadow-2xl">
+            <h2 id="paste-review-title" className="text-lg font-bold">Review Worked Problem</h2>
+            <p className="mt-1 text-sm text-zinc-400">Review every detected block. Original source is retained until you choose how to insert it.</p>
+            <dl className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              {Object.entries(pendingPaste.result.counts).map(([label, count]) => <div key={label} className="rounded bg-zinc-900 p-2"><dt className="capitalize text-zinc-400">{label}</dt><dd className="text-lg font-bold">{count}</dd></div>)}
+            </dl>
+            <section className="mt-4" aria-labelledby="detected-structure-title">
+              <h3 id="detected-structure-title" className="text-sm font-bold">Detected structure</h3>
+              <ol className="mt-2 space-y-2">
+                {pendingPaste.result.blocks.map((block, index) => {
+                  const ambiguous = pendingPaste.result.ambiguities.some((item) => item.id === block.id);
+                  const invalid = block.mathData?.parseStatus === 'invalid';
+                  return <li key={block.id} className="rounded border border-zinc-800 bg-zinc-900/60 p-3 text-xs">
+                    <span className="font-semibold capitalize">{index + 1}. {block.type.replaceAll('-', ' ')}</span>
+                    {ambiguous && <span className="ml-2 rounded bg-amber-900 px-2 py-0.5 text-amber-200">Ambiguous</span>}
+                    {invalid && <span className="ml-2 rounded bg-red-900 px-2 py-0.5 text-red-200">Invalid expression</span>}
+                    <span className="mt-1 block max-h-16 overflow-hidden whitespace-pre-wrap font-mono text-zinc-400">{block.text || block.latexFormula || '(structured accounting block)'}</span>
+                  </li>;
+                })}
+              </ol>
+            </section>
+            {pendingPaste.result.warnings.length > 0 && (
+              <div className="mt-4 rounded border border-amber-500/50 bg-amber-950/30 p-3">
+                <h3 className="text-sm font-bold text-amber-300">Non-destructive warnings</h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">{pendingPaste.result.warnings.map((warning, index) => <li key={`${warning.line}-${index}`}>{warning.line ? `Line ${warning.line}: ` : ''}{warning.message}</li>)}</ul>
+              </div>
+            )}
+            {pendingPaste.result.ambiguities.map((ambiguity, index) => (
+              <label key={ambiguity.id} className="mt-3 grid gap-2 rounded border border-zinc-800 p-3 sm:grid-cols-[1fr_180px]">
+                <span><span className="block font-mono text-xs">{ambiguity.source}</span><span className="text-xs text-zinc-400">Line {ambiguity.line}: {ambiguity.reason}</span></span>
+                <select ref={index === 0 ? firstAmbiguityRef : undefined} value={pendingPaste.choices[ambiguity.id]} onChange={(event) => setPendingPaste((current) => current ? { ...current, choices: { ...current.choices, [ambiguity.id]: event.target.value as PasteAmbiguityChoice } } : current)} className="rounded bg-zinc-900 p-2 text-xs">
+                  <option value="math-inline">Inline mathematics</option>
+                  <option value="math-display">Display mathematics</option>
+                  <option value="code">Code</option>
+                  <option value="plain-text">Plain text</option>
+                </select>
+              </label>
+            ))}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button onClick={() => setPendingPaste(null)} className="rounded px-3 py-2 text-sm text-zinc-400">Cancel</button>
+              <button onClick={() => firstAmbiguityRef.current?.focus()} disabled={pendingPaste.result.ambiguities.length === 0} className="rounded border border-zinc-700 px-3 py-2 text-sm disabled:opacity-50">Review Ambiguities</button>
+              <button onClick={() => { insertPastedBlocks([{ id: `b-${crypto.randomUUID()}`, type: 'paragraph', text: pendingPaste.result.originalSource }], pendingPaste.afterId, 'Paste as plain text'); setPendingPaste(null); }} className="rounded border border-zinc-700 px-3 py-2 text-sm">Paste as Plain Text</button>
+              <button onClick={() => { const blocks = pendingPaste.result.blocks.map((block) => pendingPaste.choices[block.id] ? applyAmbiguityChoice(block, pendingPaste.choices[block.id]) : block); insertPastedBlocks(blocks, pendingPaste.afterId); setPendingPaste(null); }} className="rounded bg-orange-600 px-3 py-2 text-sm font-bold text-white">Accept All</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification Banner */}
       {toastMessage && (

@@ -1,0 +1,153 @@
+{
+  "startedAt": "2026-07-30T12:55:09.159Z",
+  "browser": "Chrome/150.0.7871.187",
+  "fixture": "qa/generated/math-accounting-production-qa.book.json",
+  "dataPack": "qa/generated/math-accounting-production-qa.data-pack.json",
+  "checks": {
+    "serviceWorkerReady": true,
+    "postImportBody": "PC PressCraft Book Studio | Mathematics and Accounting Production QA | Chapter 1 — Mathematics Typesetting Saved locally Online File Home Insert Layout References Review View Book Publish Help Undo Redo Find Writing Assistant Editing Formatting Manuscript Font & Paragraph Proofread Review Review Mode OFF Enable Track Changes PROJECT STRUCTURE Book Cover Design Series & Seasons Front Matter / Preamble CHAPTERS (3) (DRAG TO REORDER) Chapter 1 — Mathematics Typesetting Chapter 2 — Accounting Statements Chapter 3 — Offline Reader Checks SCIENTIFIC & INDUSTRIAL Watermark Overlay Compilation Settings Image Gallery & Asset Library Academic & Coloring Studio Company Profile Studio Flyers, Catalogues & Cards LOCAL STORAGE Saved locally 02:55 PM · Revision 1 CHAPTER 1 Words: 254 Reading time: ~2 min Paragraph Heading (H1) Subheading (H2) Clause / Section ListItem Block Quote Scene Break Callout Box Spreadsheet Matrix Interactive Graph / Chart Scientific Data Table Figure / Table Caption Page Break / New Page LaTeX Formula Inline Mathematics Display Mathematics Aligned Working Worked Example Solution Step Theorem Definition Formula Code Snippet Journal Entry Trial Balance Financial Statement Financial Ledger Interactive Quiz Image Attachment Paragraph Formatting — Entire Block Inherit First line Block Hanging None Clear Text Colour — Entire Block Inherit Georgia (Serif) EB Garamond (Classic) Lora (Literary) Playfair (Editorial) Cinzel (Display) Inter (Modern Sans) JetBrains (Code) Courier (Typewriter) A- 12px 14px 16px 18px 20px 22px 24px 28px 32px 36px 48px 60px 72px A+ Copy Duplicate Paste PAPER: 6\" × 9\" US Trade 8.5\" × 11\" Letter A4 (210×297 mm) A5 (148×210 mm) 5\" × 8\" Pocket 8.5\" × 14\" Legal 📱 Portrait 🖥️ Landscape Header/Footer Rulers UNIT: cm (Centimeters) mm (Millimeters) in (Inches) + Page Break Sheet Graph Table Caption Display Math Inline Math Aligned Code Quiz Image AI Continue Proofread cm 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 Mathematics · editable LaTeX source valid Fraction Root Exponent Subscript Brackets Sum Integral Matrix Box answer Copy LaTeX Duplicate Plain source 𝑎 𝑥 2 + 𝑏 𝑥 + 𝑐 = 0 ax 2 +bx+c=0 Mathematics · editable LaTeX source valid Fraction Root Exponent Subscript Brackets Sum Integral Matrix Box answer Copy LaTeX Duplicate Plain source 𝐸 = 𝑚 𝑐 2 E=mc 2 Mathematics · editable LaTeX source valid Fraction Root Exponent Subscript Bracket",
+    "initialFixtureLoad": true,
+    "knownFractionRendered": true,
+    "boxedAnswerRendered": true,
+    "invalidEquationFallback": true,
+    "accessibilityLabels": 13,
+    "localMathFontLoaded": true,
+    "chapterNavigation": true,
+    "accountingJournalRendered": true,
+    "unbalancedTrialDetected": true,
+    "printGeometry": {
+      "mathBlockCount": 13,
+      "clippedMathBlocks": [],
+      "longEquation": {
+        "clientWidth": 1425,
+        "scrollWidth": 1425,
+        "overflowX": "visible"
+      },
+      "accountingMultiPageBreakInside": "auto",
+      "accountingHeaderDisplay": "table-header-group",
+      "invalidWarningVisible": true,
+      "accessibilityLabels": 13,
+      "fontStatus": "loaded",
+      "externalResources": []
+    },
+    "offlineReload": true,
+    "offlineDataPackImport": true,
+    "offlineSearch": true,
+    "missingAssetFallback": true,
+    "offlineFractionRendered": true,
+    "offlineInvalidFallback": true,
+    "offlineAccountingRendered": true,
+    "checksumValidation": true,
+    "unsupportedSchemaHandling": true,
+    "offlinePrintCommand": true
+  },
+  "exports": {
+    "markdown": {
+      "file": "qa/evidence/production-qa/exports/mathematics_and_accounting_production_qa.md",
+      "includesMath": true,
+      "includesJournalRows": true
+    },
+    "html": {
+      "file": "qa/evidence/production-qa/exports/mathematics_and_accounting_production_qa.html",
+      "includesMathMl": true,
+      "includesJournal": true,
+      "externalReferences": []
+    },
+    "pdf": {
+      "file": "qa/evidence/production-qa/mathematics-accounting-production-qa.pdf",
+      "bytes": 503772,
+      "pageCount": 13,
+      "tagged": true
+    },
+    "docx": {
+      "file": "qa/evidence/production-qa/exports/mathematics_and_accounting_production_qa.docx",
+      "bytes": 12549
+    }
+  },
+  "screenshots": [
+    "editor-mathematics.png",
+    "editor-accounting.png",
+    "print-preview-mathematics.png",
+    "print-preview-accounting.png",
+    "print-layout-long-equation.png",
+    "print-layout-multipage-journal.png",
+    "pdf-page-1.png",
+    "pdf-page-mathematics.png",
+    "pdf-page-long-equation.png",
+    "pdf-page-accounting.png",
+    "pdf-page-accounting-continuation.png",
+    "pdf-page-journal-continuation.png",
+    "pdf-page-last.png",
+    "offline-accounting.png"
+  ],
+  "visualRegression": {
+    "method": "Deterministic screenshots plus structural geometry assertions",
+    "tolerance": "1 CSS pixel for clipping; no bitmap anti-aliasing diff threshold"
+  },
+  "defects": [
+    {
+      "surface": "PDF print compilation",
+      "fixtureBlock": "All equation blocks",
+      "expected": "No remote font or renderer dependency.",
+      "actual": "The PDF HTML unconditionally linked to Google Fonts.",
+      "fix": "Removed the remote Google Fonts injection; local/system typography remains unchanged.",
+      "regression": "Source assertion plus browser request/resource logging.",
+      "status": "fixed"
+    },
+    {
+      "surface": "Offline data-pack import",
+      "fixtureBlock": "Corrupted checksum data pack",
+      "expected": "Reject project data that does not match its declared checksum.",
+      "actual": "Compatibility validation accepted a modified payload when schema compatibility passed.",
+      "fix": "Validate declared checksums while retaining support for legacy packs without a checksum.",
+      "regression": "Unit test and offline browser alert assertion.",
+      "status": "fixed"
+    },
+    {
+      "surface": "Markdown and DOCX export",
+      "fixtureBlock": "Balanced General Journal and structured statements",
+      "expected": "Retain accounting rows, headings, amounts, and totals.",
+      "actual": "Structured accounting blocks degraded to their title or plain block text.",
+      "fix": "Added shared structured accounting rows, Markdown tables, and native DOCX tables.",
+      "regression": "Fixture export unit assertions and downloaded artifact checks.",
+      "status": "fixed"
+    },
+    {
+      "surface": "PDF multi-page accounting layout",
+      "fixtureBlock": "Multi-page Inventory Journal",
+      "expected": "Allow pagination, preserve rows, and repeat column headings.",
+      "actual": "A blanket break-inside rule attempted to keep the entire 64-row journal together.",
+      "fix": "Allow long journals to paginate, repeat table headers/footers, and keep individual rows intact.",
+      "regression": "Computed print-geometry checks and selected-page PDF evidence.",
+      "status": "fixed"
+    },
+    {
+      "surface": "PDF MathML rendering",
+      "fixtureBlock": "qa-math-boxed and qa-math-boundary-result",
+      "expected": "Boxed answers retain a tight visible border.",
+      "actual": "The MathML-only PDF path omitted the KaTeX box decoration.",
+      "fix": "Apply a shrink-to-fit border only to exported MathML generated from boxed source.",
+      "regression": "Unit markup assertion and selected-page PDF evidence.",
+      "status": "fixed"
+    }
+  ],
+  "externalRequests": [],
+  "consoleErrors": [],
+  "dialogs": [
+    {
+      "type": "alert",
+      "message": "Successfully imported project \"Mathematics and Accounting Production QA\" from offline shell dataset!"
+    },
+    {
+      "type": "alert",
+      "message": "Failed to import JSON file: Data-pack checksum mismatch."
+    },
+    {
+      "type": "alert",
+      "message": "Failed to import JSON file: Unsupported data-pack schema 99.0.0."
+    }
+  ],
+  "passed": true,
+  "finishedAt": "2026-07-30T12:55:47.541Z",
+  "serverOutput": "◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }\nAPI key should be set when using the Gemini API.\nAPI key should be set when using the Gemini API.\nPressCraft Studio server running on http://localhost:3000"
+}

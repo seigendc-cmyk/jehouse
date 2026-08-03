@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { deserializeSciFile } from '../features/sciFile';
 import { Download, FileText, BookOpen, Check, X, Printer, Package, HardDrive, Upload, FileCode, Eye } from 'lucide-react';
 import { BookProject, ExportSettings, TrimSize, FontPairing, MarginPreset } from '../types';
 import { GOOGLE_FONTS } from '../lib/googleFonts';
@@ -6,6 +7,7 @@ import {
   exportToPDF, 
   exportToEPUB, 
   exportProjectJSON, 
+  exportBookSci,
   exportOfflineShellJSON, 
   parseOfflineShellJSON,
   exportToMarkdown,
@@ -17,6 +19,7 @@ import {
   saveToLocalDiskInDocuments,
   resolveMargins
 } from '../lib/exportUtils';
+import { runPublishingPreflight } from '../lib/publishingPreflight';
 
 interface ExportModalProps {
   project: BookProject;
@@ -40,10 +43,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   if (!isOpen) return null;
 
   const { exportSettings } = project;
+  const preflight = runPublishingPreflight(project);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLocaleLowerCase().endsWith('.sci')) {
+      try {
+        onImportProject?.((await deserializeSciFile(file)).project);
+        onClose();
+      } catch (error) {
+        console.error('[SCI browser import]', error);
+        alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+      }
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -84,6 +99,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <section className={`rounded border p-3 text-xs ${preflight.valid ? 'border-emerald-700 bg-emerald-950/20' : 'border-red-700 bg-red-950/20'}`} aria-label="Publishing preflight">
+          <div className="font-bold">{preflight.valid ? 'Publishing preflight passed' : 'Publishing preflight requires attention'} · {preflight.validEquations} valid equations · {preflight.invalidEquations} invalid equations</div>
+          {preflight.issues.length > 0 && <ul className="mt-2 max-h-28 list-disc overflow-y-auto pl-5">{preflight.issues.map((issue) => <li key={issue.id} className={issue.severity === 'error' ? 'text-red-300' : 'text-amber-300'}>{issue.message}{issue.blockId ? ` (block ${issue.blockId})` : ''}</li>)}</ul>}
+        </section>
 
         {/* Trim & Typography Controls */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
@@ -367,7 +387,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-[#FF6B00]" />
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Local Disk Storage & Document Package (.m2b)</h4>
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider">SCI Book Project & Local Disk Storage</h4>
             </div>
             <span className="text-[10px] bg-[#333333] text-gray-300 px-2 py-0.5 rounded font-mono">v1.0.0-local-disk</span>
           </div>
@@ -377,8 +397,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <button
-              onClick={() => saveToLocalDiskInDocuments(project)}
+              onClick={() => void exportBookSci(project)}
               className="flex items-center gap-2 py-2 px-3 rounded bg-[#FF6B00] hover:bg-orange-600 text-black font-bold text-xs transition-colors shadow-sm cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Book SCI</span>
+            </button>
+            <button
+              onClick={() => saveToLocalDiskInDocuments(project)}
+              className="flex items-center gap-2 py-2 px-3 rounded bg-[#333333] hover:bg-[#444444] text-white font-bold text-xs transition-colors border border-[#444] cursor-pointer"
             >
               <HardDrive className="w-4 h-4" />
               <span>Save to Local Disk (Documents)</span>
@@ -403,7 +430,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,.m2b"
+              accept=".sci,.json,.m2b,application/vnd.presscraft.sci"
               onChange={handleFileUpload}
               className="hidden"
             />
@@ -506,4 +533,3 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     </div>
   );
 };
-

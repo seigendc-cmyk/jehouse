@@ -157,6 +157,34 @@
 .pc-property-list div { display: grid; grid-template-columns: 95px 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--pc-border); }
 .pc-property-list dt { color: var(--pc-text-muted); }
 .pc-property-list dd { overflow-wrap: anywhere; }
+.pc-publishing-inspector { display: grid; gap: 10px; padding: 12px; font-size: 12px; }
+.pc-publishing-inspector h3 { font-size: 14px; font-weight: 700; color: var(--pc-orange-active); }
+.pc-publishing-inspector label { display: grid; gap: 4px; color: var(--pc-text-muted); font-weight: 600; }
+.pc-publishing-inspector input,
+.pc-publishing-inspector textarea,
+.pc-publishing-inspector select {
+  width: 100%;
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+  background: var(--pc-surface-secondary);
+  color: var(--pc-text);
+  padding: 7px;
+  font: inherit;
+}
+.pc-publishing-inspector textarea { min-height: 68px; resize: vertical; font-family: ui-monospace, monospace; }
+.pc-equation-inspector-preview { overflow-x: auto; border: 1px solid var(--pc-border); border-radius: var(--pc-radius); background: white; color: #18181b; padding: 10px; }
+.pc-validation-status { border-radius: var(--pc-radius); padding: 7px; background: var(--pc-surface-muted); }
+.pc-validation-status.is-valid { color: #15803d; }
+.pc-validation-status.is-invalid, .pc-inspector-issues { color: #b91c1c; }
+.pc-inspector-row-controls { display: flex; gap: 6px; }
+.pc-inspector-row-controls button { flex: 1; border: 1px solid var(--pc-border); border-radius: var(--pc-radius); padding: 7px; }
+.pc-inspector-row-controls button:hover { background: var(--pc-orange-soft); }
+.pc-inspector-issues { border: 1px solid currentColor; border-radius: var(--pc-radius); padding: 8px; }
+.pc-inspector-issues ul { margin-top: 4px; padding-left: 16px; list-style: disc; }
+.pc-preflight-navigation { display: grid; gap: 5px; padding: 10px 12px; border-bottom: 1px solid var(--pc-border); font-size: 11px; }
+.pc-preflight-navigation button { display: grid; grid-template-columns: 46px 1fr; gap: 5px; border: 1px solid var(--pc-border); border-radius: var(--pc-radius); padding: 6px; text-align: left; }
+.pc-preflight-navigation button.is-active { border-color: var(--pc-orange-active); background: var(--pc-orange-soft); }
+.pc-preflight-navigation button span { text-transform: uppercase; color: var(--pc-text-muted); font-size: 9px; font-weight: 700; }
 
 .pc-statusbar {
   position: fixed;

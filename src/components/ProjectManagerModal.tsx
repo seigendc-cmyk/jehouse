@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { deserializeSciFile } from '../features/sciFile';
 import {
   BookOpen,
   Plus,
@@ -27,6 +28,12 @@ import {
 import { BookProject, BookCategory, Chapter, ContentBlock } from '../types';
 
 import { createEmptyBookProject } from '../data/createEmptyBookProject';
+import {
+  createWorkbookTemplateChapters,
+  WorkbookTemplateId
+} from '../features/mathAccounting';
+
+type ProjectTemplateId = 'blank' | 'fiction' | 'nonfiction' | 'educational' | 'ai' | WorkbookTemplateId;
 
 interface ProjectManagerModalProps {
   isOpen: boolean;
@@ -67,7 +74,7 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   const [newSubtitle, setNewSubtitle] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
   const [newCategory, setNewCategory] = useState<BookCategory>('Fiction & Literature');
-  const [selectedTemplate, setSelectedTemplate] = useState<'blank' | 'fiction' | 'nonfiction' | 'educational' | 'ai'>('blank');
+  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplateId>('blank');
   
   // AI Outline Generator State
   const [aiPrompt, setAiPrompt] = useState('');
@@ -115,7 +122,18 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       }
     ];
 
-    if (selectedTemplate === 'fiction') {
+    if ([
+      'mathematics-workbook',
+      'accounting-workbook',
+      'teacher-mathematics',
+      'teacher-accounting'
+    ].includes(selectedTemplate)) {
+      let sequence = 0;
+      chapters = createWorkbookTemplateChapters(
+        selectedTemplate as WorkbookTemplateId,
+        (prefix) => `${prefix}-${Date.now()}-${++sequence}`
+      );
+    } else if (selectedTemplate === 'fiction') {
       chapters = [
         {
           id: `ch-1-${Date.now()}`,
@@ -266,9 +284,18 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     downloadAnchor.remove();
   };
 
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLocaleLowerCase().endsWith('.sci')) {
+      try { onCreateProject((await deserializeSciFile(file)).project); }
+      catch (error) {
+        console.error('[SCI browser import]', error);
+        alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+      }
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -288,6 +315,17 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleImportSCI = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try { onCreateProject((await deserializeSciFile(file)).project); }
+    catch (error) {
+      console.error('[SCI browser import]', error);
+      alert(error instanceof Error ? error.message : 'Could not open SCI file.');
+    }
   };
 
   const calculateTotalWords = (project: BookProject) => {
@@ -395,10 +433,15 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             </button>
 
             <div className="pt-4">
+              <label className="mb-2 flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-dashed border-orange-500/60 bg-orange-500/10 text-xs font-bold text-orange-300 hover:bg-orange-500/20 hover:text-white cursor-pointer transition">
+                <Upload className="w-3.5 h-3.5 text-orange-400" />
+                <span>Import Book SCI</span>
+                <input type="file" accept=".sci,application/vnd.presscraft.sci" onChange={handleImportSCI} className="hidden" />
+              </label>
               <label className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-dashed border-[#56241e] dark:border-zinc-700 text-xs font-semibold text-[#ebd3ca] hover:text-white hover:border-orange-500/50 cursor-pointer transition">
                 <Upload className="w-3.5 h-3.5 text-orange-400" />
                 <span>Import Book JSON</span>
-                <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                <input type="file" accept=".json,application/json" onChange={handleImportJSON} className="hidden" />
               </label>
             </div>
           </div>
@@ -632,6 +675,26 @@ export const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       <div className="text-[10px] text-[#c9a59b]">Fresh canvas</div>
                     </div>
                   </button>
+                  {([
+                    ['mathematics-workbook', 'Mathematics Workbook', 'Worked methods and practice'],
+                    ['accounting-workbook', 'Accounting Workbook', 'Journals through statements'],
+                    ['teacher-mathematics', 'Teacher Mathematics Edition', 'Guidance and marking notes'],
+                    ['teacher-accounting', 'Teacher Accounting Edition', 'Validation-led teaching']
+                  ] as const).map(([id, label, description]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => { setSelectedTemplate(id); setNewCategory(id.includes('mathematics') ? 'Science, Tech & Math' : 'Academic & Textbook'); }}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        selectedTemplate === id
+                          ? 'bg-orange-600/20 border-orange-500 text-orange-300'
+                          : 'bg-[#381916] border-[#56241e] text-[#ebd3ca] hover:border-orange-500/40'
+                      }`}
+                    >
+                      <GraduationCap className="w-5 h-5 mb-2 text-orange-400" />
+                      <div><div className="font-bold text-xs">{label}</div><div className="text-[10px] text-[#c9a59b]">{description}</div></div>
+                    </button>
+                  ))}
 
                   <button
                     type="button"

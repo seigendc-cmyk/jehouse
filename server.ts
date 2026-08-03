@@ -1,13 +1,15 @@
 import express from "express";
+import { createServer as createHttpServer } from "node:http";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import type { ViteDevServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const app = express();
-const PORT = 3000;
+export const app = express();
+export const httpServer = createHttpServer(app);
+let viteDevServer: ViteDevServer | undefined;
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -485,24 +487,106 @@ Return a valid JSON object matching this structure EXACTLY (no markdown backtick
 });
 
 // Vite / Static Serving Setup
-async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+export interface RunningServer {
+  port: number;
+  close(): Promise<void>;
+}
+
+async function closeResources(): Promise<void> {
+  const vite = viteDevServer;
+  viteDevServer = undefined;
+  if (vite) await vite.close();
+  if (!httpServer.listening) return;
+  await new Promise<void>((resolve, reject) => {
+    httpServer.close((error) => error ? reject(error) : resolve());
+  });
+}
+
+export async function startServer(options: { production?: boolean; port?: number; host?: string; distDirectory?: string } = {}): Promise<RunningServer> {
+  const production = options.production ?? process.env.NODE_ENV === "production";
+  const port = options.port ?? Number(process.env.PORT || 3000);
+  const host = options.host ?? "0.0.0.0";
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid server port: ${port}`);
+
+  if (!production) {
+    const { createServer: createViteServer } = await import("vite");
+    viteDevServer = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    app.use(viteDevServer.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = options.distDirectory ?? path.join(process.cwd(), "dist");
+    app.get("/sw.js", (_req, res, next) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Service-Worker-Allowed", "/");
+      next();
+    });
+    app.get("/manifest.webmanifest", (_req, res, next) => {
+      res.setHeader("Cache-Control", "no-cache");
+      res.type("application/manifest+json");
+      next();
+    });
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`PressCraft Studio server running on http://localhost:${PORT}`);
+  await new Promise<void>((resolve, reject) => {
+    const handleStartupError = (error: Error) => reject(error);
+    httpServer.once("error", handleStartupError);
+    httpServer.listen(port, host, () => {
+      httpServer.off("error", handleStartupError);
+      resolve();
+    });
   });
+
+  const address = httpServer.address();
+  const listeningPort = typeof address === "object" && address ? address.port : port;
+  console.log(`PressCraft Studio server running on http://localhost:${listeningPort}`);
+  return { port: listeningPort, close: closeResources };
 }
 
-startServer();
+export function installShutdownHandlers(running: RunningServer): () => void {
+  let closing = false;
+  const shutdown = () => {
+    if (closing) return;
+    closing = true;
+    void running.close().catch((error) => {
+      console.error("Failed to close PressCraft Studio cleanly:", error);
+      process.exitCode = 1;
+    });
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+  return () => {
+    process.off("SIGINT", shutdown);
+    process.off("SIGTERM", shutdown);
+  };
+}
+
+export function startupErrorMessage(error: NodeJS.ErrnoException, port: number): string {
+  return error.code === "EADDRINUSE"
+    ? `Cannot start PressCraft Studio: port ${port} is already in use. Stop the existing Book Publisher server and try again.`
+    : `Failed to start PressCraft Studio: ${error.message}`;
+}
+
+async function runMain(): Promise<void> {
+  try {
+    const running = await startServer();
+    installShutdownHandlers(running);
+  } catch (error) {
+    const startupError = error as NodeJS.ErrnoException;
+    console.error(startupErrorMessage(startupError, Number(process.env.PORT || 3000)));
+    await closeResources().catch(() => undefined);
+    process.exitCode = 1;
+  }
+}
+
+if (!process.env.VITEST) void runMain();

@@ -4,6 +4,7 @@ import { getLegacyTypography } from '../lib/bookTypography';
 import { createColourSettings } from '../lib/bookColours';
 import { cloneParagraphPreset } from '../lib/paragraphFormatting';
 import { LEGACY_DROP_CAPS } from '../lib/dropCaps';
+import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 
 const VALID_SYNC_STATUSES = new Set<SyncStatus>([
   'local-only',
@@ -114,6 +115,22 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
         };
         break;
       }
+      case 5:
+        migrated = {
+          ...migrated,
+          schemaVersion: 6,
+          project: {
+            ...migrated.project,
+            mathPublishing: migrated.project.mathPublishing ?? {
+              renderer: 'katex',
+              rendererVersion: '0.18.1',
+              invalidMathPolicy: 'block-export',
+              allowedCommandsProfile: 'safe-default'
+            },
+            accountingFormat: migrated.project.accountingFormat ?? structuredClone(DEFAULT_ACCOUNTING_FORMAT)
+          }
+        };
+        break;
       default:
         return null;
     }
@@ -142,7 +159,19 @@ export function wrapLegacyProject(
       return {
         ...project,
         typography: typography.dropCaps ? typography : {...typography,dropCaps:structuredClone(LEGACY_DROP_CAPS)},
-        colourSettings: project.colourSettings ?? createColourSettings(typography)
+        colourSettings: project.colourSettings ?? createColourSettings(typography),
+        mathPublishing: project.mathPublishing ?? {
+          renderer: 'katex',
+          rendererVersion: '0.18.1',
+          invalidMathPolicy: 'block-export',
+          allowedCommandsProfile: 'safe-default'
+        },
+        accountingFormat: project.accountingFormat ?? structuredClone(DEFAULT_ACCOUNTING_FORMAT),
+        academicContext: project.academicContext ?? {
+          educationLevel: String((project as BookProject & { gradeLevel?: unknown }).gradeLevel ?? 'Primary'),
+          gradeLabel: 'Unspecified Grade',
+          subjectLabel: 'Unspecified Subject'
+        }
       };
     })()),
     createdAt: options.createdAt ?? legacySavedAt,

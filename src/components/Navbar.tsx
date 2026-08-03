@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   BookOpen, BookMarked, Check, CloudOff, Database, Download, FileText,
   Focus, FolderOpen, GraduationCap, HelpCircle, Image, LayoutPanelLeft,
-  Library, Maximize2, Menu, PanelRight, Plus, Printer, Save, Search,
-  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2
+  Library, Maximize2, Menu, PanelRight, Printer, Save, Search,
+  Settings, ShieldAlert, Sparkles, Type, Upload, Wifi, Undo2, Redo2,
+  Calculator, Clipboard, Code2, Table2, ClipboardCheck, CheckCircle2, List, ListOrdered, ListTree, IndentIncrease, IndentDecrease, ListX
 } from 'lucide-react';
 import { BookProject, UITheme } from '../types';
 import { SidebarTab } from './Sidebar';
@@ -12,6 +13,10 @@ import {
   localSaveStatusLabel,
   ProjectSaveState
 } from '../persistence/localSaveCoordinator';
+import {
+  MathAccountingCommand,
+  MATH_ACCOUNTING_COMMAND_LABELS
+} from '../features/mathAccounting';
 
 export type RibbonTab =
   | 'file' | 'home' | 'insert' | 'layout' | 'references'
@@ -46,6 +51,8 @@ interface NavbarProps {
   onOpenGoogleFontsModal?: () => void;
   onOpenImageGallery?: () => void;
   onOpenProjectManager?: () => void;
+  onImportBookSci?: () => void;
+  onExportBookSci?: () => void;
   isOnline?: boolean;
   canInstall?: boolean;
   onInstallPwa?: () => void;
@@ -58,6 +65,11 @@ interface NavbarProps {
   onToggleInspector?: () => void;
   canUndo?: boolean; canRedo?: boolean; undoLabel?: string; redoLabel?: string;
   onUndo?: () => void; onRedo?: () => void;
+  onMathAccountingCommand?: (command: MathAccountingCommand) => void;
+  initialRibbonTab?: RibbonTab;
+  onListCommand?: (command: 'bullets' | 'numbering' | 'multilevel' | 'increase' | 'decrease' | 'remove' | 'insert-bullets' | 'insert-numbering') => void;
+  canFormatList?: boolean;
+  activeListType?: 'unordered' | 'ordered';
 }
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -84,6 +96,7 @@ function RibbonButton({
       onClick={onClick}
       disabled={disabled}
       title={title ?? label}
+      aria-pressed={active}
       className={`pc-ribbon-button ${active ? 'is-active' : ''}`}
     >
       <Icon className="h-4 w-4" />
@@ -106,12 +119,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenFocusMode, onOpenProofread, onOpenStoryContinuation, onOpenExportModal,
   onOpenPrintPreview, onOpenSeriesManager, onOpenTypography, onOpenCloudSync, onSaveToLocalDisk,
   onOpenSQLiteConsole, onOpenEducationalStudio, onOpenCompanyProfile,
-  onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager,
+  onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager, onImportBookSci, onExportBookSci,
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
   onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
+  ,onMathAccountingCommand, initialRibbonTab = 'home', onListCommand, canFormatList = false, activeListType
 }) => {
-  const [selectedTab, setSelectedTab] = useState<RibbonTab>('home');
+  const [selectedTab, setSelectedTab] = useState<RibbonTab>(initialRibbonTab);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -128,6 +142,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const selectWorkspace = (tab: SidebarTab) => {
     onSelectTab?.(tab);
   };
+  const runMathAccountingCommand = (command: MathAccountingCommand) => {
+    selectWorkspace('editor');
+    onMathAccountingCommand?.(command);
+  };
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (!event.altKey || !event.shiftKey || event.key.toLowerCase() !== 'm') return;
+      event.preventDefault();
+      setSelectedTab('insert');
+      runMathAccountingCommand('paste-worked-problem');
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [onMathAccountingCommand, onSelectTab]);
 
   const renderRibbon = () => {
     switch (selectedTab) {
@@ -136,7 +167,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RibbonGroup label="Project">
             <RibbonButton label="Home" icon={BookOpen} onClick={onGoHome} />
             <RibbonButton label="New / Open" icon={FolderOpen} onClick={onOpenProjectManager} />
+            <RibbonButton label="Import Book SCI" icon={Upload} onClick={onImportBookSci} />
             <RibbonButton label="Save" icon={Save} onClick={onSaveToLocalDisk} />
+            <RibbonButton label="Export Book SCI" icon={Download} onClick={onExportBookSci} />
           </RibbonGroup>
           <RibbonGroup label="Output">
             <RibbonButton label="Export" icon={Download} onClick={onOpenExportModal} />
@@ -159,6 +192,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <RibbonButton label="Formatting" icon={Type} onClick={() => selectWorkspace('editor')} title="Open the manuscript formatting toolbar" />
             <RibbonButton label="Manuscript" icon={FileText} onClick={() => selectWorkspace('editor')} active={activeTab === 'editor'} />
           </RibbonGroup>
+          <RibbonGroup label="Lists">
+            <RibbonButton label="Bullets" icon={List} onClick={() => onListCommand?.('bullets')} disabled={!canFormatList} active={activeListType === 'unordered'} title="Bullets (Ctrl+Shift+8)" />
+            <RibbonButton label="Numbering" icon={ListOrdered} onClick={() => onListCommand?.('numbering')} disabled={!canFormatList} active={activeListType === 'ordered'} title="Numbering (Ctrl+Shift+7)" />
+            <RibbonButton label="Multilevel List" icon={ListTree} onClick={() => onListCommand?.('multilevel')} disabled={!canFormatList} />
+            <RibbonButton label="Decrease List Level" icon={IndentDecrease} onClick={() => onListCommand?.('decrease')} disabled={!activeListType} />
+            <RibbonButton label="Increase List Level" icon={IndentIncrease} onClick={() => onListCommand?.('increase')} disabled={!activeListType} />
+            <RibbonButton label="Remove List Formatting" icon={ListX} onClick={() => onListCommand?.('remove')} disabled={!activeListType} />
+          </RibbonGroup>
           <RibbonGroup label="Review">
             <RibbonButton label="Proofread" icon={Check} onClick={onOpenProofread} />
           </RibbonGroup>
@@ -168,8 +209,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RibbonGroup label="Images">
             <RibbonButton label="Image Gallery" icon={Image} onClick={onOpenImageGallery} />
           </RibbonGroup>
-          <RibbonGroup label="Content Blocks">
-            <RibbonButton label="Tables, Charts & Equations" icon={Plus} onClick={() => selectWorkspace('editor')} title="Use the manuscript insertion toolbar" />
+          <RibbonGroup label="Lists">
+            <RibbonButton label="Bulleted List" icon={List} onClick={() => onListCommand?.('insert-bullets')} disabled={!canFormatList} />
+            <RibbonButton label="Numbered List" icon={ListOrdered} onClick={() => onListCommand?.('insert-numbering')} disabled={!canFormatList} />
+            <RibbonButton label="Multilevel List" icon={ListTree} onClick={() => onListCommand?.('multilevel')} disabled={!canFormatList} />
+          </RibbonGroup>
+          <RibbonGroup label="Mathematics">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['paste-worked-problem']} icon={Clipboard} onClick={() => runMathAccountingCommand('paste-worked-problem')} title="Paste Worked Problem (Alt+Shift+M)" />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-inline-equation']} icon={Code2} onClick={() => runMathAccountingCommand('insert-inline-equation')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-display-equation']} icon={Calculator} onClick={() => runMathAccountingCommand('insert-display-equation')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-aligned-working']} icon={Calculator} onClick={() => runMathAccountingCommand('insert-aligned-working')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-boxed-answer']} icon={CheckCircle2} onClick={() => runMathAccountingCommand('insert-boxed-answer')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-formula']} icon={Code2} onClick={() => runMathAccountingCommand('insert-formula')} />
+          </RibbonGroup>
+          <RibbonGroup label="Accounting">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-journal-entry']} icon={Table2} onClick={() => runMathAccountingCommand('insert-journal-entry')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-ledger']} icon={Table2} onClick={() => runMathAccountingCommand('insert-ledger')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-trial-balance']} icon={Table2} onClick={() => runMathAccountingCommand('insert-trial-balance')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['insert-financial-statement']} icon={Table2} onClick={() => runMathAccountingCommand('insert-financial-statement')} />
+          </RibbonGroup>
+          <RibbonGroup label="Validation & Output">
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['validate-current-block']} icon={ClipboardCheck} onClick={() => runMathAccountingCommand('validate-current-block')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['run-chapter-preflight']} icon={CheckCircle2} onClick={() => runMathAccountingCommand('run-chapter-preflight')} />
+            <RibbonButton label={MATH_ACCOUNTING_COMMAND_LABELS['preview-print-layout']} icon={Printer} onClick={() => runMathAccountingCommand('preview-print-layout')} />
           </RibbonGroup>
         </>;
       case 'layout':

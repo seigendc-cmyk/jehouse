@@ -1,5 +1,5 @@
-import { BookProject, ExportSettings, CustomMargins, MarginPreset } from '../types';
-import { getGoogleFontsHTMLForExport } from './googleFonts';
+import { BookProject, ContentBlock, ExportSettings, CustomMargins, MarginPreset } from '../types';
+import katex from 'katex';
 import {
   getEffectiveTypography,
   resolveProjectTypography,
@@ -15,6 +15,11 @@ import { resolveActivePalette, resolveBlockTextColour, resolveColourSettings } f
 import { findPreviousParagraphContext, isFirstQualifyingParagraph, resolveParagraphFormatting } from './paragraphFormatting';
 import { dropCapHtml, paragraphFormattingWithDropCap, resolveDropCapFormatting } from './dropCaps';
 import { resolveSceneBreak, sceneBreakHtml, sceneBreakMark } from './sceneBreak';
+import { mathSourceForBlock, validateMathSource } from './mathValidation';
+import { isMathBlock, runPublishingPreflight } from './publishingPreflight';
+import { createBookDataPack, validateBookDataPackCompatibility } from './bookDataPack';
+import { DEFAULT_ACCOUNTING_FORMAT, formatAccountingNumber, journalTotals, trialBalanceTotals } from './accounting';
+import { renderListBlockMarkdown, renderListRunHtml, resolveStructuredLists } from './structuredLists';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -37,6 +42,154 @@ import {
 const escapeDropCapText=(value:string)=>value.replace(/[&<>"']/g,char=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[char]!));
+const escapeHtml = escapeDropCapText;
+
+export function renderMathForExport(block: ContentBlock, policy: NonNullable<BookProject['mathPublishing']>['invalidMathPolicy']): string {
+  const source = mathSourceForBlock(block);
+  const validation = validateMathSource(source);
+  if (validation.status !== 'valid') {
+    if (policy === 'raw-latex') return `<pre class="math-fallback">${escapeHtml(source)}</pre>`;
+    return `<div class="math-warning" role="alert"><strong>Invalid equation:</strong> ${escapeHtml(source)}<br><small>${escapeHtml(validation.message ?? '')}</small></div>`;
+  }
+  try {
+    const mathml = katex.renderToString(source, {
+      displayMode: block.type !== 'math-inline',
+      throwOnError: true,
+      strict: 'warn',
+      trust: false,
+      maxExpand: 1_000,
+      output: 'mathml'
+    });
+    const boxedClass = source.includes('\\boxed') ? ' math-boxed' : '';
+    return `<div class="math-block ${block.type === 'math-inline' ? 'math-inline' : ''}${boxedClass}" data-latex-source="${escapeHtml(source)}" aria-label="${escapeHtml(block.mathData?.accessibilityText || source)}">${mathml}${block.mathData?.equationNumber ? `<span class="equation-number">(${escapeHtml(block.mathData.equationNumber)})</span>` : ''}</div>`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Equation could not be rendered.';
+    return policy === 'raw-latex'
+      ? `<pre class="math-fallback">${escapeHtml(source)}</pre>`
+      : `<div class="math-warning" role="alert"><strong>Equation rendering failed:</strong> ${escapeHtml(source)}<br><small>${escapeHtml(message)}</small></div>`;
+  }
+}
+
+function renderAccountingForExport(block: ContentBlock, project: BookProject): string {
+  const format = project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT;
+  if (block.type === 'journal-entry' && block.journalEntryData) {
+    const data = block.journalEntryData;
+    const totals = journalTotals(data);
+    const multiPageClass = data.entries.length > 24 ? ' accounting-multipage' : '';
+    return `<div class="accounting-block${multiPageClass}"><table><caption>${escapeHtml(data.title || 'General Journal')}</caption><thead><tr><th>Date</th><th>Details</th><th>Folio</th><th class="number">Debit</th><th class="number">Credit</th></tr></thead><tbody>${data.entries.map((entry) => `<tr><td>${escapeHtml(entry.date)}</td><th scope="row">${escapeHtml(entry.details)}</th><td>${escapeHtml(entry.folio || '')}</td><td class="number">${formatAccountingNumber(entry.debit ?? 0, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(entry.credit ?? 0, format, data.currencyOverride)}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="3">Total</th><td class="number">${formatAccountingNumber(totals.debit, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(totals.credit, format, data.currencyOverride)}</td></tr></tfoot></table>${data.validateBalance && !totals.balanced ? `<p class="accounting-warning">Out of balance by ${formatAccountingNumber(Math.abs(totals.difference), format, data.currencyOverride)}</p>` : ''}</div>`;
+  }
+  if (block.type === 'trial-balance' && block.trialBalanceData) {
+    const data = block.trialBalanceData;
+    const totals = trialBalanceTotals(data);
+    return `<div class="accounting-block"><table><caption>${escapeHtml(data.title || 'Trial Balance')}</caption><thead><tr><th>Account</th><th class="number">Debit balance</th><th class="number">Credit balance</th></tr></thead><tbody>${data.rows.map((row) => `<tr><th scope="row">${escapeHtml(row.accountName)}</th><td class="number">${formatAccountingNumber(row.debit ?? 0, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(row.credit ?? 0, format, data.currencyOverride)}</td></tr>`).join('')}</tbody><tfoot><tr><th>Total</th><td class="number">${formatAccountingNumber(totals.debit, format, data.currencyOverride)}</td><td class="number">${formatAccountingNumber(totals.credit, format, data.currencyOverride)}</td></tr></tfoot></table>${data.validateEquality && !totals.balanced ? `<p class="accounting-warning">Difference ${formatAccountingNumber(Math.abs(totals.difference), format, data.currencyOverride)}</p>` : ''}</div>`;
+  }
+  if (block.type === 'financial-statement' && block.financialStatementData) {
+    const data = block.financialStatementData;
+    return `<div class="accounting-block"><table><caption>${escapeHtml(data.title || data.statementType.replace(/-/g, ' '))}${data.period ? `<small>${escapeHtml(data.period)}</small>` : ''}</caption><tbody>${data.rows.map((row) => `<tr class="${row.emphasis || ''}"><th scope="row" style="padding-left:${(row.level ?? 0) * 1.25}rem">${escapeHtml(row.label)}</th><td class="number">${row.amount === undefined ? '' : formatAccountingNumber(row.amount, format, data.currencyOverride)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  if (block.tableData) return `<div class="accounting-block"><table><thead><tr>${block.tableData.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${block.tableData.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return '';
+}
+
+export interface AccountingDocumentTable {
+  title: string;
+  headers: string[];
+  rows: string[][];
+}
+
+export function accountingRowsForDocument(
+  block: ContentBlock,
+  project: BookProject,
+): AccountingDocumentTable | undefined {
+  const format = project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT;
+  if (block.type === 'journal-entry' && block.journalEntryData) {
+    const data = block.journalEntryData;
+    const totals = journalTotals(data);
+    return {
+      title: data.title || 'General Journal',
+      headers: ['Date', 'Details', 'Folio', 'Debit', 'Credit'],
+      rows: [
+        ...data.entries.map(entry => [
+          entry.date,
+          entry.details,
+          entry.folio || '',
+          formatAccountingNumber(entry.debit ?? 0, format, data.currencyOverride),
+          formatAccountingNumber(entry.credit ?? 0, format, data.currencyOverride),
+        ]),
+        [
+          '',
+          totals.balanced ? 'Total' : 'Total — out of balance',
+          '',
+          formatAccountingNumber(totals.debit, format, data.currencyOverride),
+          formatAccountingNumber(totals.credit, format, data.currencyOverride),
+        ],
+      ],
+    };
+  }
+  if (block.type === 'trial-balance' && block.trialBalanceData) {
+    const data = block.trialBalanceData;
+    const totals = trialBalanceTotals(data);
+    return {
+      title: data.title || 'Trial Balance',
+      headers: ['Account', 'Debit balance', 'Credit balance'],
+      rows: [
+        ...data.rows.map(row => [
+          row.accountName,
+          formatAccountingNumber(row.debit ?? 0, format, data.currencyOverride),
+          formatAccountingNumber(row.credit ?? 0, format, data.currencyOverride),
+        ]),
+        [
+          totals.balanced ? 'Total' : 'Total — out of balance',
+          formatAccountingNumber(totals.debit, format, data.currencyOverride),
+          formatAccountingNumber(totals.credit, format, data.currencyOverride),
+        ],
+      ],
+    };
+  }
+  if (block.type === 'financial-statement' && block.financialStatementData) {
+    const data = block.financialStatementData;
+    return {
+      title: [data.title || data.statementType.replace(/-/g, ' '), data.period].filter(Boolean).join(' — '),
+      headers: ['Item', 'Amount'],
+      rows: data.rows.map(row => [
+        `${'  '.repeat(row.level ?? 0)}${row.label}`,
+        row.amount === undefined ? '' : formatAccountingNumber(row.amount, format, data.currencyOverride),
+      ]),
+    };
+  }
+  if (block.type === 'ledger' && block.ledgerData) {
+    return {
+      title: block.text || 'Ledger / T-account',
+      headers: ['Date', 'Account', 'Debit', 'Credit', 'Notes'],
+      rows: block.ledgerData.map(row => [
+        row.date,
+        row.account,
+        row.debit,
+        row.credit,
+        row.notes || '',
+      ]),
+    };
+  }
+  if (block.tableData && ['accounting-table', 'table'].includes(block.type)) {
+    return {
+      title: block.tableData.title || block.text || 'Accounting table',
+      headers: block.tableData.headers,
+      rows: block.tableData.rows,
+    };
+  }
+  return undefined;
+}
+
+const escapeMarkdownCell = (value: string) => value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
+export function renderAccountingMarkdown(block: ContentBlock, project: BookProject): string {
+  const table = accountingRowsForDocument(block, project);
+  if (!table) return block.text ? `${block.text}\n\n` : '';
+  const header = `| ${table.headers.map(escapeMarkdownCell).join(' | ')} |`;
+  const divider = `| ${table.headers.map(() => '---').join(' | ')} |`;
+  const rows = table.rows.map(row => `| ${row.map(value => escapeMarkdownCell(value)).join(' | ')} |`).join('\n');
+  return `### ${table.title}\n\n${header}\n${divider}\n${rows}\n\n`;
+}
 
 /**
  * Trigger browser print dialog formatted specifically as a book PDF layout
@@ -139,6 +292,12 @@ export function resolveImageSrc(blockOrUrl?: { imageUrl?: string; text?: string 
 }
 
 export function exportToPDF(project: BookProject) {
+  const preflight = runPublishingPreflight(project);
+  const invalidMathPolicy = project.mathPublishing?.invalidMathPolicy ?? 'block-export';
+  if (!preflight.valid && invalidMathPolicy === 'block-export') {
+    alert(`Publishing preflight blocked export:\n${preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => `• ${issue.message}`).join('\n')}`);
+    return;
+  }
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     alert('Please allow popups to generate PDF preview.');
@@ -191,7 +350,7 @@ export function exportToPDF(project: BookProject) {
   const isHyphenationEnabled = exportSettings.enableHyphenation !== false && exportSettings.autoHyphenation !== false;
 
   const formatBlockText = (block: any): string => {
-    let text = block.text || '';
+    let text = escapeHtml(block.text || '');
     if (!text) return '';
     text = text.replace(/\n/g, '<br>');
     if (block.bold) text = `<strong>${text}</strong>`;
@@ -211,12 +370,6 @@ export function exportToPDF(project: BookProject) {
 <head>
   <meta charset="UTF-8">
   <title>${project.title} - Book PDF Compilation</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-  ${getGoogleFontsHTMLForExport([
-    exportSettings.googleSerifFont || '', 
-    exportSettings.googleSansFont || '',
-    exportSettings.fontPairing || ''
-  ])}
   <style>
     @page {
       size: ${pageSizeCss} ${orientation};
@@ -450,6 +603,37 @@ export function exportToPDF(project: BookProject) {
       background: #fdfdfd;
       padding: 0.5rem;
     }
+    .math-block {
+      position: relative;
+      margin: 1em 0;
+      text-align: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      overflow-wrap: anywhere;
+    }
+    .math-inline { display: inline; margin: 0 0.15em; }
+    .math-block.math-boxed math { display: inline-block; border: 1px solid currentColor; padding: 0.2em 0.35em; }
+    .equation-number { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+    .math-warning, .accounting-warning {
+      border: 1px solid #b45309;
+      background: #fffbeb;
+      color: #78350f;
+      padding: 0.5rem;
+      break-inside: avoid;
+    }
+    .accounting-block { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+    .accounting-block.accounting-multipage { break-inside: auto; page-break-inside: auto; }
+    .accounting-block table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .accounting-block thead { display: table-header-group; }
+    .accounting-block tfoot { display: table-footer-group; }
+    .accounting-block tr { break-inside: avoid; page-break-inside: avoid; }
+    .accounting-block caption { font-weight: 700; padding: 0.4rem; }
+    .accounting-block caption small { display: block; font-weight: 400; }
+    .accounting-block th, .accounting-block td { border: 1px solid #777; padding: 0.35rem; }
+    .accounting-block .number { text-align: right; white-space: nowrap; }
+    .accounting-block tfoot { border-top: 3px double #111; border-bottom: 3px double #111; font-weight: 700; }
+    .accounting-block tr.total, .accounting-block tr.double-total { font-weight: 700; }
+    .accounting-block tr.double-total th, .accounting-block tr.double-total td { border-top: 3px double #111; border-bottom: 3px double #111; }
 
     table.ledger-table, table.data-table {
       width: 100%;
@@ -631,9 +815,13 @@ export function exportToPDF(project: BookProject) {
       `;
       if (block.type === 'heading') return `<h2 style="font-size: 14pt; margin-top: 1.5rem; margin-bottom: 0.5rem; text-indent: 0; font-family: ${headingFontFamily}; font-weight: bold; page-break-after: avoid; break-after: avoid;">${formatBlockText(block)}</h2>`;
       if (block.type === 'subheading') return `<h3 style="font-size: 12pt; margin-top: 1.2rem; margin-bottom: 0.4rem; text-indent: 0; font-family: ${headingFontFamily}; font-weight: 600; color: #333; page-break-after: avoid; break-after: avoid;">${formatBlockText(block)}</h3>`;
+      if (block.type === 'worked-example') return `<h3 class="worked-example-title" style="border-left:4px solid #ea580c;background:#fff7ed;padding:0.6rem;break-after:avoid;">${formatBlockText(block)}</h3>`;
+      if (block.type === 'solution-step') return `<h4 class="solution-step-title" style="border-left:4px solid #0284c7;padding:0.45rem;break-after:avoid;">${formatBlockText(block)}</h4>`;
+      if (block.type === 'theorem' || block.type === 'definition') return `<aside class="${block.type}" style="border:1px solid #8b5cf6;background:#f5f3ff;padding:0.75rem;break-inside:avoid;">${formatBlockText(block)}</aside>`;
       if (block.type === 'clause') return `<div class="clause-title" style="font-weight: bold; margin-top: 1.2em; color: #1a1a1a;">${formatBlockText(block)}</div>`;
-      if (block.type === 'latex') return `<div class="latex-box" style="text-align: center; margin: 1.2em 0; font-size: 12pt; background: #fdfdfd; padding: 0.5rem; page-break-inside: avoid; break-inside: avoid;">$$${block.latexFormula || block.text}$$</div>`;
-      if (block.type === 'code') return `<div class="code-block" style="background: #18181b; color: #f4f4f5; font-family: monospace; padding: 1rem; border-radius: 4px; font-size: 9.5pt; overflow-x: auto; white-space: pre-wrap; margin: 1em 0; page-break-inside: avoid; break-inside: avoid;">${block.codeSnippet || block.text}</div>`;
+      if (isMathBlock(block)) return renderMathForExport(block, invalidMathPolicy);
+      if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'].includes(block.type)) return renderAccountingForExport(block, project);
+      if (block.type === 'code') return `<div class="code-block" style="background: #18181b; color: #f4f4f5; font-family: monospace; padding: 1rem; border-radius: 4px; font-size: 9.5pt; overflow-x: auto; white-space: pre-wrap; margin: 1em 0; page-break-inside: avoid; break-inside: avoid;">${escapeHtml(block.codeSnippet || block.text)}</div>`;
       if (block.type === 'quote') return `<blockquote style="margin: 1.2rem 2rem; font-style: italic; text-align: center; color: #444; border-left: 3px solid #ea580c; padding-left: 1rem;">${formatBlockText(block)}</blockquote>`;
       if (block.type === 'callout') return `<div style="background: #f0f4f8; padding: 0.8rem 1rem; border-left: 4px solid #0284c7; margin: 1rem 0; border-radius: 4px; font-size: 10pt; color: #1e293b; page-break-inside: avoid; break-inside: avoid;">${formatBlockText(block)}</div>`;
       
@@ -879,10 +1067,21 @@ export function exportToPDF(project: BookProject) {
       function doPrint() {
         if (hasPrinted) return;
         hasPrinted = true;
-        setTimeout(function() {
-          window.focus();
-          window.print();
-        }, 400);
+        Promise.resolve(document.fonts && document.fonts.ready)
+          .then(function() {
+            return new Promise(function(resolve) {
+              requestAnimationFrame(function() {
+                requestAnimationFrame(resolve);
+              });
+            });
+          })
+          .then(function() {
+            window.focus();
+            window.print();
+          })
+          .catch(function(error) {
+            document.body.insertAdjacentHTML('afterbegin', '<div role="alert" style="padding:12px;background:#fee2e2;color:#991b1b">Export layout readiness failed: ' + String(error) + '</div>');
+          });
       }
 
       function checkImagesAndPrint() {
@@ -980,7 +1179,14 @@ export function exportToEPUB(project: BookProject) {
       return b;
     });
 
+    const epubLists = resolveStructuredLists(blocksWithImages, {accent:palette.colours.accent,body:palette.colours.bodyText});
+    const renderedEpubListIds = new Set<string>();
     const chapterHtml = blocksWithImages.map((b, blockIndex) => {
+      if (b.listFormatting) {
+        if (renderedEpubListIds.has(b.listFormatting.listId)) return '';
+        renderedEpubListIds.add(b.listFormatting.listId);
+        return renderListRunHtml(blocksWithImages.filter(candidate => candidate.listFormatting?.listId === b.listFormatting?.listId), epubLists);
+      }
       if (b.type === 'scene-break') return sceneBreakHtml(b);
       if (b.type === 'image' || b.imageUrl) {
         const src = resolveImageSrc(b);
@@ -1090,30 +1296,11 @@ export function exportToEPUB(project: BookProject) {
  * Export project specifically formatted as an Offline Shell JSON dataset
  */
 export function exportOfflineShellJSON(project: BookProject) {
-  const offlineShellPayload = {
-    schemaVersion: "1.0.0-offline-shell",
-    exportedAt: new Date().toISOString(),
-    shellType: "PressCraft Offline Publication Shell",
-    metadata: {
-      id: project.id,
-      title: project.title,
-      subtitle: project.subtitle,
-      author: project.author,
-      category: project.category,
-      isbn: project.frontMatter.isbn,
-      publisher: project.frontMatter.publisher,
-      totalChapters: project.chapters.length,
-      totalWords: project.chapters.reduce((acc, c) => acc + c.wordCount, 0),
-      lastSaved: project.lastSaved,
-    },
-    publicationSettings: {
-      trimSize: project.exportSettings.trimSize,
-      fontPairing: project.exportSettings.fontPairing,
-      watermarkEnabled: project.watermark.enabled,
-      watermarkText: project.watermark.text,
-    },
-    projectData: project
-  };
+  const offlineShellPayload = createBookDataPack(project);
+  if (!offlineShellPayload.preflight.valid && (project.mathPublishing?.invalidMathPolicy ?? 'block-export') === 'block-export') {
+    alert(`Offline data-pack export blocked by publishing preflight:\n${offlineShellPayload.preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => `• ${issue.message}`).join('\n')}`);
+    return;
+  }
 
   const jsonString = JSON.stringify(offlineShellPayload, null, 2);
   const blob = new Blob([jsonString], { type: 'application/json' });
@@ -1133,6 +1320,10 @@ export function exportOfflineShellJSON(project: BookProject) {
  */
 export function parseOfflineShellJSON(jsonContent: string): BookProject {
   const parsed = JSON.parse(jsonContent);
+  if (parsed.schemaVersion && parsed.minimumShellVersion) {
+    const compatibility = validateBookDataPackCompatibility(parsed);
+    if (!compatibility.compatible) throw new Error(compatibility.errors.join(' '));
+  }
   if (parsed.projectData && parsed.projectData.chapters) {
     return parsed.projectData as BookProject;
   }
@@ -1181,6 +1372,7 @@ export function exportToMarkdown(project: BookProject) {
   }
 
   project.chapters.forEach((ch) => {
+    const resolvedLists = resolveStructuredLists(ch.blocks);
     md += `## ${getChapterDisplayLabel(ch.number, ch.title)}\n`;
     if (ch.seasonNumber || ch.episodeNumber) {
       md += `*Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}*\n\n`;
@@ -1191,13 +1383,21 @@ export function exportToMarkdown(project: BookProject) {
     }
 
     ch.blocks.forEach((block) => {
-      if (block.type === 'heading') md += `### ${block.text}\n\n`;
+      const listItem = resolvedLists.get(block.id);
+      if (listItem) md += `${renderListBlockMarkdown(block, listItem)}\n`;
+      else if (block.type === 'heading') md += `### ${block.text}\n\n`;
       else if (block.type === 'subheading') md += `#### ${block.text}\n\n`;
       else if (block.type === 'clause') md += `**${block.text}**\n\n`;
       else if (block.type === 'quote') md += `> ${block.text}\n\n`;
       else if (block.type === 'callout') md += `> **Note:** ${block.text}\n\n`;
       else if (block.type === 'code') md += `\`\`\`${block.codeLanguage || ''}\n${block.codeSnippet || block.text}\n\`\`\`\n\n`;
-      else if (block.type === 'latex') md += `$$\n${block.latexFormula || block.text}\n$$\n\n`;
+      else if (isMathBlock(block)) {
+        const source = mathSourceForBlock(block);
+        md += block.type === 'math-inline' ? `$${source}$\n\n` : `$$\n${source}\n$$\n\n`;
+      }
+      else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement', 'ledger'].includes(block.type)) {
+        md += renderAccountingMarkdown(block, project);
+      }
       else if (block.type === 'pagebreak') md += `\n---\n\n`;
       else if (block.type === 'scene-break') md += `\n${sceneBreakMark(resolveSceneBreak(block)) || '***'}\n\n`;
       else if (block.type === 'image') {
@@ -1338,7 +1538,17 @@ export function exportToHTML(project: BookProject) {
     if (ch.seasonNumber || ch.episodeNumber) {
       html += `    <div class="episode-tag">Season ${ch.seasonNumber || 1} • Episode ${ch.episodeNumber || 1}${ch.episodeTitle ? `: ${ch.episodeTitle}` : ''}</div>\n`;
     }
+    const resolvedLists = resolveStructuredLists(ch.blocks, {accent:palette.colours.accent,body:palette.colours.bodyText});
+    const renderedListIds = new Set<string>();
     ch.blocks.forEach((block) => {
+      if (block.listFormatting) {
+        if (!renderedListIds.has(block.listFormatting.listId)) {
+          const run = ch.blocks.filter(candidate => candidate.listFormatting?.listId === block.listFormatting?.listId);
+          html += `    ${renderListRunHtml(run, resolvedLists)}\n`;
+          renderedListIds.add(block.listFormatting.listId);
+        }
+        return;
+      }
       const colour = resolveBlockTextColour(block, palette);
       const blockIndex=ch.blocks.indexOf(block),rawPf=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,blockIndex),isFirstQualifyingParagraph(ch.blocks,blockIndex)?0:blockIndex,typography),dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index:blockIndex,typography,palette,paragraphFormatting:rawPf}),pf=paragraphFormattingWithDropCap(rawPf,dropCap),ps=`text-indent:${pf.firstLineIndentPt}pt;padding-left:${pf.leftIndentPt}pt;padding-right:${pf.rightIndentPt}pt;margin:${pf.spacingBeforePt}pt 0 ${pf.spacingAfterPt}pt;line-height:${pf.lineHeight};`;
       if (block.type === 'scene-break') html += `    ${sceneBreakHtml(block)}\n`;
@@ -1347,6 +1557,8 @@ export function exportToHTML(project: BookProject) {
       else if (block.type === 'quote') html += `    <blockquote style="color: ${colour}">${block.text}</blockquote>\n`;
       else if (block.type === 'callout') html += `    <div style="background: #f0f4f8; border-left: 4px solid #0284c7; padding: 0.8rem; margin: 1rem 0; border-radius: 4px;">${block.text}</div>\n`;
       else if (block.type === 'code') html += `    <pre><code>${block.codeSnippet || block.text}</code></pre>\n`;
+      else if (isMathBlock(block)) html += `    ${renderMathForExport(block, project.mathPublishing?.invalidMathPolicy ?? 'block-export')}\n`;
+      else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'].includes(block.type)) html += `    ${renderAccountingForExport(block, project)}\n`;
       else if (block.type === 'image') {
         const imgSrc = resolveImageSrc(block);
         const caption = block.imageCaption || (block.text && block.text !== block.imageUrl && !block.text.startsWith('data:') && !block.text.startsWith('http') ? block.text : '');
@@ -1416,6 +1628,14 @@ export function exportToHTML(project: BookProject) {
  * Save project directly to local disk in Documents folder (File System Access API or Download trigger)
  */
 export async function saveToLocalDiskInDocuments(project: BookProject): Promise<boolean> {
+  const { isTauriDesktop, saveSciToDocuments } = await import('../desktop/desktopFileOpenGateway');
+  if (isTauriDesktop()) {
+    const { serializeSciProject } = await import('../features/sciFile');
+    const savedPath = await saveSciToDocuments(project.title || 'Untitled Book', serializeSciProject(project));
+    const { desktopSessionState } = await import('../desktop/desktopSessionState');
+    desktopSessionState.setSourcePath(savedPath);
+    return true;
+  }
   const jsonContent = JSON.stringify(project, null, 2);
   const cleanTitle = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'presscraft_book';
   const fileName = `${cleanTitle}_document.m2b`;
@@ -1458,11 +1678,34 @@ export async function saveToLocalDiskInDocuments(project: BookProject): Promise<
   return true;
 }
 
+/** Export the canonical portable SCI project format. */
+export async function exportBookSci(project: BookProject): Promise<boolean> {
+  const { serializeSciProject } = await import('../features/sciFile');
+  const contents = serializeSciProject(project);
+  const cleanTitle = project.title.trim().replace(/[<>:"/\\|?*]+/g, '_').replace(/[. ]+$/g, '') || 'Untitled Book';
+  const fileName = `${cleanTitle}.sci`;
+  const { isTauriDesktop, saveSciToDocuments } = await import('../desktop/desktopFileOpenGateway');
+  if (isTauriDesktop()) {
+    await saveSciToDocuments(fileName, contents);
+    return true;
+  }
+  const blob = new Blob([contents], { type: 'application/vnd.presscraft.sci;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 /**
  * Export project as a Microsoft Word document (.docx)
  */
 export async function exportToWordDocx(project: BookProject): Promise<void> {
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
   const typography = getEffectiveTypography({
     typography: resolveProjectTypography(project),
     pageSize: project.exportSettings.trimSize,
@@ -1646,7 +1889,16 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
       const pf=paragraphFormattingWithDropCap(rawPf,dropCap);
       const paragraphIndent={left:Math.round(pf.leftIndentPt*20),right:Math.round(pf.rightIndentPt*20),firstLine:Math.round(pf.firstLineIndentPt*20)};
       const paragraphSpacing={before:Math.round(pf.spacingBeforePt*20),after:Math.round(pf.spacingAfterPt*20),line:Math.round(pf.lineHeight*240)};
-      if (block.type === 'scene-break') {
+      if (block.listFormatting) {
+        const item = resolveStructuredLists(ch.blocks, {accent:palette.colours.accent,body:palette.colours.bodyText}).get(block.id)!;
+        children.push(new Paragraph({
+          children: [new TextRun({ text: block.text, size: 24, color: blockColour })],
+          bullet: block.listFormatting.type === 'unordered' ? { level: item.level } : undefined,
+          numbering: block.listFormatting.type === 'ordered' ? { reference: block.listFormatting.listId, level: item.level } : undefined,
+          spacing: { before: Math.round(item.spacingBeforePt * 20), after: Math.round(item.spacingAfterPt * 20) },
+          keepNext: item.keepWithNext
+        }));
+      } else if (block.type === 'scene-break') {
         const s=resolveSceneBreak(block);
         children.push(new Paragraph({
           children:[new TextRun({text:s.style==='rule'?'────────':sceneBreakMark(s)})],
@@ -1716,12 +1968,12 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
             spacing: { before: 140, after: 140 }
           })
         );
-      } else if (block.type === 'latex') {
+      } else if (isMathBlock(block)) {
         children.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: block.latexFormula || block.text,
+                text: mathSourceForBlock(block),
                 font: 'Cambria Math',
                 italics: true,
                 size: 24
@@ -1731,6 +1983,44 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
             spacing: { before: 140, after: 140 }
           })
         );
+      } else if (['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement', 'ledger'].includes(block.type)) {
+        const accountingTable = accountingRowsForDocument(block, project);
+        if (accountingTable) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: accountingTable.title, bold: true, size: 22 })],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 180, after: 100 },
+              keepNext: true,
+            }),
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              rows: [
+                new TableRow({
+                  tableHeader: true,
+                  children: accountingTable.headers.map(header => new TableCell({
+                    children: [new Paragraph({
+                      children: [new TextRun({ text: header, bold: true, size: 18 })],
+                    })],
+                  })),
+                }),
+                ...accountingTable.rows.map((row, rowIndex) => new TableRow({
+                  cantSplit: true,
+                  children: row.map(value => new TableCell({
+                    children: [new Paragraph({
+                      children: [new TextRun({
+                        text: value,
+                        bold: rowIndex === accountingTable.rows.length - 1 &&
+                          ['journal-entry', 'trial-balance'].includes(block.type),
+                        size: 18,
+                      })],
+                    })],
+                  })),
+                })),
+              ],
+            }),
+          );
+        }
       } else if (block.type === 'pagebreak') {
         children.push(
           new Paragraph({
@@ -1757,6 +2047,12 @@ export async function exportToWordDocx(project: BookProject): Promise<void> {
   });
 
   const doc = new Document({
+    numbering: {
+      config: Array.from(new Set(project.chapters.flatMap(chapter => chapter.blocks.filter(block => block.listFormatting?.type === 'ordered').map(block => block.listFormatting!.listId)))).map(reference => ({
+        reference,
+        levels: Array.from({length: 5}, (_, level) => ({ level, format: 'decimal' as const, text: `%${level + 1}.`, alignment: AlignmentType.LEFT }))
+      }))
+    },
     sections: [
       {
         properties: {},

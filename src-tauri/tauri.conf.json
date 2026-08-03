@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PressCraft Book Publisher",
+  "version": "0.1.0",
+  "identifier": "com.presscraft.book-publisher",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build:client",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "PressCraft Book Publisher", "width": 1440, "height": 900 }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "PressCraft",
+    "category": "Productivity",
+    "shortDescription": "Write, design and publish books with PressCraft.",
+    "longDescription": "PressCraft Book Publisher is an offline-first studio for creating secure interactive publications.",
+    "icon": ["../public/icons/presscraft-512.png"],
+    "fileAssociations": [{
+      "ext": ["sci"],
+      "name": "PressCraft SCI Book Project",
+      "description": "Secure interactive publication created with PressCraft Book Publisher",
+      "mimeType": "application/vnd.presscraft.sci",
+      "role": "Editor"
+    }],
+    "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" }, "nsis": { "installMode": "currentUser" } }
+  }
+}

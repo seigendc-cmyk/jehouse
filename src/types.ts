@@ -30,8 +30,20 @@ export type BlockType =
   | 'item'
   | 'image'
   | 'latex'
+  | 'math-inline'
+  | 'math-display'
+  | 'math-aligned'
+  | 'worked-example'
+  | 'solution-step'
+  | 'theorem'
+  | 'definition'
+  | 'formula'
   | 'code'
   | 'ledger'
+  | 'accounting-table'
+  | 'journal-entry'
+  | 'trial-balance'
+  | 'financial-statement'
   | 'quiz'
   | 'callout'
   | 'quote'
@@ -48,6 +60,103 @@ export interface LedgerRow {
   debit: string;
   credit: string;
   notes?: string;
+}
+
+export type UnorderedListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'arrow' | 'check' | 'custom';
+export type OrderedListStyle = 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | 'decimal-leading-zero' | 'decimal-outline';
+
+export interface ListFormatting {
+  listId: string;
+  type: 'unordered' | 'ordered';
+  level: number;
+  unorderedStyle?: UnorderedListStyle;
+  orderedStyle?: OrderedListStyle;
+  customMarker?: string;
+  startAt?: number;
+  restart?: boolean;
+  spacingBeforePt?: number;
+  spacingAfterPt?: number;
+  markerColour?: string;
+  markerSizePercent?: number;
+  keepWithNext?: boolean;
+}
+
+export interface MathBlockData {
+  source: string;
+  sourceFormat: 'latex';
+  displayMode: 'inline' | 'display' | 'aligned';
+  equationNumber?: string;
+  label?: string;
+  caption?: string;
+  accessibilityText?: string;
+  parseStatus: 'valid' | 'warning' | 'invalid';
+  parseMessage?: string;
+}
+
+export interface AccountingNumberFormat {
+  currency: string;
+  decimalPlaces: number;
+  thousandsSeparator: ',' | '.' | ' ' | '';
+  decimalSeparator: '.' | ',';
+  negativeStyle: 'minus' | 'parentheses';
+  zeroDisplay: 'zero' | 'dash' | 'blank';
+  currencySymbolPosition: 'before' | 'after';
+  dateFormat: 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
+}
+
+export interface AccountingEntry {
+  id: string;
+  date: string;
+  details: string;
+  folio?: string;
+  debit?: number;
+  credit?: number;
+  narration?: string;
+}
+
+export interface JournalEntryData {
+  title?: string;
+  entries: AccountingEntry[];
+  validateBalance: boolean;
+  currencyOverride?: string;
+}
+
+export interface TrialBalanceRow {
+  id: string;
+  accountName: string;
+  debit?: number;
+  credit?: number;
+}
+
+export interface TrialBalanceData {
+  title?: string;
+  rows: TrialBalanceRow[];
+  validateEquality: boolean;
+  currencyOverride?: string;
+}
+
+export interface FinancialStatementRow {
+  id: string;
+  label: string;
+  amount?: number;
+  level?: number;
+  emphasis?: 'normal' | 'subtotal' | 'total' | 'double-total';
+}
+
+export interface FinancialStatementData {
+  statementType:
+    | 'profit-or-loss'
+    | 'financial-position'
+    | 'cash-flow'
+    | 'changes-in-equity'
+    | 'manufacturing'
+    | 'trading'
+    | 'income-expenditure'
+    | 'receipts-payments';
+  title?: string;
+  period?: string;
+  rows: FinancialStatementRow[];
+  currencyOverride?: string;
 }
 
 export interface QuizQuestion {
@@ -122,6 +231,8 @@ export interface ContentBlock {
   lineHeight?: number; // Custom line height multiplier e.g. 1.4, 1.6
   /** Explicit colour for the complete block. Omit to inherit from book typography. */
   textColour?: string;
+  /** Structural list presentation. Markers are never stored in `text`. */
+  listFormatting?: ListFormatting;
   paragraphFormatting?: BlockParagraphFormatting;
   dropCapFormatting?: BlockDropCapFormatting;
   sceneBreak?: SceneBreakSettings;
@@ -144,11 +255,19 @@ export interface ContentBlock {
   imagePositionY?: number; // -50 to 50 fine offset
   
   latexFormula?: string; // e.g. "E = mc^2" or "\int_0^\infty e^{-x^2} dx"
+  /** Authoritative editable mathematics source. `latexFormula` remains supported for legacy blocks. */
+  mathData?: MathBlockData;
+  semanticRole?: 'problem' | 'instruction' | 'given' | 'explanation' | 'working' | 'answer' | 'note' | 'warning';
+  problemNumber?: string;
+  stepNumber?: string;
   
   codeLanguage?: string; // 'typescript' | 'python' | 'cpp' | 'sql' | 'html'
   codeSnippet?: string;
   
   ledgerData?: LedgerRow[];
+  journalEntryData?: JournalEntryData;
+  trialBalanceData?: TrialBalanceData;
+  financialStatementData?: FinancialStatementData;
   
   quizQuestions?: QuizQuestion[];
   
@@ -540,6 +659,18 @@ export interface ProjectAsset {
   height?: number;
 }
 
+export interface WorkbookAcademicContext {
+  curriculumId?: string;
+  educationLevel: string;
+  gradeId?: string;
+  gradeLabel: string;
+  subjectId?: string;
+  subjectLabel: string;
+  customLevelLabel?: string;
+  customGradeLabel?: string;
+  customSubjectLabel?: string;
+}
+
 export interface BookProject {
   id: string;
   title: string;
@@ -555,6 +686,16 @@ export interface BookProject {
   chapters: Chapter[];
   watermark: WatermarkConfig;
   exportSettings: ExportSettings;
+  /** Preserved legacy layout fields; canonical dimensions remain in exportSettings. */
+  pageSize?: unknown;
+  margins?: unknown;
+  mathPublishing?: {
+    renderer: 'katex';
+    rendererVersion: string;
+    invalidMathPolicy: 'block-export' | 'visible-warning' | 'raw-latex';
+    allowedCommandsProfile: 'safe-default';
+  };
+  accountingFormat?: AccountingNumberFormat;
   /** Versioned document typography. Optional only for pre-v2 projects read before migration. */
   typography?: BookTypographySettings;
   /** Versioned publication colour metadata. Optional only for projects awaiting migration. */
@@ -574,4 +715,7 @@ export interface BookProject {
   isReviewModeActive?: boolean;
 
   showReviewMarkup?: boolean;
+
+  // Authoritative Academic Context
+  academicContext?: WorkbookAcademicContext;
 }

@@ -1,0 +1,1657 @@
+{
+  "schemaVersion": "2.0.0",
+  "minimumShellVersion": "2.0.0",
+  "exportedAt": "2026-07-30T00:00:00.000Z",
+  "checksum": "990a658f",
+  "metadata": {
+    "id": "qa-math-accounting-production-fixture-v1",
+    "title": "Mathematics and Accounting Production QA",
+    "subtitle": "Deterministic offline and print acceptance fixture",
+    "author": "PressCraft QA",
+    "category": "Academic & Textbook",
+    "isbn": "978-0-00000-000-0",
+    "publisher": "PressCraft Quality Engineering"
+  },
+  "rendering": {
+    "mathematics": {
+      "renderer": "katex",
+      "sourceFormat": "latex",
+      "runtime": "shell-bundled",
+      "networkRequired": false
+    },
+    "typography": {
+      "schemaVersion": 1,
+      "presetId": "academic",
+      "body": {
+        "fontFamily": "\"EB Garamond\", serif",
+        "fontSizePt": 11,
+        "fontWeight": 400,
+        "lineHeight": 1.55,
+        "textColour": "#111111",
+        "paragraphSpacingBeforePt": 0,
+        "paragraphSpacingAfterPt": 6
+      },
+      "chapterOpening": {
+        "alignment": "left",
+        "numberFontFamily": "system-ui, sans-serif",
+        "numberFontSizePt": 12,
+        "numberWeight": 700,
+        "numberColour": "#111111",
+        "titleFontFamily": "system-ui, sans-serif",
+        "titleFontSizePt": 18,
+        "titleWeight": 700,
+        "titleColour": "#111111",
+        "subtitleFontFamily": "Georgia, serif",
+        "subtitleFontSizePt": 13,
+        "subtitleWeight": 400,
+        "subtitleColour": "#555555",
+        "topSpacingPt": 20,
+        "numberToTitleSpacingPt": 6,
+        "titleToBodySpacingPt": 16,
+        "showDivider": true,
+        "dividerColour": "#111111",
+        "dividerThicknessPt": 1.5,
+        "dividerWidthPercent": 100,
+        "suppressRunningHeader": true
+      },
+      "continuation": {
+        "enabled": true,
+        "alignment": "split",
+        "fontFamily": "Georgia, serif",
+        "fontSizePt": 11,
+        "fontWeight": 700,
+        "fontColour": "#222222",
+        "showChapterNumber": true,
+        "showChapterTitle": true,
+        "showContinued": true,
+        "showDivider": true,
+        "dividerColour": "#111111",
+        "dividerThicknessPt": 1.5
+      },
+      "paragraphs": {
+        "schemaVersion": 1,
+        "presetId": "academic",
+        "defaultMode": "first-line",
+        "firstParagraphAfterChapter": "no-indent",
+        "subsequentParagraphMode": "first-line",
+        "firstLineIndentPt": 18,
+        "leftIndentPt": 0,
+        "rightIndentPt": 0,
+        "hangingIndentPt": 0,
+        "spacingBeforePt": 0,
+        "spacingAfterPt": 6,
+        "lineHeight": 1.55,
+        "suppressIndentAfterHeading": true,
+        "suppressIndentAfterSceneBreak": false,
+        "suppressIndentAfterImage": true,
+        "widowOrphanEnabled": true,
+        "minimumLines": 2,
+        "keepWithNextForHeadings": true
+      },
+      "dropCaps": {
+        "schemaVersion": 1,
+        "presetId": "academic",
+        "enabledByDefault": false,
+        "defaultContext": "manual-only",
+        "style": "dropped",
+        "lines": 3,
+        "characterCount": 1,
+        "fontFamily": "Georgia, serif",
+        "fontWeight": 700,
+        "fontStyle": "normal",
+        "colourSource": "inherit-body",
+        "spacingRightPt": 5,
+        "spacingTopPt": 0,
+        "baselineAdjustmentPt": 0,
+        "useSmallCapsForFollowingWords": false,
+        "followingWordCount": 0
+      },
+      "runningHeaders": {
+        "suppressOnChapterOpening": true,
+        "suppressOnBlankPages": true,
+        "oddPageSource": "book-title",
+        "evenPageSource": "book-title"
+      }
+    },
+    "colours": {
+      "schemaVersion": 1,
+      "activePaletteId": "legacy-derived",
+      "customPalettes": [
+        {
+          "id": "legacy-derived",
+          "name": "Current Book Colours",
+          "source": "custom",
+          "colours": {
+            "bodyText": "#111111",
+            "primaryHeading": "#111111",
+            "secondaryHeading": "#555555",
+            "chapterNumber": "#111111",
+            "chapterTitle": "#111111",
+            "chapterSubtitle": "#555555",
+            "continuationHeader": "#222222",
+            "runningHeader": "#222222",
+            "divider": "#111111",
+            "quote": "#525252",
+            "caption": "#525252",
+            "mutedText": "#737373",
+            "hyperlink": "#1d4ed8",
+            "accent": "#525252",
+            "pageBackground": "#ffffff"
+          }
+        }
+      ],
+      "recentColours": []
+    },
+    "accountingFormat": {
+      "currency": "ZAR",
+      "decimalPlaces": 2,
+      "thousandsSeparator": ",",
+      "decimalSeparator": ".",
+      "negativeStyle": "parentheses",
+      "zeroDisplay": "dash",
+      "currencySymbolPosition": "before",
+      "dateFormat": "YYYY-MM-DD"
+    }
+  },
+  "navigation": [
+    {
+      "id": "qa-chapter-mathematics",
+      "number": 1,
+      "title": "Mathematics Typesetting"
+    },
+    {
+      "id": "qa-chapter-accounting",
+      "number": 2,
+      "title": "Accounting Statements"
+    },
+    {
+      "id": "qa-chapter-offline",
+      "number": 3,
+      "title": "Offline Reader Checks"
+    }
+  ],
+  "searchIndex": [
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-heading-basics",
+      "text": "Core equation forms"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-inline-prose",
+      "text": "Inline algebra accompanies the variable equation below without relying on a remote renderer."
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-inline",
+      "text": "ax^2 + bx + c = 0 a x squared plus b x plus c equals zero"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-display",
+      "text": "E = mc^2 Energy equals mass times the speed of light squared"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-nested-fraction",
+      "text": "\\frac{1}{1+\\frac{1}{1+\\frac{1}{x}}} A continued nested fraction in x"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-root",
+      "text": "\\sqrt{x^2 + y^2} Square root of x squared plus y squared"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-powers-subscripts",
+      "text": "a_n = a_1 r^{n-1} The nth geometric term equals the first term times r to the n minus one"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-boxed",
+      "text": "\\boxed{x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}} Boxed quadratic formula"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-aligned",
+      "text": "\\begin{aligned} 2x + 7 &= 19 \\\\ 2x &= 12 \\\\ x &= 6 \\end{aligned} Three aligned steps solving two x plus seven equals nineteen"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-summation",
+      "text": "\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2} Sum of the first n positive integers"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-integral",
+      "text": "\\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2} Gaussian integral from zero to infinity"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-matrix",
+      "text": "\\begin{bmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{bmatrix} Three by three matrix"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-heading-width",
+      "text": "Long-equation width policy"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-long-width",
+      "text": "\\displaystyle \\frac{\\left(x_1+x_2+x_3+x_4+x_5+x_6+x_7+x_8+x_9+x_{10}\\right)^2}{\\sqrt{a_1^2+a_2^2+a_3^2+a_4^2+a_5^2+a_6^2+a_7^2+a_8^2+a_9^2+a_{10}^2}} = \\sum_{k=1}^{10}\\frac{x_k^2}{a_k} A long equation used to verify the approved page-width overflow policy"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-boundary-filler",
+      "text": "Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph."
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-worked-example",
+      "text": "Worked example near a page boundary"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-boundary-equation",
+      "text": "\\frac{3}{4}x - 5 = 16 Three quarters x minus five equals sixteen"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-solution-step",
+      "text": "Step 1 — isolate the variable term"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-boundary-result",
+      "text": "\\boxed{x = 28} Boxed answer x equals twenty eight"
+    },
+    {
+      "chapterId": "qa-chapter-mathematics",
+      "blockId": "qa-math-invalid",
+      "text": "\\frac{1}{ Intentionally invalid fraction used to verify visible fallback"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-accounting-heading-journals",
+      "text": "Journal entries"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-journal-balanced",
+      "text": "Balanced General Journal"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-journal-unbalanced",
+      "text": "Unbalanced Journal — Warning Expected"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-accounting-heading-taccount",
+      "text": "T-account — Bank"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-accounting-t-account",
+      "text": "T-account — Bank"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-accounting-heading-trial",
+      "text": "Trial balances"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-trial-balanced",
+      "text": "Balanced Trial Balance"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-trial-unbalanced",
+      "text": "Unbalanced Trial Balance — Warning Expected"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-profit-loss",
+      "text": "Statement of Profit or Loss"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-percentage-table",
+      "text": "Performance ratios"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-financial-position",
+      "text": "Statement of Financial Position"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-accounting-heading-multipage",
+      "text": "Multi-page journal continuity"
+    },
+    {
+      "chapterId": "qa-chapter-accounting",
+      "blockId": "qa-journal-multipage",
+      "text": "Multi-page Inventory Journal"
+    },
+    {
+      "chapterId": "qa-chapter-offline",
+      "blockId": "qa-offline-heading",
+      "text": "Offline navigation target"
+    },
+    {
+      "chapterId": "qa-chapter-offline",
+      "blockId": "qa-offline-search-target",
+      "text": "Quasar reconciliation is the deterministic search phrase for the offline data-pack acceptance test."
+    },
+    {
+      "chapterId": "qa-chapter-offline",
+      "blockId": "qa-offline-accessibility-note",
+      "text": "Every representative equation in this fixture includes an accessibility description."
+    },
+    {
+      "chapterId": "qa-chapter-offline",
+      "blockId": "qa-offline-missing-asset",
+      "text": "Intentionally missing local QA asset"
+    }
+  ],
+  "requiredAssets": {
+    "localFonts": [
+      "KaTeX_Main-Regular.woff2",
+      "KaTeX_Math-Italic.woff2"
+    ],
+    "mathRuntime": "bundled-with-shell",
+    "projectAssets": []
+  },
+  "preflight": {
+    "valid": false,
+    "checkedAt": "2026-07-30T12:50:42.063Z",
+    "validEquations": 13,
+    "invalidEquations": 1,
+    "issues": [
+      {
+        "id": "preflight-1",
+        "severity": "error",
+        "code": "invalid-math",
+        "message": "Equation contains unbalanced braces.",
+        "chapterId": "qa-chapter-mathematics",
+        "blockId": "qa-math-invalid"
+      },
+      {
+        "id": "preflight-2",
+        "severity": "error",
+        "code": "journal-imbalance",
+        "message": "Journal debit and credit totals differ by 500.",
+        "chapterId": "qa-chapter-accounting",
+        "blockId": "qa-journal-unbalanced"
+      },
+      {
+        "id": "preflight-3",
+        "severity": "error",
+        "code": "trial-balance-difference",
+        "message": "Trial balance differs by 500.",
+        "chapterId": "qa-chapter-accounting",
+        "blockId": "qa-trial-unbalanced"
+      }
+    ]
+  },
+  "projectData": {
+    "id": "qa-math-accounting-production-fixture-v1",
+    "title": "Checksum corruption fixture",
+    "subtitle": "Deterministic offline and print acceptance fixture",
+    "author": "PressCraft QA",
+    "category": "Academic & Textbook",
+    "lastSaved": "2026-07-30T00:00:00.000Z",
+    "cloudSynced": false,
+    "archived": false,
+    "series": {
+      "isSeries": false,
+      "seriesTitle": "",
+      "seasons": []
+    },
+    "cover": {
+      "title": "Mathematics and Accounting Production QA",
+      "subtitle": "Deterministic offline and print acceptance fixture",
+      "author": "PressCraft QA",
+      "publisher": "PressCraft Quality Engineering",
+      "coverBgColor": "#EA580C",
+      "textColor": "#FFFFFF",
+      "accentColor": "#C2410C",
+      "spineWidthMm": 12,
+      "backBlurb": "A deterministic fixture for mathematics, accounting, print, and offline acceptance.",
+      "fullBleedImage": false,
+      "imageOpacity": 100,
+      "layoutStyle": "modern-minimal"
+    },
+    "frontMatter": {
+      "includeTitlePage": true,
+      "includeCopyright": true,
+      "copyrightText": "QA fixture. No remote assets or services are required.",
+      "isbn": "978-0-00000-000-0",
+      "publisher": "PressCraft Quality Engineering",
+      "includeDedication": false,
+      "dedicationText": "",
+      "includeForeword": false,
+      "forewordAuthor": "",
+      "forewordContent": "",
+      "includeExecutiveSummary": false,
+      "executiveSummaryContent": "",
+      "includeTOC": true
+    },
+    "chapters": [
+      {
+        "id": "qa-chapter-mathematics",
+        "number": 1,
+        "title": "Mathematics Typesetting",
+        "subtitle": "Sharp, semantic and accessible equations",
+        "wordCount": 128,
+        "blocks": [
+          {
+            "id": "qa-math-heading-basics",
+            "type": "heading",
+            "text": "Core equation forms"
+          },
+          {
+            "id": "qa-math-inline-prose",
+            "type": "paragraph",
+            "text": "Inline algebra accompanies the variable equation below without relying on a remote renderer.",
+            "fontFamily": "Georgia, serif",
+            "fontSize": 16,
+            "lineHeight": 1.6
+          },
+          {
+            "id": "qa-math-inline",
+            "type": "math-inline",
+            "text": "ax^2 + bx + c = 0",
+            "latexFormula": "ax^2 + bx + c = 0",
+            "mathData": {
+              "source": "ax^2 + bx + c = 0",
+              "sourceFormat": "latex",
+              "displayMode": "inline",
+              "parseStatus": "valid",
+              "accessibilityText": "a x squared plus b x plus c equals zero"
+            }
+          },
+          {
+            "id": "qa-math-display",
+            "type": "math-display",
+            "text": "E = mc^2",
+            "latexFormula": "E = mc^2",
+            "mathData": {
+              "source": "E = mc^2",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "equationNumber": "1.1",
+              "accessibilityText": "Energy equals mass times the speed of light squared"
+            }
+          },
+          {
+            "id": "qa-math-nested-fraction",
+            "type": "math-display",
+            "text": "\\frac{1}{1+\\frac{1}{1+\\frac{1}{x}}}",
+            "latexFormula": "\\frac{1}{1+\\frac{1}{1+\\frac{1}{x}}}",
+            "mathData": {
+              "source": "\\frac{1}{1+\\frac{1}{1+\\frac{1}{x}}}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "A continued nested fraction in x"
+            }
+          },
+          {
+            "id": "qa-math-root",
+            "type": "math-display",
+            "text": "\\sqrt{x^2 + y^2}",
+            "latexFormula": "\\sqrt{x^2 + y^2}",
+            "mathData": {
+              "source": "\\sqrt{x^2 + y^2}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "Square root of x squared plus y squared"
+            }
+          },
+          {
+            "id": "qa-math-powers-subscripts",
+            "type": "math-display",
+            "text": "a_n = a_1 r^{n-1}",
+            "latexFormula": "a_n = a_1 r^{n-1}",
+            "mathData": {
+              "source": "a_n = a_1 r^{n-1}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "The nth geometric term equals the first term times r to the n minus one"
+            }
+          },
+          {
+            "id": "qa-math-boxed",
+            "type": "math-display",
+            "text": "\\boxed{x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}}",
+            "latexFormula": "\\boxed{x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}}",
+            "mathData": {
+              "source": "\\boxed{x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "equationNumber": "1.2",
+              "accessibilityText": "Boxed quadratic formula"
+            }
+          },
+          {
+            "id": "qa-math-aligned",
+            "type": "math-aligned",
+            "text": "\\begin{aligned} 2x + 7 &= 19 \\\\ 2x &= 12 \\\\ x &= 6 \\end{aligned}",
+            "latexFormula": "\\begin{aligned} 2x + 7 &= 19 \\\\ 2x &= 12 \\\\ x &= 6 \\end{aligned}",
+            "mathData": {
+              "source": "\\begin{aligned} 2x + 7 &= 19 \\\\ 2x &= 12 \\\\ x &= 6 \\end{aligned}",
+              "sourceFormat": "latex",
+              "displayMode": "aligned",
+              "parseStatus": "valid",
+              "accessibilityText": "Three aligned steps solving two x plus seven equals nineteen"
+            }
+          },
+          {
+            "id": "qa-math-summation",
+            "type": "math-display",
+            "text": "\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}",
+            "latexFormula": "\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}",
+            "mathData": {
+              "source": "\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "equationNumber": "1.3",
+              "accessibilityText": "Sum of the first n positive integers"
+            }
+          },
+          {
+            "id": "qa-math-integral",
+            "type": "math-display",
+            "text": "\\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}",
+            "latexFormula": "\\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}",
+            "mathData": {
+              "source": "\\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "Gaussian integral from zero to infinity"
+            }
+          },
+          {
+            "id": "qa-math-matrix",
+            "type": "math-display",
+            "text": "\\begin{bmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{bmatrix}",
+            "latexFormula": "\\begin{bmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{bmatrix}",
+            "mathData": {
+              "source": "\\begin{bmatrix} 1 & 2 & 3 \\\\ 0 & 1 & 4 \\\\ 5 & 6 & 0 \\end{bmatrix}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "Three by three matrix"
+            }
+          },
+          {
+            "id": "qa-math-heading-width",
+            "type": "heading",
+            "text": "Long-equation width policy"
+          },
+          {
+            "id": "qa-math-long-width",
+            "type": "math-display",
+            "text": "\\displaystyle \\frac{\\left(x_1+x_2+x_3+x_4+x_5+x_6+x_7+x_8+x_9+x_{10}\\right)^2}{\\sqrt{a_1^2+a_2^2+a_3^2+a_4^2+a_5^2+a_6^2+a_7^2+a_8^2+a_9^2+a_{10}^2}} = \\sum_{k=1}^{10}\\frac{x_k^2}{a_k}",
+            "latexFormula": "\\displaystyle \\frac{\\left(x_1+x_2+x_3+x_4+x_5+x_6+x_7+x_8+x_9+x_{10}\\right)^2}{\\sqrt{a_1^2+a_2^2+a_3^2+a_4^2+a_5^2+a_6^2+a_7^2+a_8^2+a_9^2+a_{10}^2}} = \\sum_{k=1}^{10}\\frac{x_k^2}{a_k}",
+            "mathData": {
+              "source": "\\displaystyle \\frac{\\left(x_1+x_2+x_3+x_4+x_5+x_6+x_7+x_8+x_9+x_{10}\\right)^2}{\\sqrt{a_1^2+a_2^2+a_3^2+a_4^2+a_5^2+a_6^2+a_7^2+a_8^2+a_9^2+a_{10}^2}} = \\sum_{k=1}^{10}\\frac{x_k^2}{a_k}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "A long equation used to verify the approved page-width overflow policy"
+            }
+          },
+          {
+            "id": "qa-math-boundary-filler",
+            "type": "paragraph",
+            "text": "Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph. Boundary control paragraph.",
+            "fontFamily": "Georgia, serif",
+            "fontSize": 16,
+            "lineHeight": 1.6
+          },
+          {
+            "id": "qa-math-worked-example",
+            "type": "worked-example",
+            "text": "Worked example near a page boundary",
+            "semanticRole": "problem",
+            "problemNumber": "1"
+          },
+          {
+            "id": "qa-math-boundary-equation",
+            "type": "math-display",
+            "text": "\\frac{3}{4}x - 5 = 16",
+            "latexFormula": "\\frac{3}{4}x - 5 = 16",
+            "mathData": {
+              "source": "\\frac{3}{4}x - 5 = 16",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "Three quarters x minus five equals sixteen"
+            }
+          },
+          {
+            "id": "qa-math-solution-step",
+            "type": "solution-step",
+            "text": "Step 1 — isolate the variable term",
+            "semanticRole": "working",
+            "stepNumber": "1"
+          },
+          {
+            "id": "qa-math-boundary-result",
+            "type": "math-display",
+            "text": "\\boxed{x = 28}",
+            "latexFormula": "\\boxed{x = 28}",
+            "mathData": {
+              "source": "\\boxed{x = 28}",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "valid",
+              "accessibilityText": "Boxed answer x equals twenty eight"
+            }
+          },
+          {
+            "id": "qa-math-invalid",
+            "type": "math-display",
+            "text": "\\frac{1}{",
+            "latexFormula": "\\frac{1}{",
+            "mathData": {
+              "source": "\\frac{1}{",
+              "sourceFormat": "latex",
+              "displayMode": "display",
+              "parseStatus": "invalid",
+              "parseMessage": "Equation contains unbalanced braces.",
+              "accessibilityText": "Intentionally invalid fraction used to verify visible fallback"
+            }
+          }
+        ]
+      },
+      {
+        "id": "qa-chapter-accounting",
+        "number": 2,
+        "title": "Accounting Statements",
+        "subtitle": "Balanced books, warnings, totals and multi-page tables",
+        "wordCount": 96,
+        "blocks": [
+          {
+            "id": "qa-accounting-heading-journals",
+            "type": "heading",
+            "text": "Journal entries"
+          },
+          {
+            "id": "qa-journal-balanced",
+            "type": "journal-entry",
+            "text": "Balanced General Journal",
+            "journalEntryData": {
+              "title": "Balanced General Journal",
+              "entries": [
+                {
+                  "id": "qa-jb-1",
+                  "date": "2025-01-02",
+                  "details": "Bank",
+                  "folio": "B1",
+                  "debit": 12500
+                },
+                {
+                  "id": "qa-jb-2",
+                  "date": "2025-01-02",
+                  "details": "Owner capital",
+                  "folio": "C1",
+                  "credit": 12500
+                }
+              ],
+              "validateBalance": true,
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-journal-unbalanced",
+            "type": "journal-entry",
+            "text": "Unbalanced Journal — Warning Expected",
+            "journalEntryData": {
+              "title": "Unbalanced Journal — Warning Expected",
+              "entries": [
+                {
+                  "id": "qa-ju-1",
+                  "date": "2025-01-05",
+                  "details": "Equipment",
+                  "folio": "E1",
+                  "debit": 8500
+                },
+                {
+                  "id": "qa-ju-2",
+                  "date": "2025-01-05",
+                  "details": "Bank",
+                  "folio": "B1",
+                  "credit": 8000
+                }
+              ],
+              "validateBalance": true,
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-accounting-heading-taccount",
+            "type": "heading",
+            "text": "T-account — Bank"
+          },
+          {
+            "id": "qa-accounting-t-account",
+            "type": "ledger",
+            "text": "T-account — Bank",
+            "ledgerData": [
+              {
+                "date": "2025-01-02",
+                "account": "Capital",
+                "debit": "12,500.00",
+                "credit": "",
+                "notes": "Opening investment"
+              },
+              {
+                "date": "2025-01-05",
+                "account": "Equipment",
+                "debit": "",
+                "credit": "8,000.00",
+                "notes": "Asset purchase"
+              },
+              {
+                "date": "2025-01-31",
+                "account": "Balance c/d",
+                "debit": "",
+                "credit": "4,500.00",
+                "notes": "Closing balance"
+              }
+            ]
+          },
+          {
+            "id": "qa-accounting-heading-trial",
+            "type": "heading",
+            "text": "Trial balances"
+          },
+          {
+            "id": "qa-trial-balanced",
+            "type": "trial-balance",
+            "text": "Balanced Trial Balance",
+            "trialBalanceData": {
+              "title": "Balanced Trial Balance",
+              "rows": [
+                {
+                  "id": "qa-tb-1",
+                  "accountName": "Bank",
+                  "debit": 4500
+                },
+                {
+                  "id": "qa-tb-2",
+                  "accountName": "Equipment",
+                  "debit": 8000
+                },
+                {
+                  "id": "qa-tb-3",
+                  "accountName": "Capital",
+                  "credit": 12500
+                }
+              ],
+              "validateEquality": true,
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-trial-unbalanced",
+            "type": "trial-balance",
+            "text": "Unbalanced Trial Balance — Warning Expected",
+            "trialBalanceData": {
+              "title": "Unbalanced Trial Balance — Warning Expected",
+              "rows": [
+                {
+                  "id": "qa-tu-1",
+                  "accountName": "Bank",
+                  "debit": 4500
+                },
+                {
+                  "id": "qa-tu-2",
+                  "accountName": "Equipment",
+                  "debit": 8000
+                },
+                {
+                  "id": "qa-tu-3",
+                  "accountName": "Capital",
+                  "credit": 12000
+                }
+              ],
+              "validateEquality": true,
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-profit-loss",
+            "type": "financial-statement",
+            "text": "Statement of Profit or Loss",
+            "financialStatementData": {
+              "statementType": "profit-or-loss",
+              "title": "Statement of Profit or Loss",
+              "period": "Year ended 31 December 2025",
+              "rows": [
+                {
+                  "id": "qa-pl-1",
+                  "label": "Revenue",
+                  "amount": 187500
+                },
+                {
+                  "id": "qa-pl-2",
+                  "label": "Cost of sales",
+                  "amount": -121875
+                },
+                {
+                  "id": "qa-pl-3",
+                  "label": "Gross profit",
+                  "amount": 65625,
+                  "emphasis": "subtotal"
+                },
+                {
+                  "id": "qa-pl-4",
+                  "label": "Operating expenses",
+                  "amount": -28750
+                },
+                {
+                  "id": "qa-pl-5",
+                  "label": "Profit for the year",
+                  "amount": 36875,
+                  "emphasis": "double-total"
+                }
+              ],
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-percentage-table",
+            "type": "accounting-table",
+            "text": "Performance ratios",
+            "tableData": {
+              "title": "Performance Ratios",
+              "headers": [
+                "Measure",
+                "Current year",
+                "Prior year"
+              ],
+              "rows": [
+                [
+                  "Gross profit margin",
+                  "35.00%",
+                  "32.50%"
+                ],
+                [
+                  "Net profit margin",
+                  "19.67%",
+                  "17.20%"
+                ],
+                [
+                  "Return on assets",
+                  "12.40%",
+                  "10.90%"
+                ]
+              ]
+            }
+          },
+          {
+            "id": "qa-financial-position",
+            "type": "financial-statement",
+            "text": "Statement of Financial Position",
+            "financialStatementData": {
+              "statementType": "financial-position",
+              "title": "Statement of Financial Position",
+              "period": "Year ended 31 December 2025",
+              "rows": [
+                {
+                  "id": "qa-fp-1",
+                  "label": "Assets",
+                  "emphasis": "total"
+                },
+                {
+                  "id": "qa-fp-2",
+                  "label": "Property, plant and equipment",
+                  "amount": 245000,
+                  "level": 1
+                },
+                {
+                  "id": "qa-fp-3",
+                  "label": "Inventory",
+                  "amount": 87500,
+                  "level": 1
+                },
+                {
+                  "id": "qa-fp-4",
+                  "label": "Allowance for obsolete inventory",
+                  "amount": -2500,
+                  "level": 2
+                },
+                {
+                  "id": "qa-fp-5",
+                  "label": "Total assets",
+                  "amount": 330000,
+                  "emphasis": "double-total"
+                },
+                {
+                  "id": "qa-fp-6",
+                  "label": "Equity and liabilities",
+                  "emphasis": "total"
+                },
+                {
+                  "id": "qa-fp-7",
+                  "label": "Owner equity",
+                  "amount": 225000,
+                  "level": 1
+                },
+                {
+                  "id": "qa-fp-8",
+                  "label": "Trade payables",
+                  "amount": 105000,
+                  "level": 1
+                },
+                {
+                  "id": "qa-fp-9",
+                  "label": "Total equity and liabilities",
+                  "amount": 330000,
+                  "emphasis": "double-total"
+                }
+              ],
+              "currencyOverride": "ZAR"
+            }
+          },
+          {
+            "id": "qa-accounting-heading-multipage",
+            "type": "heading",
+            "text": "Multi-page journal continuity"
+          },
+          {
+            "id": "qa-journal-multipage",
+            "type": "journal-entry",
+            "text": "Multi-page Inventory Journal",
+            "journalEntryData": {
+              "title": "Multi-page Inventory Journal",
+              "entries": [
+                {
+                  "id": "qa-long-journal-1-debit",
+                  "date": "2025-12-01",
+                  "details": "Inventory batch 01",
+                  "folio": "INV01",
+                  "debit": 107.5
+                },
+                {
+                  "id": "qa-long-journal-1-credit",
+                  "date": "2025-12-01",
+                  "details": "Trade payables",
+                  "folio": "PAY01",
+                  "credit": 107.5
+                },
+                {
+                  "id": "qa-long-journal-2-debit",
+                  "date": "2025-12-02",
+                  "details": "Inventory batch 02",
+                  "folio": "INV02",
+                  "debit": 115
+                },
+                {
+                  "id": "qa-long-journal-2-credit",
+                  "date": "2025-12-02",
+                  "details": "Trade payables",
+                  "folio": "PAY02",
+                  "credit": 115
+                },
+                {
+                  "id": "qa-long-journal-3-debit",
+                  "date": "2025-12-03",
+                  "details": "Inventory batch 03",
+                  "folio": "INV03",
+                  "debit": 122.5
+                },
+                {
+                  "id": "qa-long-journal-3-credit",
+                  "date": "2025-12-03",
+                  "details": "Trade payables",
+                  "folio": "PAY03",
+                  "credit": 122.5
+                },
+                {
+                  "id": "qa-long-journal-4-debit",
+                  "date": "2025-12-04",
+                  "details": "Inventory batch 04",
+                  "folio": "INV04",
+                  "debit": 130
+                },
+                {
+                  "id": "qa-long-journal-4-credit",
+                  "date": "2025-12-04",
+                  "details": "Trade payables",
+                  "folio": "PAY04",
+                  "credit": 130
+                },
+                {
+                  "id": "qa-long-journal-5-debit",
+                  "date": "2025-12-05",
+                  "details": "Inventory batch 05",
+                  "folio": "INV05",
+                  "debit": 137.5
+                },
+                {
+                  "id": "qa-long-journal-5-credit",
+                  "date": "2025-12-05",
+                  "details": "Trade payables",
+                  "folio": "PAY05",
+                  "credit": 137.5
+                },
+                {
+                  "id": "qa-long-journal-6-debit",
+                  "date": "2025-12-06",
+                  "details": "Inventory batch 06",
+                  "folio": "INV06",
+                  "debit": 145
+                },
+                {
+                  "id": "qa-long-journal-6-credit",
+                  "date": "2025-12-06",
+                  "details": "Trade payables",
+                  "folio": "PAY06",
+                  "credit": 145
+                },
+                {
+                  "id": "qa-long-journal-7-debit",
+                  "date": "2025-12-07",
+                  "details": "Inventory batch 07",
+                  "folio": "INV07",
+                  "debit": 152.5
+                },
+                {
+                  "id": "qa-long-journal-7-credit",
+                  "date": "2025-12-07",
+                  "details": "Trade payables",
+                  "folio": "PAY07",
+                  "credit": 152.5
+                },
+                {
+                  "id": "qa-long-journal-8-debit",
+                  "date": "2025-12-08",
+                  "details": "Inventory batch 08",
+                  "folio": "INV08",
+                  "debit": 160
+                },
+                {
+                  "id": "qa-long-journal-8-credit",
+                  "date": "2025-12-08",
+                  "details": "Trade payables",
+                  "folio": "PAY08",
+                  "credit": 160
+                },
+                {
+                  "id": "qa-long-journal-9-debit",
+                  "date": "2025-12-09",
+                  "details": "Inventory batch 09",
+                  "folio": "INV09",
+                  "debit": 167.5
+                },
+                {
+                  "id": "qa-long-journal-9-credit",
+                  "date": "2025-12-09",
+                  "details": "Trade payables",
+                  "folio": "PAY09",
+                  "credit": 167.5
+                },
+                {
+                  "id": "qa-long-journal-10-debit",
+                  "date": "2025-12-10",
+                  "details": "Inventory batch 10",
+                  "folio": "INV10",
+                  "debit": 175
+                },
+                {
+                  "id": "qa-long-journal-10-credit",
+                  "date": "2025-12-10",
+                  "details": "Trade payables",
+                  "folio": "PAY10",
+                  "credit": 175
+                },
+                {
+                  "id": "qa-long-journal-11-debit",
+                  "date": "2025-12-11",
+                  "details": "Inventory batch 11",
+                  "folio": "INV11",
+                  "debit": 182.5
+                },
+                {
+                  "id": "qa-long-journal-11-credit",
+                  "date": "2025-12-11",
+                  "details": "Trade payables",
+                  "folio": "PAY11",
+                  "credit": 182.5
+                },
+                {
+                  "id": "qa-long-journal-12-debit",
+                  "date": "2025-12-12",
+                  "details": "Inventory batch 12",
+                  "folio": "INV12",
+                  "debit": 190
+                },
+                {
+                  "id": "qa-long-journal-12-credit",
+                  "date": "2025-12-12",
+                  "details": "Trade payables",
+                  "folio": "PAY12",
+                  "credit": 190
+                },
+                {
+                  "id": "qa-long-journal-13-debit",
+                  "date": "2025-12-13",
+                  "details": "Inventory batch 13",
+                  "folio": "INV13",
+                  "debit": 197.5
+                },
+                {
+                  "id": "qa-long-journal-13-credit",
+                  "date": "2025-12-13",
+                  "details": "Trade payables",
+                  "folio": "PAY13",
+                  "credit": 197.5
+                },
+                {
+                  "id": "qa-long-journal-14-debit",
+                  "date": "2025-12-14",
+                  "details": "Inventory batch 14",
+                  "folio": "INV14",
+                  "debit": 205
+                },
+                {
+                  "id": "qa-long-journal-14-credit",
+                  "date": "2025-12-14",
+                  "details": "Trade payables",
+                  "folio": "PAY14",
+                  "credit": 205
+                },
+                {
+                  "id": "qa-long-journal-15-debit",
+                  "date": "2025-12-15",
+                  "details": "Inventory batch 15",
+                  "folio": "INV15",
+                  "debit": 212.5
+                },
+                {
+                  "id": "qa-long-journal-15-credit",
+                  "date": "2025-12-15",
+                  "details": "Trade payables",
+                  "folio": "PAY15",
+                  "credit": 212.5
+                },
+                {
+                  "id": "qa-long-journal-16-debit",
+                  "date": "2025-12-16",
+                  "details": "Inventory batch 16",
+                  "folio": "INV16",
+                  "debit": 220
+                },
+                {
+                  "id": "qa-long-journal-16-credit",
+                  "date": "2025-12-16",
+                  "details": "Trade payables",
+                  "folio": "PAY16",
+                  "credit": 220
+                },
+                {
+                  "id": "qa-long-journal-17-debit",
+                  "date": "2025-12-17",
+                  "details": "Inventory batch 17",
+                  "folio": "INV17",
+                  "debit": 227.5
+                },
+                {
+                  "id": "qa-long-journal-17-credit",
+                  "date": "2025-12-17",
+                  "details": "Trade payables",
+                  "folio": "PAY17",
+                  "credit": 227.5
+                },
+                {
+                  "id": "qa-long-journal-18-debit",
+                  "date": "2025-12-18",
+                  "details": "Inventory batch 18",
+                  "folio": "INV18",
+                  "debit": 235
+                },
+                {
+                  "id": "qa-long-journal-18-credit",
+                  "date": "2025-12-18",
+                  "details": "Trade payables",
+                  "folio": "PAY18",
+                  "credit": 235
+                },
+                {
+                  "id": "qa-long-journal-19-debit",
+                  "date": "2025-12-19",
+                  "details": "Inventory batch 19",
+                  "folio": "INV19",
+                  "debit": 242.5
+                },
+                {
+                  "id": "qa-long-journal-19-credit",
+                  "date": "2025-12-19",
+                  "details": "Trade payables",
+                  "folio": "PAY19",
+                  "credit": 242.5
+                },
+                {
+                  "id": "qa-long-journal-20-debit",
+                  "date": "2025-12-20",
+                  "details": "Inventory batch 20",
+                  "folio": "INV20",
+                  "debit": 250
+                },
+                {
+                  "id": "qa-long-journal-20-credit",
+                  "date": "2025-12-20",
+                  "details": "Trade payables",
+                  "folio": "PAY20",
+                  "credit": 250
+                },
+                {
+                  "id": "qa-long-journal-21-debit",
+                  "date": "2025-12-21",
+                  "details": "Inventory batch 21",
+                  "folio": "INV21",
+                  "debit": 257.5
+                },
+                {
+                  "id": "qa-long-journal-21-credit",
+                  "date": "2025-12-21",
+                  "details": "Trade payables",
+                  "folio": "PAY21",
+                  "credit": 257.5
+                },
+                {
+                  "id": "qa-long-journal-22-debit",
+                  "date": "2025-12-22",
+                  "details": "Inventory batch 22",
+                  "folio": "INV22",
+                  "debit": 265
+                },
+                {
+                  "id": "qa-long-journal-22-credit",
+                  "date": "2025-12-22",
+                  "details": "Trade payables",
+                  "folio": "PAY22",
+                  "credit": 265
+                },
+                {
+                  "id": "qa-long-journal-23-debit",
+                  "date": "2025-12-23",
+                  "details": "Inventory batch 23",
+                  "folio": "INV23",
+                  "debit": 272.5
+                },
+                {
+                  "id": "qa-long-journal-23-credit",
+                  "date": "2025-12-23",
+                  "details": "Trade payables",
+                  "folio": "PAY23",
+                  "credit": 272.5
+                },
+                {
+                  "id": "qa-long-journal-24-debit",
+                  "date": "2025-12-24",
+                  "details": "Inventory batch 24",
+                  "folio": "INV24",
+                  "debit": 280
+                },
+                {
+                  "id": "qa-long-journal-24-credit",
+                  "date": "2025-12-24",
+                  "details": "Trade payables",
+                  "folio": "PAY24",
+                  "credit": 280
+                },
+                {
+                  "id": "qa-long-journal-25-debit",
+                  "date": "2025-12-25",
+                  "details": "Inventory batch 25",
+                  "folio": "INV25",
+                  "debit": 287.5
+                },
+                {
+                  "id": "qa-long-journal-25-credit",
+                  "date": "2025-12-25",
+                  "details": "Trade payables",
+                  "folio": "PAY25",
+                  "credit": 287.5
+                },
+                {
+                  "id": "qa-long-journal-26-debit",
+                  "date": "2025-12-26",
+                  "details": "Inventory batch 26",
+                  "folio": "INV26",
+                  "debit": 295
+                },
+                {
+                  "id": "qa-long-journal-26-credit",
+                  "date": "2025-12-26",
+                  "details": "Trade payables",
+                  "folio": "PAY26",
+                  "credit": 295
+                },
+                {
+                  "id": "qa-long-journal-27-debit",
+                  "date": "2025-12-27",
+                  "details": "Inventory batch 27",
+                  "folio": "INV27",
+                  "debit": 302.5
+                },
+                {
+                  "id": "qa-long-journal-27-credit",
+                  "date": "2025-12-27",
+                  "details": "Trade payables",
+                  "folio": "PAY27",
+                  "credit": 302.5
+                },
+                {
+                  "id": "qa-long-journal-28-debit",
+                  "date": "2025-12-28",
+                  "details": "Inventory batch 28",
+                  "folio": "INV28",
+                  "debit": 310
+                },
+                {
+                  "id": "qa-long-journal-28-credit",
+                  "date": "2025-12-28",
+                  "details": "Trade payables",
+                  "folio": "PAY28",
+                  "credit": 310
+                },
+                {
+                  "id": "qa-long-journal-29-debit",
+                  "date": "2025-12-01",
+                  "details": "Inventory batch 29",
+                  "folio": "INV29",
+                  "debit": 317.5
+                },
+                {
+                  "id": "qa-long-journal-29-credit",
+                  "date": "2025-12-01",
+                  "details": "Trade payables",
+                  "folio": "PAY29",
+                  "credit": 317.5
+                },
+                {
+                  "id": "qa-long-journal-30-debit",
+                  "date": "2025-12-02",
+                  "details": "Inventory batch 30",
+                  "folio": "INV30",
+                  "debit": 325
+                },
+                {
+                  "id": "qa-long-journal-30-credit",
+                  "date": "2025-12-02",
+                  "details": "Trade payables",
+                  "folio": "PAY30",
+                  "credit": 325
+                },
+                {
+                  "id": "qa-long-journal-31-debit",
+                  "date": "2025-12-03",
+                  "details": "Inventory batch 31",
+                  "folio": "INV31",
+                  "debit": 332.5
+                },
+                {
+                  "id": "qa-long-journal-31-credit",
+                  "date": "2025-12-03",
+                  "details": "Trade payables",
+                  "folio": "PAY31",
+                  "credit": 332.5
+                },
+                {
+                  "id": "qa-long-journal-32-debit",
+                  "date": "2025-12-04",
+                  "details": "Inventory batch 32",
+                  "folio": "INV32",
+                  "debit": 340
+                },
+                {
+                  "id": "qa-long-journal-32-credit",
+                  "date": "2025-12-04",
+                  "details": "Trade payables",
+                  "folio": "PAY32",
+                  "credit": 340
+                }
+              ],
+              "validateBalance": true,
+              "currencyOverride": "ZAR"
+            }
+          }
+        ]
+      },
+      {
+        "id": "qa-chapter-offline",
+        "number": 3,
+        "title": "Offline Reader Checks",
+        "subtitle": "Navigation, search, reload and missing assets",
+        "wordCount": 46,
+        "blocks": [
+          {
+            "id": "qa-offline-heading",
+            "type": "heading",
+            "text": "Offline navigation target"
+          },
+          {
+            "id": "qa-offline-search-target",
+            "type": "paragraph",
+            "text": "Quasar reconciliation is the deterministic search phrase for the offline data-pack acceptance test.",
+            "fontFamily": "Georgia, serif",
+            "fontSize": 16,
+            "lineHeight": 1.6
+          },
+          {
+            "id": "qa-offline-accessibility-note",
+            "type": "paragraph",
+            "text": "Every representative equation in this fixture includes an accessibility description.",
+            "fontFamily": "Georgia, serif",
+            "fontSize": 16,
+            "lineHeight": 1.6
+          },
+          {
+            "id": "qa-offline-missing-asset",
+            "type": "image",
+            "text": "Intentionally missing local QA asset",
+            "imageUrl": "/qa-assets/intentionally-missing-diagram.png",
+            "imageCaption": "Missing asset fallback fixture"
+          }
+        ]
+      }
+    ],
+    "watermark": {
+      "enabled": false,
+      "type": "text",
+      "text": "DRAFT",
+      "opacity": 0.08,
+      "rotation": -35,
+      "fontSize": 54
+    },
+    "exportSettings": {
+      "includeCover": true,
+      "includeFrontMatter": true,
+      "includeExecSummary": false,
+      "includeTOC": true,
+      "includeQuizzes": false,
+      "includeWatermark": false,
+      "includeFootnotes": true,
+      "includeBibliography": false,
+      "trimSize": "A4",
+      "fontPairing": "Classic Serif",
+      "marginPreset": "standard",
+      "showRunningHeader": true,
+      "showPageNumbers": true,
+      "enableHyphenation": true,
+      "autoHyphenation": true,
+      "pageOrientation": "portrait"
+    },
+    "mathPublishing": {
+      "renderer": "katex",
+      "rendererVersion": "0.18.1",
+      "invalidMathPolicy": "visible-warning",
+      "allowedCommandsProfile": "safe-default"
+    },
+    "accountingFormat": {
+      "currency": "ZAR",
+      "decimalPlaces": 2,
+      "thousandsSeparator": ",",
+      "decimalSeparator": ".",
+      "negativeStyle": "parentheses",
+      "zeroDisplay": "dash",
+      "currencySymbolPosition": "before",
+      "dateFormat": "YYYY-MM-DD"
+    },
+    "typography": {
+      "schemaVersion": 1,
+      "presetId": "academic",
+      "body": {
+        "fontFamily": "\"EB Garamond\", serif",
+        "fontSizePt": 11,
+        "fontWeight": 400,
+        "lineHeight": 1.55,
+        "textColour": "#111111",
+        "paragraphSpacingBeforePt": 0,
+        "paragraphSpacingAfterPt": 6
+      },
+      "chapterOpening": {
+        "alignment": "left",
+        "numberFontFamily": "system-ui, sans-serif",
+        "numberFontSizePt": 12,
+        "numberWeight": 700,
+        "numberColour": "#111111",
+        "titleFontFamily": "system-ui, sans-serif",
+        "titleFontSizePt": 18,
+        "titleWeight": 700,
+        "titleColour": "#111111",
+        "subtitleFontFamily": "Georgia, serif",
+        "subtitleFontSizePt": 13,
+        "subtitleWeight": 400,
+        "subtitleColour": "#555555",
+        "topSpacingPt": 20,
+        "numberToTitleSpacingPt": 6,
+        "titleToBodySpacingPt": 16,
+        "showDivider": true,
+        "dividerColour": "#111111",
+        "dividerThicknessPt": 1.5,
+        "dividerWidthPercent": 100,
+        "suppressRunningHeader": true
+      },
+      "continuation": {
+        "enabled": true,
+        "alignment": "split",
+        "fontFamily": "Georgia, serif",
+        "fontSizePt": 11,
+        "fontWeight": 700,
+        "fontColour": "#222222",
+        "showChapterNumber": true,
+        "showChapterTitle": true,
+        "showContinued": true,
+        "showDivider": true,
+        "dividerColour": "#111111",
+        "dividerThicknessPt": 1.5
+      },
+      "paragraphs": {
+        "schemaVersion": 1,
+        "presetId": "academic",
+        "defaultMode": "first-line",
+        "firstParagraphAfterChapter": "no-indent",
+        "subsequentParagraphMode": "first-line",
+        "firstLineIndentPt": 18,
+        "leftIndentPt": 0,
+        "rightIndentPt": 0,
+        "hangingIndentPt": 0,
+        "spacingBeforePt": 0,
+        "spacingAfterPt": 6,
+        "lineHeight": 1.55,
+        "suppressIndentAfterHeading": true,
+        "suppressIndentAfterSceneBreak": false,
+        "suppressIndentAfterImage": true,
+        "widowOrphanEnabled": true,
+        "minimumLines": 2,
+        "keepWithNextForHeadings": true
+      },
+      "dropCaps": {
+        "schemaVersion": 1,
+        "presetId": "academic",
+        "enabledByDefault": false,
+        "defaultContext": "manual-only",
+        "style": "dropped",
+        "lines": 3,
+        "characterCount": 1,
+        "fontFamily": "Georgia, serif",
+        "fontWeight": 700,
+        "fontStyle": "normal",
+        "colourSource": "inherit-body",
+        "spacingRightPt": 5,
+        "spacingTopPt": 0,
+        "baselineAdjustmentPt": 0,
+        "useSmallCapsForFollowingWords": false,
+        "followingWordCount": 0
+      },
+      "runningHeaders": {
+        "suppressOnChapterOpening": true,
+        "suppressOnBlankPages": true,
+        "oddPageSource": "book-title",
+        "evenPageSource": "book-title"
+      }
+    },
+    "colourSettings": {
+      "schemaVersion": 1,
+      "activePaletteId": "legacy-derived",
+      "customPalettes": [
+        {
+          "id": "legacy-derived",
+          "name": "Current Book Colours",
+          "source": "custom",
+          "colours": {
+            "bodyText": "#111111",
+            "primaryHeading": "#111111",
+            "secondaryHeading": "#555555",
+            "chapterNumber": "#111111",
+            "chapterTitle": "#111111",
+            "chapterSubtitle": "#555555",
+            "continuationHeader": "#222222",
+            "runningHeader": "#222222",
+            "divider": "#111111",
+            "quote": "#525252",
+            "caption": "#525252",
+            "mutedText": "#737373",
+            "hyperlink": "#1d4ed8",
+            "accent": "#525252",
+            "pageBackground": "#ffffff"
+          }
+        }
+      ],
+      "recentColours": []
+    },
+    "headerFooter": {
+      "enabled": true,
+      "headerLeftText": "",
+      "headerCenterText": "",
+      "headerRightText": "",
+      "footerLeftText": "",
+      "footerCenterText": "Page {page}",
+      "footerRightText": "",
+      "showPageNumbers": true,
+      "headerDividerLine": false,
+      "footerDividerLine": false
+    },
+    "assets": [],
+    "bibliography": [],
+    "isReviewModeActive": false,
+    "showReviewMarkup": true
+  }
+}

@@ -36,6 +36,15 @@ import { findPreviousParagraphContext, isFirstQualifyingParagraph, paragraphCss,
 import { paragraphFormattingWithDropCap, resolveDropCapFormatting } from '../lib/dropCaps';
 import { DropCapText } from './DropCapText';
 import { resolveSceneBreak, sceneBreakMark, sceneBreakTextAlign } from '../lib/sceneBreak';
+import { AccountingBlock } from './blocks/AccountingBlock';
+import { mathSourceForBlock } from '../lib/mathValidation';
+import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
+import { BlockType } from '../types';
+import { resolveStructuredLists } from '../lib/structuredLists';
+
+const EquationRenderer = React.lazy(() =>
+  import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
+);
 import { 
   exportToPDF, 
   exportToEPUB, 
@@ -607,12 +616,17 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                     >
                       {page.blocks.map((block) => {
                         if(block.type==='scene-break'){const s=resolveSceneBreak(block);return <div key={block.id} role="separator" aria-label="Scene break" style={{textAlign:sceneBreakTextAlign(s.alignment),marginTop:`${s.spacingBeforePt}pt`,marginBottom:`${s.spacingAfterPt}pt`,breakAfter:s.keepWithNext?'avoid':undefined}}>{s.style==='rule'?<hr />:<span aria-hidden={s.style!=='custom'}>{s.style==='whitespace'?'':sceneBreakMark(s)}</span>}</div>;}
+                        if ((['latex', 'math-inline', 'math-display', 'math-aligned', 'formula'] as BlockType[]).includes(block.type)) return <div key={block.id} className="my-3 break-inside-avoid text-center"><React.Suspense fallback={<span className="font-mono text-sm">{mathSourceForBlock(block)}</span>}><EquationRenderer data={block.mathData} formula={mathSourceForBlock(block)} displayMode={block.type !== 'math-inline'} /></React.Suspense></div>;
+                        if ((['accounting-table', 'journal-entry', 'trial-balance', 'financial-statement'] as BlockType[]).includes(block.type)) return <div key={block.id} className="my-3 break-inside-avoid"><AccountingBlock block={block} format={project.accountingFormat ?? DEFAULT_ACCOUNTING_FORMAT} readOnly /></div>;
                         const index=ch.blocks.findIndex(candidate=>candidate.id===block.id);
                         const paragraphFormatting=resolveParagraphFormatting(block,findPreviousParagraphContext(ch.blocks,index),isFirstQualifyingParagraph(ch.blocks,index)?0:index,effectiveTypography);
                         const dropCap=resolveDropCapFormatting({block,blocks:ch.blocks,index,typography:effectiveTypography,palette:colourPalette,paragraphFormatting});
                         const ps=paragraphCss(paragraphFormattingWithDropCap(paragraphFormatting,dropCap));
+                        const listItem=resolveStructuredLists(ch.blocks,{accent:colourPalette.colours.accent,body:colourPalette.colours.bodyText}).get(block.id);
                         if (block.type === 'heading') return <h2 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-lg font-bold font-serif">{block.text}</h2>;
                         if (block.type === 'subheading') return <h3 key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="text-base font-semibold font-serif">{block.text}</h3>;
+                        if (block.type === 'worked-example') return <h3 key={block.id} className="break-after-avoid border-l-4 border-orange-500 bg-orange-50 p-2 text-lg font-bold">{block.text}</h3>;
+                        if (block.type === 'solution-step') return <h4 key={block.id} className="break-after-avoid border-l-4 border-sky-500 p-2 font-semibold">{block.text}</h4>;
                         if (block.type === 'clause') return <div key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}} className="font-bold">{block.text}</div>;
                         if (block.type === 'quote') return <blockquote key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette),borderColor:colourPalette.colours.accent}} className="border-l-2 italic text-center">{block.text}</blockquote>;
                         if (block.type === 'code') return <pre key={block.id} className="bg-zinc-900 text-zinc-100 p-3 rounded text-xs font-mono my-3 overflow-x-auto">{block.codeSnippet || block.text}</pre>;
@@ -665,6 +679,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                             </div>
                           );
                         }
+                        if(block.type==='paragraph'&&listItem)return <div key={block.id} role="listitem" aria-level={listItem.level+1} style={{display:'flex',paddingLeft:`${listItem.leftIndentPt}pt`,marginTop:`${listItem.spacingBeforePt}pt`,marginBottom:`${listItem.spacingAfterPt}pt`,color:resolveBlockTextColour(block,colourPalette)}}><span aria-hidden="true" style={{flex:'none',width:`${listItem.hangingIndentPt}pt`,marginRight:'6pt',textAlign:'right',color:listItem.markerColour,fontSize:`${listItem.markerSizePercent}%`}}>{listItem.markerText}</span><span>{block.text}</span></div>;
                         if(block.type==='paragraph')return <p key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}}><DropCapText text={block.text} resolved={dropCap}/></p>;
                         return <p key={block.id} style={{...ps,color:resolveBlockTextColour(block,colourPalette)}}>{block.text}</p>;
                       })}
