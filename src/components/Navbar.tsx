@@ -51,6 +51,8 @@ interface NavbarProps {
   onOpenGoogleFontsModal?: () => void;
   onOpenImageGallery?: () => void;
   onOpenProjectManager?: () => void;
+  onOpenGettingStarted?: () => void;
+  onOpenOfflineGuide?: () => void;
   onImportBookSci?: () => void;
   onExportBookSci?: () => void;
   isOnline?: boolean;
@@ -118,8 +120,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   project, activeTab = 'editor', onSelectTab, onUpdateProject,
   onOpenFocusMode, onOpenProofread, onOpenStoryContinuation, onOpenExportModal,
   onOpenPrintPreview, onOpenSeriesManager, onOpenTypography, onOpenCloudSync, onSaveToLocalDisk,
-  onOpenSQLiteConsole, onOpenEducationalStudio, onOpenCompanyProfile,
-  onOpenDesignStudio, onOpenImageGallery, onOpenProjectManager, onImportBookSci, onExportBookSci,
+  onOpenSQLiteConsole, onOpenCartoonGenerator, onOpenProposalStudio, onOpenEducationalStudio, onOpenCompanyProfile,
+  onOpenDesignStudio, onOpenGoogleFontsModal, onOpenImageGallery, onOpenProjectManager, onImportBookSci, onExportBookSci,
+  onOpenGettingStarted, onOpenOfflineGuide,
   isOnline = true, canInstall = false, onInstallPwa, onGoHome, saveState,
   activeDocumentLabel, navigationVisible = true, inspectorVisible = false,
   onToggleNavigation, onToggleInspector,canUndo=false,canRedo=false,undoLabel,redoLabel,onUndo,onRedo
@@ -177,7 +180,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </RibbonGroup>
           <RibbonGroup label="Application">
             <RibbonButton label="Install" icon={Upload} onClick={onInstallPwa} disabled={!canInstall} title={canInstall ? 'Install PressCraft' : 'PressCraft is already installed or installation is unavailable'} />
-            <RibbonButton label="Settings" icon={Settings} disabled title="Application settings are not yet available" />
           </RibbonGroup>
         </>;
       case 'home':
@@ -185,12 +187,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RibbonGroup label="Editing">
             <RibbonButton label="Undo" icon={Undo2} onClick={onUndo} disabled={!canUndo} title={canUndo?`Undo ${undoLabel} (Ctrl+Z)`:'Nothing to undo'} />
             <RibbonButton label="Redo" icon={Redo2} onClick={onRedo} disabled={!canRedo} title={canRedo?`Redo ${redoLabel} (Ctrl+Y)`:'Nothing to redo'} />
-            <RibbonButton label="Find" icon={Search} disabled title="Use the document toolbar or Ctrl+F" />
             <RibbonButton label="Writing Assistant" icon={Sparkles} onClick={onOpenStoryContinuation} />
           </RibbonGroup>
           <RibbonGroup label="Font & Paragraph">
             <RibbonButton label="Formatting" icon={Type} onClick={() => selectWorkspace('editor')} title="Open the manuscript formatting toolbar" />
             <RibbonButton label="Manuscript" icon={FileText} onClick={() => selectWorkspace('editor')} active={activeTab === 'editor'} />
+            <RibbonButton label="Font Library" icon={Type} onClick={onOpenGoogleFontsModal} />
           </RibbonGroup>
           <RibbonGroup label="Lists">
             <RibbonButton label="Bullets" icon={List} onClick={() => onListCommand?.('bullets')} disabled={!canFormatList} active={activeListType === 'unordered'} title="Bullets (Ctrl+Shift+8)" />
@@ -257,7 +259,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         return <>
           <RibbonGroup label="Proofing">
             <RibbonButton label="Proofread" icon={Check} onClick={onOpenProofread} />
-            <RibbonButton label="Spellcheck not run" icon={FileText} disabled />
           </RibbonGroup>
           <RibbonGroup label="Changes">
             <RibbonButton label="Review Tools" icon={BookOpen} onClick={() => selectWorkspace('editor')} />
@@ -286,6 +287,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <RibbonButton label="Assets" icon={Image} onClick={onOpenImageGallery} />
           </RibbonGroup>
           <RibbonGroup label="Specialised Studios">
+            <RibbonButton label="Cartoon Studio" icon={BookOpen} onClick={onOpenCartoonGenerator} />
+            <RibbonButton label="Proposal Studio" icon={FileText} onClick={onOpenProposalStudio} />
             <RibbonButton label="Education" icon={GraduationCap} onClick={onOpenEducationalStudio} />
             <RibbonButton label="Company Profile" icon={FileText} onClick={onOpenCompanyProfile} />
             <RibbonButton label="Design" icon={Sparkles} onClick={onOpenDesignStudio} />
@@ -304,8 +307,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'help':
         return <>
           <RibbonGroup label="PressCraft Help">
-            <RibbonButton label="Getting Started" icon={HelpCircle} disabled title="Help centre is planned" />
-            <RibbonButton label="Offline Guide" icon={CloudOff} disabled title="Offline guide is planned" />
+            <RibbonButton label="Getting Started" icon={HelpCircle} onClick={onOpenGettingStarted} />
+            <RibbonButton label="Offline Guide" icon={CloudOff} onClick={onOpenOfflineGuide} />
           </RibbonGroup>
           <RibbonGroup label="Diagnostics">
             <RibbonButton label="Local Data Inspector" icon={Database} onClick={onOpenSQLiteConsole} />

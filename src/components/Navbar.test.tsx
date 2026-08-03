@@ -7,7 +7,7 @@ import { Navbar } from './Navbar';
 
 const noop = () => undefined;
 
-function renderNavbar(initialRibbonTab: 'file' | 'home' | 'insert' = 'home') {
+function renderNavbar(initialRibbonTab: 'file' | 'home' | 'insert' | 'book' | 'help' = 'home') {
   const project = { ...createEmptyBookProject(), title: 'The Real Project' };
   return renderToStaticMarkup(
     <Navbar
@@ -95,5 +95,17 @@ describe('professional application shell', () => {
     const markup = renderNavbar('file');
     expect(markup).toContain('>Import Book SCI</span>');
     expect(markup).toContain('>Export Book SCI</span>');
+  });
+
+  it('links implemented studios and real help pages without placeholder commands', () => {
+    const book = renderNavbar('book');
+    for (const label of ['Cartoon Studio', 'Proposal Studio', 'Education', 'Company Profile', 'Design']) {
+      expect(book).toContain(`>${label}</span>`);
+    }
+    const help = renderNavbar('help');
+    expect(help).toContain('>Getting Started</span>');
+    expect(help).toContain('>Offline Guide</span>');
+    expect(help).not.toContain('Help centre is planned');
+    expect(renderNavbar('file')).not.toContain('Application settings are not yet available');
   });
 });

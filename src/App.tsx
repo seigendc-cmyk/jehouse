@@ -12,6 +12,7 @@ import { OptionalWorkspace } from './components/OptionalWorkspace';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { WelcomePage } from './components/WelcomePage';
 import { FocusMode } from './components/FocusMode';
+import { HelpGuideModal, HelpGuidePage } from './components/HelpGuideModal';
 import { localProjectRepository } from './persistence/indexedDbProjectRepository';
 import {
   createInitialSaveState,
@@ -203,6 +204,7 @@ export default function App() {
   const [isTypographyOpen, setIsTypographyOpen] = useState<boolean>(false);
   const [isGoogleFontsOpen, setIsGoogleFontsOpen] = useState<boolean>(false);
   const [isImageGalleryOpen, setIsImageGalleryOpen] = useState<boolean>(false);
+  const [helpGuidePage, setHelpGuidePage] = useState<HelpGuidePage>();
 
   // AI Proofread state
   const [proofreadIssues, setProofreadIssues] = useState<ProofreadIssue[]>([]);
@@ -1098,6 +1100,8 @@ export default function App() {
         onOpenDesignStudio={() => setIsDesignStudioOpen(true)}
         onOpenGoogleFontsModal={() => setIsGoogleFontsOpen(true)}
         onOpenImageGallery={() => setIsImageGalleryOpen(true)}
+        onOpenGettingStarted={() => setHelpGuidePage('getting-started')}
+        onOpenOfflineGuide={() => setHelpGuidePage('offline')}
         onOpenProjectManager={() => {
           setProjectManagerInitialTab('active');
           setIsProjectManagerOpen(true);
@@ -1147,6 +1151,7 @@ export default function App() {
         className="hidden"
         aria-label="Import Book SCI"
       />
+      {helpGuidePage ? <HelpGuideModal page={helpGuidePage} onClose={() => setHelpGuidePage(undefined)} /> : null}
       <div className="sr-only" aria-live="polite" data-history-version={historyTick}>{historyAnnouncement}</div>
 
 
@@ -1418,7 +1423,6 @@ export default function App() {
               Retry
             </button>
           ) : null}
-          <span className="text-gray-500 font-medium">Spellcheck not run</span>
           <span>Grammar: <span className={proofreadIssues.length > 0 ? "text-amber-400 font-bold" : "text-gray-400"}>{proofreadIssues.length} {proofreadIssues.length === 1 ? 'Warning' : 'Warnings'}</span></span>
           <div className="flex items-center gap-2">
             <button 
