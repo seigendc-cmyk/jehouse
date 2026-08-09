@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrimSize, PageOrientation } from '../types';
+import { getTrimDimensionsInches } from '../lib/publishingGeometry';
 
 export type RulerUnit = 'cm' | 'mm' | 'in';
 
@@ -11,16 +12,7 @@ interface RulerProps {
 }
 
 const getDimensionsInches = (trimSize: TrimSize | string = '6x9', orientation: PageOrientation | string = 'portrait') => {
-  let w = 6;
-  let h = 9;
-  switch (trimSize) {
-    case '8.5x11': w = 8.5; h = 11; break;
-    case 'Legal': w = 8.5; h = 14; break;
-    case 'A4': w = 8.27; h = 11.69; break;
-    case 'A5': w = 5.83; h = 8.27; break;
-    case '5x8': w = 5; h = 8; break;
-    case '6x9': default: w = 6; h = 9; break;
-  }
+  const { width: w, height: h } = getTrimDimensionsInches(trimSize);
   if (orientation === 'landscape') {
     return { width: h, height: w };
   }

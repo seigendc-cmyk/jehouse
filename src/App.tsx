@@ -48,6 +48,7 @@ import { desktopSciPathReader, isTauriDesktop, saveSciToDocuments, saveSciToPath
 import { desktopSessionState } from './desktop/desktopSessionState';
 import { openSciProjectFromPath } from './features/sciFile/application/openSciProjectFromPath';
 import { deserializeSciFile, SciOpenError, serializeSciProject } from './features/sciFile';
+import { CloudSyncError, downloadStoredProject, uploadStoredProject } from './lib/firebase';
 
 const EMPTY_PROJECT_PLACEHOLDER = createEmptyBookProject();
 const loadCoverEditor = () =>
@@ -586,6 +587,47 @@ export default function App() {
     saveCoordinatorRef.current?.setProject(copy, null);
     saveCoordinatorRef.current?.markDirty(copy);
     await saveCoordinatorRef.current?.saveNow();
+  };
+
+  const handleCloudUpload = async (): Promise<string> => {
+    await saveCoordinatorRef.current?.saveNow();
+    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+      throw new CloudSyncError('FIREBASE', 'Save the project locally before uploading it.');
+    }
+    const local = await localProjectRepository.getProject(project.id);
+    if (!local) throw new CloudSyncError('INVALID_REMOTE', 'The local project record could not be loaded.');
+    const cloud = await uploadStoredProject(local, local.remoteRevision);
+    const metadataSave = await localProjectRepository.saveProject({ ...local, remoteRevision: cloud.remoteRevision,
+      firebaseDocumentId: `${cloud.ownerId}/projects/${cloud.projectId}`, syncStatus: 'synced',
+      lastSyncedAt: cloud.updatedAt }, local.localRevision);
+    if (metadataSave.status === 'conflict') throw new CloudSyncError('CONFLICT', 'The local project changed during cloud upload. Upload again.');
+    projectRecords.current.set(project.id, metadataSave.project);
+    saveCoordinatorRef.current?.setProject(metadataSave.project.project, metadataSave.project);
+    return `Uploaded cloud revision ${cloud.remoteRevision}.`;
+  };
+
+  const handleCloudDownload = async (): Promise<string> => {
+    if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+      await saveCoordinatorRef.current?.saveNow();
+      if (needsUnloadProtection(saveCoordinatorRef.current?.getState() ?? saveState)) {
+        throw new CloudSyncError('CONFLICT', 'Unsaved local work remains. Download was cancelled.');
+      }
+    }
+    const cloud = await downloadStoredProject(project.id);
+    const local = await localProjectRepository.getProject(project.id);
+    if (!local) throw new CloudSyncError('INVALID_REMOTE', 'The local project record could not be loaded.');
+    const saved = await localProjectRepository.saveProject({ ...local, project: cloud.record.project,
+      remoteRevision: cloud.remoteRevision, firebaseDocumentId: `${cloud.ownerId}/projects/${cloud.projectId}`,
+      syncStatus: 'synced', lastSyncedAt: cloud.updatedAt }, local.localRevision);
+    if (saved.status === 'conflict') throw new CloudSyncError('CONFLICT', 'The local project changed during cloud download. Nothing was replaced.');
+    const downloaded = saved.project.project;
+    projectRecords.current.set(project.id, saved.project);
+    setProjects((current) => current.map((item) => item.id === downloaded.id ? downloaded : item));
+    activeProjectRef.current = downloaded;
+    setActiveChapterId(downloaded.chapters[0]?.id || 'ch-1');
+    clearFormattingHistory();
+    saveCoordinatorRef.current?.setProject(downloaded, saved.project);
+    return `Downloaded cloud revision ${cloud.remoteRevision}.`;
   };
 
 
@@ -1239,6 +1281,10 @@ export default function App() {
               props={{
                 cover: project.cover,
                 totalPages: project.chapters.length * 15,
+                printSettings: project.exportSettings,
+                seriesLabel: project.series?.isSeries
+                  ? [project.series.seriesTitle, project.series.seriesNumber].filter(Boolean).join(' · ')
+                  : undefined,
                 onUpdateCover: (cover: CoverConfig) =>
                   handleUpdateProject({
                     cover,
@@ -1553,6 +1599,8 @@ export default function App() {
         saveState={saveState}
         isOnline={isOnline}
         onSaveNow={() => void saveCoordinatorRef.current?.saveNow()}
+        onUpload={handleCloudUpload}
+        onDownload={handleCloudDownload}
       />
 
       {isSQLiteConsoleOpen && (

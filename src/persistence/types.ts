@@ -1,7 +1,7 @@
 import { BookProject } from '../types';
 
 /** Version of the IndexedDB stored-project envelope (independent of SCI/workbook formats). */
-export const PROJECT_SCHEMA_VERSION = 6;
+export const PROJECT_SCHEMA_VERSION = 7;
 
 export type SyncStatus =
   | 'local-only'

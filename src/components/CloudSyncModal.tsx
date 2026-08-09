@@ -1,94 +1,41 @@
-import React from 'react';
-import { CloudOff, HardDrive, ShieldAlert, X } from 'lucide-react';
-import { BookProject } from '../types';
-import {
-  localSaveStatusLabel,
-  ProjectSaveState
-} from '../persistence/localSaveCoordinator';
+import React, { useState } from 'react';
+import { Cloud, Download, HardDrive, ShieldCheck, Upload, X } from 'lucide-react';
+import type { BookProject } from '../types';
+import { localSaveStatusLabel, type ProjectSaveState } from '../persistence/localSaveCoordinator';
 
-interface CloudSyncModalProps {
-  project: BookProject;
-  isOpen: boolean;
-  onClose: () => void;
-  saveState: ProjectSaveState;
-  isOnline: boolean;
-  onSaveNow: () => void;
+interface Props {
+  project: BookProject; isOpen: boolean; onClose: () => void;
+  saveState: ProjectSaveState; isOnline: boolean; onSaveNow: () => void;
+  onUpload: () => Promise<string>; onDownload: () => Promise<string>;
 }
 
-/**
- * Phase 2 security notice. This modal intentionally performs no Firebase operation.
- */
-export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
-  project,
-  isOpen,
-  onClose,
-  saveState,
-  isOnline,
-  onSaveNow
-}) => {
+export const CloudSyncModal: React.FC<Props> = ({ project, isOpen, onClose, saveState, isOnline, onSaveNow, onUpload, onDownload }) => {
+  const [operation, setOperation] = useState<'upload' | 'download'>();
+  const [message, setMessage] = useState<string>();
+  const [error, setError] = useState<string>();
   if (!isOpen) return null;
-
+  const run = async (kind: 'upload' | 'download') => {
+    setOperation(kind); setMessage(undefined); setError(undefined);
+    try { setMessage(await (kind === 'upload' ? onUpload() : onDownload())); }
+    catch (reason) { console.error('[Firebase sync]', reason); setError(reason instanceof Error ? reason.message : 'Firebase sync failed.'); }
+    finally { setOperation(undefined); }
+  };
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none">
-      <div className="bg-[#262626] border border-[#444444] rounded-xl max-w-lg w-full shadow-2xl p-6 space-y-5 text-gray-100">
-        <div className="flex items-center justify-between border-b border-[#333333] pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              <CloudOff className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white">Cloud sync disabled</h2>
-              <p className="text-xs text-gray-400">Security review is required before Firebase writes resume.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#333333]">
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="cloud-sync-title">
+      <div className="w-full max-w-lg space-y-5 rounded-xl border border-[#444] bg-[#262626] p-6 text-gray-100 shadow-2xl">
+        <header className="flex items-center justify-between border-b border-[#333] pb-3">
+          <div className="flex items-center gap-2.5"><Cloud className="h-6 w-6 text-sky-400" /><div><h2 id="cloud-sync-title" className="font-bold">Firebase Cloud Sync</h2><p className="text-xs text-gray-400">Private anonymous account storage</p></div></div>
+          <button onClick={onClose} aria-label="Close cloud sync" className="rounded p-1 hover:bg-[#333]"><X className="h-5 w-5" /></button>
+        </header>
+        <div className="flex gap-3 rounded-lg border border-emerald-500/30 bg-emerald-950/30 p-4"><ShieldCheck className="h-5 w-5 shrink-0 text-emerald-400" /><p className="text-xs leading-5 text-emerald-100">Projects are stored under the authenticated Firebase user ID. Uploads use revision-checked transactions; downloads require an explicit action.</p></div>
+        <div className="rounded-lg border border-[#333] bg-[#1a1a1a] p-4"><div className="flex justify-between gap-4"><div className="flex gap-2.5"><HardDrive className="mt-0.5 h-4 w-4 text-orange-400" /><div><div className="text-xs font-bold uppercase">{project.title.trim() || 'Untitled Book'}</div><div className="mt-1 text-xs text-gray-300">{localSaveStatusLabel(saveState, isOnline)} · Revision {saveState.localRevision}</div></div></div><button onClick={onSaveNow} disabled={saveState.status === 'saving'} className="rounded bg-orange-600 px-3 py-1.5 text-xs font-bold disabled:opacity-50">Save locally</button></div></div>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => void run('upload')} disabled={!isOnline || !!operation} className="flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-3 text-sm font-bold disabled:opacity-40"><Upload className="h-4 w-4" />{operation === 'upload' ? 'Uploading…' : 'Upload latest'}</button>
+          <button onClick={() => void run('download')} disabled={!isOnline || !!operation} className="flex items-center justify-center gap-2 rounded-lg border border-sky-500/50 px-4 py-3 text-sm font-bold text-sky-200 disabled:opacity-40"><Download className="h-4 w-4" />{operation === 'download' ? 'Downloading…' : 'Download cloud copy'}</button>
         </div>
-
-        <div className="p-4 rounded-lg bg-amber-950/30 border border-amber-500/30 flex gap-3">
-          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="text-sm font-bold text-amber-200">Your project remains local and usable</div>
-            <p className="text-xs text-amber-100/70 mt-1">
-              Current Firestore rules do not provide adequate project isolation. PressCraft will not
-              upload, download, or claim to synchronize “{project.title.trim() || 'Untitled Book'}”
-              until secure ownership and revision rules are approved.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-[#1A1A1A] border border-[#333333] rounded-lg">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-2.5">
-              <HardDrive className="w-4 h-4 text-orange-400 mt-0.5" />
-              <div>
-                <div className="text-xs font-bold text-white uppercase tracking-wider">Device storage</div>
-                <div className="text-xs text-gray-300 mt-1">
-                  {localSaveStatusLabel(saveState, isOnline)}
-                </div>
-                <div className="text-[11px] text-gray-500 mt-0.5">
-                  {saveState.lastSavedAt
-                    ? `Confirmed ${new Date(saveState.lastSavedAt).toLocaleString()} · Revision ${saveState.localRevision}`
-                    : `No confirmed local save yet · Revision ${saveState.localRevision}`}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={onSaveNow}
-              disabled={saveState.status === 'saving'}
-              className="px-3 py-1.5 rounded bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-bold"
-            >
-              {saveState.status === 'saving' ? 'Saving…' : 'Save locally now'}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex justify-end border-t border-[#333333] pt-3">
-          <button onClick={onClose} className="px-4 py-1.5 bg-[#333333] hover:bg-[#444] text-white text-xs font-bold rounded">
-            Close
-          </button>
-        </div>
+        {!isOnline ? <p className="text-xs text-amber-300">Connect to the internet to use Firebase sync.</p> : null}
+        {message ? <p role="status" className="rounded bg-emerald-950/40 p-3 text-xs text-emerald-200">{message}</p> : null}
+        {error ? <p role="alert" className="rounded bg-red-950/40 p-3 text-xs text-red-200">{error}</p> : null}
       </div>
     </div>
   );

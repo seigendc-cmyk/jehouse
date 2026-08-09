@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "database": "ai-studio-bookpublisher-9cbda3c0-d5be-462d-b415-7291a29b906d",
+    "rules": "firestore.rules"
+  }
+}

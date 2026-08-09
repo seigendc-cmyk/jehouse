@@ -40,7 +40,7 @@ describe('SCI validation and serialization', () => {
     const value = envelope(); value.project.schemaVersion = 5;
     delete value.project.project.mathPublishing; delete value.project.project.accountingFormat;
     resign(value);
-    expect(deserializeSciBytes(bytes(JSON.stringify(value))).envelope.project.schemaVersion).toBe(6);
+    expect(deserializeSciBytes(bytes(JSON.stringify(value))).envelope.project.schemaVersion).toBe(7);
   });
   it('rejects integrity mismatches and excessive input', () => {
     const value = envelope(); value.project.project.title = 'Tampered';

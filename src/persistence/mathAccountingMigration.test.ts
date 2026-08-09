@@ -19,7 +19,7 @@ describe('schema 6 mathematics and accounting migration', () => {
       lastSavedAt: timestamp,
       syncStatus: 'local-only'
     });
-    expect(migrated?.schemaVersion).toBe(6);
+    expect(migrated?.schemaVersion).toBe(7);
     expect(migrated?.localRevision).toBe(7);
     expect(migrated?.project.chapters[0].blocks).toEqual(beforeBlocks);
     expect(migrated?.project.mathPublishing?.invalidMathPolicy).toBe('block-export');

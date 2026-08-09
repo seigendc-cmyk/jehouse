@@ -1,6 +1,162 @@
 {
-  "name": "PressCraft Book Studio",
-  "description": "Industrial-grade book publishing document editor with cover design, preambles, chapters, AI storytelling continuation, spell/grammar correction, LaTeX support, quizzes, and PDF/EPUB export.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+    "name": "PressCraft Book Studio",
+    "description": "Industrial-grade book publishing document editor with cover design, preambles, chapters, AI storytelling continuation, spell/grammar correction, LaTeX support, quizzes, and PDF/EPUB export.",
+    "requestFramePermissions": [],
+    "majorCapabilities": [
+        "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+    ],
+    "meta": {
+        "requiredExtensions": {
+            "codexEditor": "0.31.0"
+        },
+        "validationCount": 1,
+        "validationCountAudio": 1,
+        "generator": {
+            "userName": "",
+            "userEmail": ""
+        },
+        "abbreviation": ""
+    },
+    "edits": [
+        {
+            "editMap": [
+                "meta",
+                "generator"
+            ],
+            "value": {
+                "userName": "",
+                "userEmail": ""
+            },
+            "timestamp": 1786112971576,
+            "type": "user-edit",
+            "author": "unknown"
+        },
+        {
+            "editMap": [
+                "meta",
+                "validationCount"
+            ],
+            "value": 1,
+            "timestamp": 1786112971576,
+            "type": "user-edit",
+            "author": "unknown"
+        },
+        {
+            "editMap": [
+                "meta",
+                "validationCountAudio"
+            ],
+            "value": 1,
+            "timestamp": 1786112971576,
+            "type": "user-edit",
+            "author": "unknown"
+        },
+        {
+            "editMap": [
+                "meta",
+                "abbreviation"
+            ],
+            "value": "",
+            "timestamp": 1786112971576,
+            "type": "user-edit",
+            "author": "unknown"
+        },
+        {
+            "editMap": [
+                "languages"
+            ],
+            "value": [
+                null,
+                null
+            ],
+            "timestamp": 1786112971576,
+            "type": "user-edit",
+            "author": "unknown"
+        }
+    ],
+    "languages": [
+        null,
+        null
+    ],
+    "type": {
+        "flavorType": {
+            "currentScope": {
+                "GEN": [],
+                "EXO": [],
+                "LEV": [],
+                "NUM": [],
+                "DEU": [],
+                "JOS": [],
+                "JDG": [],
+                "RUT": [],
+                "1SA": [],
+                "2SA": [],
+                "1KI": [],
+                "2KI": [],
+                "1CH": [],
+                "2CH": [],
+                "EZR": [],
+                "NEH": [],
+                "EST": [],
+                "JOB": [],
+                "PSA": [],
+                "PRO": [],
+                "ECC": [],
+                "SNG": [],
+                "ISA": [],
+                "JER": [],
+                "LAM": [],
+                "EZK": [],
+                "DAN": [],
+                "HOS": [],
+                "JOL": [],
+                "AMO": [],
+                "OBA": [],
+                "JON": [],
+                "MIC": [],
+                "NAM": [],
+                "HAB": [],
+                "ZEP": [],
+                "HAG": [],
+                "ZEC": [],
+                "MAL": [],
+                "MAT": [],
+                "MRK": [],
+                "LUK": [],
+                "JHN": [],
+                "ACT": [],
+                "ROM": [],
+                "1CO": [],
+                "2CO": [],
+                "GAL": [],
+                "EPH": [],
+                "PHP": [],
+                "COL": [],
+                "1TH": [],
+                "2TH": [],
+                "1TI": [],
+                "2TI": [],
+                "TIT": [],
+                "PHM": [],
+                "HEB": [],
+                "JAS": [],
+                "1PE": [],
+                "2PE": [],
+                "1JN": [],
+                "2JN": [],
+                "3JN": [],
+                "JUD": [],
+                "REV": []
+            },
+            "flavor": {
+                "name": "default",
+                "usfmVersion": "3.0",
+                "translationType": "unknown",
+                "audience": "general",
+                "projectType": "unknown"
+            },
+            "name": "default"
+        }
+    },
+    "projectName": "book-publisher"
 }

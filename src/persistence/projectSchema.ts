@@ -5,6 +5,8 @@ import { createColourSettings } from '../lib/bookColours';
 import { cloneParagraphPreset } from '../lib/paragraphFormatting';
 import { LEGACY_DROP_CAPS } from '../lib/dropCaps';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
+import { normalizeCoverConfig } from '../lib/coverArtwork';
+import { normalizePublishingGeometrySettings } from '../lib/publishingGeometry';
 
 const VALID_SYNC_STATUSES = new Set<SyncStatus>([
   'local-only',
@@ -35,7 +37,7 @@ export function isBookProject(value: unknown): value is BookProject {
         typeof chapter.title === 'string' &&
         Array.isArray(chapter.blocks)
     ) &&
-    !!project.cover &&
+    (!('cover' in project) || project.cover === undefined || (typeof project.cover === 'object' && project.cover !== null)) &&
     !!project.frontMatter &&
     !!project.watermark &&
     !!project.exportSettings
@@ -131,10 +133,32 @@ export function migrateStoredProject(value: unknown): StoredProject | null {
           }
         };
         break;
+      case 6:
+        migrated = {
+          ...migrated,
+          schemaVersion: 7,
+          project: {
+            ...migrated.project,
+            cover: normalizeCoverConfig(migrated.project.cover, {
+              title: migrated.project.title,
+              subtitle: migrated.project.subtitle,
+              author: migrated.project.author,
+              publisher: migrated.project.frontMatter.publisher
+            })
+          }
+        };
+        break;
       default:
         return null;
     }
   }
+  migrated.project.cover = normalizeCoverConfig(migrated.project.cover, {
+    title: migrated.project.title,
+    subtitle: migrated.project.subtitle,
+    author: migrated.project.author,
+    publisher: migrated.project.frontMatter.publisher
+  });
+  migrated.project.exportSettings = normalizePublishingGeometrySettings(migrated.project.exportSettings);
   return migrated;
 }
 
@@ -158,6 +182,13 @@ export function wrapLegacyProject(
       const typography = project.typography ?? getLegacyTypography();
       return {
         ...project,
+        cover: normalizeCoverConfig(project.cover, {
+          title: project.title,
+          subtitle: project.subtitle,
+          author: project.author,
+          publisher: project.frontMatter.publisher
+        }),
+        exportSettings: normalizePublishingGeometrySettings(project.exportSettings),
         typography: typography.dropCaps ? typography : {...typography,dropCaps:structuredClone(LEGACY_DROP_CAPS)},
         colourSettings: project.colourSettings ?? createColourSettings(typography),
         mathPublishing: project.mathPublishing ?? {

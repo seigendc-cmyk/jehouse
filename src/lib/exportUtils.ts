@@ -20,6 +20,8 @@ import { isMathBlock, runPublishingPreflight } from './publishingPreflight';
 import { createBookDataPack, validateBookDataPackCompatibility } from './bookDataPack';
 import { DEFAULT_ACCOUNTING_FORMAT, formatAccountingNumber, journalTotals, trialBalanceTotals } from './accounting';
 import { renderListBlockMarkdown, renderListRunHtml, resolveStructuredLists } from './structuredLists';
+import { coverImageCss, showCoverField } from './coverArtwork';
+import { pageSizeCss as resolvePageSizeCss } from './publishingGeometry';
 import {
   DEFAULT_SAMPLE_BIBLIOGRAPHY,
   generateBibTeXString,
@@ -308,13 +310,7 @@ export function exportToPDF(project: BookProject) {
   const coverArtworkSrc = resolveImageSrc(cover.artworkUrl);
   const tocData = calculateTocData(chapters, frontMatter);
   const orientation = exportSettings.pageOrientation || 'portrait';
-  const isLandscape = orientation === 'landscape';
-
-  let pageSizeCss = '8.5in 11in';
-  if (exportSettings.trimSize === '6x9') pageSizeCss = isLandscape ? '9in 6in' : '6in 9in';
-  else if (exportSettings.trimSize === 'A5') pageSizeCss = isLandscape ? '210mm 148mm' : '148mm 210mm';
-  else if (exportSettings.trimSize === 'A4') pageSizeCss = isLandscape ? '297mm 210mm' : '210mm 297mm';
-  else pageSizeCss = isLandscape ? '11in 8.5in' : '8.5in 11in';
+  const pageSizeCss = resolvePageSizeCss(exportSettings, orientation);
 
   // Calculate resolved margins automatically based on book build type or user setting
   const margins = resolveMargins(exportSettings, project.category);
@@ -372,7 +368,7 @@ export function exportToPDF(project: BookProject) {
   <title>${project.title} - Book PDF Compilation</title>
   <style>
     @page {
-      size: ${pageSizeCss} ${orientation};
+      size: ${pageSizeCss};
       margin: ${margins.top} ${margins.right} ${margins.bottom} ${margins.left};
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -695,27 +691,28 @@ export function exportToPDF(project: BookProject) {
 
   ${exportSettings.includeCover !== false ? `
   <div class="cover-page">
-    ${coverArtworkSrc ? `
+    ${coverArtworkSrc && cover.fullBleedImage ? `
       <img 
         src="${coverArtworkSrc}" 
         alt="Cover Background" 
-        style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: ${(cover.imageOpacity ?? 90) / 100};" 
+        style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; ${coverImageCss(cover)}"
         crossorigin="anonymous"
       />
-      <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.3), rgba(0,0,0,0.6)); z-index: 1;"></div>
+      ${cover.showBookDetails === false ? '' : '<div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.3), rgba(0,0,0,0.6)); z-index: 1;"></div>'}
     ` : ''}
 
     <div style="position: relative; z-index: 10;">
-      <div class="cover-title">${cover.title || project.title}</div>
-      <div class="cover-subtitle">${cover.subtitle || project.subtitle}</div>
+      ${showCoverField(cover, 'series') && project.series?.isSeries ? `<div class="cover-subtitle">${[project.series.seriesTitle, project.series.seriesNumber].filter(Boolean).join(' · ')}</div>` : ''}
+      ${showCoverField(cover, 'title') ? `<div class="cover-title">${cover.title || project.title}</div>` : ''}
+      ${showCoverField(cover, 'subtitle') ? `<div class="cover-subtitle">${cover.subtitle || project.subtitle}</div>` : ''}
       ${coverArtworkSrc && !cover.fullBleedImage ? `
-        <img class="cover-art" src="${coverArtworkSrc}" alt="Cover Artwork" style="position: relative; z-index: 10;" crossorigin="anonymous" />
+        <img class="cover-art" src="${coverArtworkSrc}" alt="Cover Artwork" style="position: relative; z-index: 10; ${coverImageCss(cover)}" crossorigin="anonymous" />
       ` : ''}
     </div>
 
     <div style="position: relative; z-index: 10;">
-      <div class="cover-author">${cover.author || project.author}</div>
-      <div class="cover-publisher">${cover.publisher || frontMatter.publisher}</div>
+      ${showCoverField(cover, 'author') ? `<div class="cover-author">${cover.author || project.author}</div>` : ''}
+      ${showCoverField(cover, 'imprint') ? `<div class="cover-publisher">${cover.publisher || frontMatter.publisher}</div>` : ''}
     </div>
   </div>
   ` : ''}
@@ -1239,18 +1236,28 @@ export function exportToEPUB(project: BookProject) {
     .chapter > h2 { font-family: ${typography.chapterOpening.titleFontFamily}; font-size: ${typography.chapterOpening.titleFontSizePt}pt; font-weight: ${typography.chapterOpening.titleWeight}; color: ${typography.chapterOpening.titleColour}; text-align: ${typography.chapterOpening.alignment === 'centre' ? 'center' : typography.chapterOpening.alignment}; ${typography.chapterOpening.showDivider ? `border-bottom: ${typography.chapterOpening.dividerThicknessPt}pt solid ${typography.chapterOpening.dividerColour};` : ''} }
     .subtitle { text-align: center; font-style: italic; color: #666; margin-bottom: 2em; }
     .author { text-align: center; font-weight: bold; margin-bottom: 3em; }
+    .cover-page { position: relative; min-height: 90vh; overflow: hidden; text-align: center; background: ${project.cover.coverBgColor}; color: ${project.cover.textColor}; display: flex; flex-direction: column; justify-content: space-between; padding: 8%; }
+    .cover-content { position: relative; z-index: 2; }
     .cover-container { text-align: center; margin-bottom: 3em; }
-    .cover-container img { max-width: 100%; max-height: 600px; object-fit: contain; }
+    .cover-container img { max-width: 100%; max-height: 600px; object-fit: contain; ${coverImageCss(project.cover)} }
+    .cover-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; ${coverImageCss(project.cover)} }
     .chapter { page-break-before: always; margin-top: 3em; }
     .epub-image-container img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
   </style>
 </head>
 <body>
   <div class="cover-page">
-    <h1>${project.title}</h1>
-    ${project.subtitle ? `<div class="subtitle">${project.subtitle}</div>` : ''}
-    <div class="author">By ${project.author}</div>
-    ${coverImageSrc ? `<div class="cover-container"><img src="${coverImageSrc}" alt="Cover Image" /></div>` : ''}
+    ${coverImageSrc && project.cover.fullBleedImage ? `<img class="cover-background" src="${coverImageSrc}" alt="Cover Image" />` : ''}
+    <div class="cover-content">
+      ${showCoverField(project.cover, 'series') && project.series?.isSeries ? `<div class="subtitle">${[project.series.seriesTitle, project.series.seriesNumber].filter(Boolean).join(' · ')}</div>` : ''}
+      ${showCoverField(project.cover, 'title') ? `<h1>${project.cover.title || project.title}</h1>` : ''}
+      ${showCoverField(project.cover, 'subtitle') && (project.cover.subtitle || project.subtitle) ? `<div class="subtitle">${project.cover.subtitle || project.subtitle}</div>` : ''}
+      ${coverImageSrc && !project.cover.fullBleedImage ? `<div class="cover-container"><img src="${coverImageSrc}" alt="Cover Image" /></div>` : ''}
+    </div>
+    <div class="cover-content">
+      ${showCoverField(project.cover, 'author') ? `<div class="author">By ${project.cover.author || project.author}</div>` : ''}
+      ${showCoverField(project.cover, 'imprint') ? `<div>${project.cover.publisher || project.frontMatter.publisher}</div>` : ''}
+    </div>
   </div>
   ${processedChapters.map(ch => `
     <div class="chapter" id="chapter-${ch.number}">
@@ -1480,6 +1487,7 @@ export function exportToHTML(project: BookProject) {
     orientation: project.exportSettings.pageOrientation
   });
   const palette = resolveActivePalette(resolveColourSettings(project));
+  const coverImageSrc = resolveImageSrc(project.cover.artworkUrl);
   let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1491,6 +1499,10 @@ export function exportToHTML(project: BookProject) {
     .subtitle { text-align: center; font-style: italic; color: #666; font-size: 1.2rem; }
     .series-badge { text-align: center; font-weight: bold; color: #f97316; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5rem; }
     .meta { text-align: center; font-size: 0.9rem; color: #888; border-bottom: 2px solid #ea580c; padding-bottom: 1rem; margin-bottom: 2rem; }
+    .web-cover { min-height: 90vh; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 10%; margin-bottom: 2rem; background: ${project.cover.coverBgColor}; color: ${project.cover.textColor}; }
+    .web-cover-content { position: relative; z-index: 2; }
+    .web-cover-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; ${coverImageCss(project.cover)} }
+    .web-cover-art { max-width: 100%; max-height: 60vh; object-fit: contain; ${coverImageCss(project.cover)} }
     .chapter { background: #fff; padding: 2.5rem; margin-bottom: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .chapter-title { font-family: ${typography.chapterOpening.titleFontFamily}; font-size: ${typography.chapterOpening.titleFontSizePt}pt; font-weight: ${typography.chapterOpening.titleWeight}; color: ${typography.chapterOpening.titleColour}; text-align: ${typography.chapterOpening.alignment === 'centre' ? 'center' : typography.chapterOpening.alignment}; ${typography.chapterOpening.showDivider ? `border-bottom: ${typography.chapterOpening.dividerThicknessPt}pt solid ${typography.chapterOpening.dividerColour};` : ''} padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
     .episode-tag { font-size: 0.85rem; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 1rem; }
@@ -1500,10 +1512,19 @@ export function exportToHTML(project: BookProject) {
   </style>
 </head>
 <body>
-  <h1>${project.title}</h1>
-  ${project.subtitle ? `<div class="subtitle">${project.subtitle}</div>` : ''}
-  ${project.series?.isSeries ? `<div class="series-badge">Series: ${project.series.seriesTitle} ${project.series.seriesNumber ? `(${project.series.seriesNumber})` : ''}</div>` : ''}
-  <div class="meta">By ${project.author} | Publisher: ${project.frontMatter.publisher || 'Independent'}</div>
+  ${project.exportSettings.includeCover !== false ? `<div class="web-cover">
+    ${coverImageSrc && project.cover.fullBleedImage ? `<img class="web-cover-bg" src="${coverImageSrc}" alt="Cover artwork" />` : ''}
+    <div class="web-cover-content">
+      ${showCoverField(project.cover, 'series') && project.series?.isSeries ? `<div class="series-badge">${[project.series.seriesTitle, project.series.seriesNumber].filter(Boolean).join(' · ')}</div>` : ''}
+      ${showCoverField(project.cover, 'title') ? `<h1 style="color:${project.cover.textColor}">${project.cover.title || project.title}</h1>` : ''}
+      ${showCoverField(project.cover, 'subtitle') && (project.cover.subtitle || project.subtitle) ? `<div class="subtitle">${project.cover.subtitle || project.subtitle}</div>` : ''}
+      ${coverImageSrc && !project.cover.fullBleedImage ? `<img class="web-cover-art" src="${coverImageSrc}" alt="Cover artwork" />` : ''}
+    </div>
+    <div class="web-cover-content">
+      ${showCoverField(project.cover, 'author') ? `<div>By ${project.cover.author || project.author}</div>` : ''}
+      ${showCoverField(project.cover, 'imprint') ? `<div>${project.cover.publisher || project.frontMatter.publisher}</div>` : ''}
+    </div>
+  </div>` : ''}
 `;
 
   if (project.frontMatter.includeTOC || project.exportSettings.includeTOC) {

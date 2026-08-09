@@ -41,6 +41,8 @@ import { mathSourceForBlock } from '../lib/mathValidation';
 import { DEFAULT_ACCOUNTING_FORMAT } from '../lib/accounting';
 import { BlockType } from '../types';
 import { resolveStructuredLists } from '../lib/structuredLists';
+import { coverImageStyle, showCoverField } from '../lib/coverArtwork';
+import { resolvePublishingGeometry } from '../lib/publishingGeometry';
 
 const EquationRenderer = React.lazy(() =>
   import('./blocks/EquationRenderer').then((module) => ({ default: module.EquationRenderer }))
@@ -112,21 +114,11 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   };
 
   const getTrimDimensions = () => {
-    if (selectedOrientation === 'landscape') {
-      switch (selectedTrimSize) {
-        case '8.5x11': return 'w-[970px] min-h-[750px]';
-        case 'A5': return 'w-[820px] min-h-[580px]';
-        case '5x8': return 'w-[800px] min-h-[500px]';
-        case '6x9': default: return 'w-[840px] min-h-[560px]';
-      }
-    } else {
-      switch (selectedTrimSize) {
-        case '8.5x11': return 'w-[750px] min-h-[970px]';
-        case 'A5': return 'w-[580px] min-h-[820px]';
-        case '5x8': return 'w-[500px] min-h-[800px]';
-        case '6x9': default: return 'w-[560px] min-h-[840px]';
-      }
-    }
+    const geometry = resolvePublishingGeometry({ ...project.exportSettings, trimSize: selectedTrimSize });
+    const width = selectedOrientation === 'landscape' ? geometry.trimHeightInches : geometry.trimWidthInches;
+    const height = selectedOrientation === 'landscape' ? geometry.trimWidthInches : geometry.trimHeightInches;
+    const previewPixelsPerInch = 93.333;
+    return { width: `${width * previewPixelsPerInch}px`, minHeight: `${height * previewPixelsPerInch}px` };
   };
 
   return (
@@ -366,8 +358,9 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Book Cover Page</span>
               <div 
-                className={`${getTrimDimensions()} shadow-2xl p-10 flex flex-col justify-between text-center relative overflow-hidden transition-all`}
+                className="shadow-2xl p-10 flex flex-col justify-between text-center relative overflow-hidden transition-all"
                 style={{
+                  ...getTrimDimensions(),
                   backgroundColor: project.cover.coverBgColor || '#1c1917',
                   color: project.cover.textColor || '#ffffff'
                 }}
@@ -379,35 +372,40 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                       src={project.cover.artworkUrl} 
                       alt="Full Bleed Cover Background" 
                       className="absolute inset-0 w-full h-full object-cover transition-opacity"
-                      style={{ opacity: (project.cover.imageOpacity ?? 90) / 100 }}
+                      style={coverImageStyle(project.cover)}
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />
+                    {project.cover.showBookDetails !== false && <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />}
                   </>
                 )}
 
-                <div className="relative z-10">
-                  <h1 className="text-3xl font-extrabold tracking-wider uppercase mb-2 drop-shadow-md" style={{ color: project.cover.textColor }}>
+                {project.cover.showBookDetails !== false && <div className="relative z-10">
+                  {showCoverField(project.cover, 'series') && project.series?.isSeries && <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: project.cover.accentColor }}>{[project.series.seriesTitle, project.series.seriesNumber].filter(Boolean).join(' · ')}</div>}
+                  {showCoverField(project.cover, 'title') && <h1 className="text-3xl font-extrabold tracking-wider uppercase mb-2 drop-shadow-md" style={{ color: project.cover.textColor }}>
                     {project.cover.title || project.title}
-                  </h1>
-                  <p className="text-sm font-serif italic mb-6 drop-shadow-sm" style={{ color: project.cover.accentColor || '#ea580c' }}>
+                  </h1>}
+                  {showCoverField(project.cover, 'subtitle') && <p className="text-sm font-serif italic mb-6 drop-shadow-sm" style={{ color: project.cover.accentColor || '#ea580c' }}>
                     {project.cover.subtitle || project.subtitle}
-                  </p>
+                  </p>}
                   {project.cover.artworkUrl && !project.cover.fullBleedImage && (
                     <img 
                       src={project.cover.artworkUrl} 
                       alt="Cover Illustration" 
                       className="max-h-64 mx-auto rounded border-2 object-cover shadow-lg my-4"
-                      style={{ borderColor: project.cover.accentColor || '#ea580c' }}
+                      style={{ borderColor: project.cover.accentColor || '#ea580c', ...coverImageStyle(project.cover) }}
                       referrerPolicy="no-referrer"
                     />
                   )}
-                </div>
+                </div>}
 
-                <div className="relative z-10">
-                  <p className="text-lg font-bold tracking-widest uppercase drop-shadow-sm">{project.cover.author || project.author}</p>
-                  <p className="text-xs opacity-80 font-mono uppercase mt-2">{project.cover.publisher || project.frontMatter.publisher}</p>
-                </div>
+                {project.cover.showBookDetails === false && project.cover.artworkUrl && !project.cover.fullBleedImage && (
+                  <img src={project.cover.artworkUrl} alt="Cover Illustration" className="max-h-64 mx-auto object-cover my-auto" style={coverImageStyle(project.cover)} referrerPolicy="no-referrer" />
+                )}
+
+                {project.cover.showBookDetails !== false && <div className="relative z-10">
+                  {showCoverField(project.cover, 'author') && <p className="text-lg font-bold tracking-widest uppercase drop-shadow-sm">{project.cover.author || project.author}</p>}
+                  {showCoverField(project.cover, 'imprint') && <p className="text-xs opacity-80 font-mono uppercase mt-2">{project.cover.publisher || project.frontMatter.publisher}</p>}
+                </div>}
               </div>
             </div>
           )}
@@ -416,7 +414,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           {(activeViewTab === 'all' || activeViewTab === 'front') && project.exportSettings.includeFrontMatter && (
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Front Matter & Title Page</span>
-              <div className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl p-12 flex flex-col justify-between relative`}>
+              <div className="bg-white text-zinc-900 shadow-2xl p-12 flex flex-col justify-between relative" style={getTrimDimensions()}>
                 
                 {/* Watermark overlay if enabled */}
                 {project.watermark.enabled && (
@@ -447,7 +445,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           {(activeViewTab === 'all' || activeViewTab === 'front') && project.exportSettings.includeExecSummary && project.frontMatter.executiveSummaryContent && (
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Executive Summary</span>
-              <div className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl p-12 flex flex-col relative`}>
+              <div className="bg-white text-zinc-900 shadow-2xl p-12 flex flex-col relative" style={getTrimDimensions()}>
                 <h2 className="text-xl font-serif font-bold border-b-2 border-orange-500 pb-2 mb-6">Executive Summary</h2>
                 <div className="bg-amber-50/50 border-l-4 border-orange-500 p-6 rounded text-sm font-serif leading-relaxed text-zinc-800 whitespace-pre-wrap">
                   {project.frontMatter.executiveSummaryContent}
@@ -460,7 +458,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           {(activeViewTab === 'all' || activeViewTab === 'front') && project.exportSettings.includeTOC && (
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Table of Contents</span>
-              <div className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl p-10 flex flex-col relative`}>
+              <div className="bg-white text-zinc-900 shadow-2xl p-10 flex flex-col relative" style={getTrimDimensions()}>
                 <TableOfContents
                   chapters={project.chapters}
                   frontMatter={project.frontMatter}
@@ -474,7 +472,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           {(activeViewTab === 'all' || activeViewTab === 'front') && (project.frontMatter.includeIndex || project.exportSettings.includeIndex) && (
             <div className="flex flex-col items-center gap-2">
               <span className="text-xs text-gray-400 font-mono font-bold uppercase tracking-widest">Index of Terms</span>
-              <div className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl p-10 flex flex-col relative`}>
+              <div className="bg-white text-zinc-900 shadow-2xl p-10 flex flex-col relative" style={getTrimDimensions()}>
                 <IndexOfTerms
                   chapters={project.chapters}
                   frontMatter={project.frontMatter}
@@ -494,9 +492,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 {classifyChapterBlocks(ch.blocks).map((page, pageIndex) => (
                 <div 
                   key={`${ch.id}-${pageIndex}`}
-                  className={`${getTrimDimensions()} bg-white text-zinc-900 shadow-2xl flex flex-col justify-between relative transition-all`}
+                  className="bg-white text-zinc-900 shadow-2xl flex flex-col justify-between relative transition-all"
                   data-page-role={page.role}
                   style={{
+                    ...getTrimDimensions(),
                     paddingTop: activePreviewMargins.top,
                     paddingRight: activePreviewMargins.right,
                     paddingBottom: activePreviewMargins.bottom,

@@ -33,7 +33,7 @@ describe('authoritative book typography', () => {
       syncStatus: 'local-only'
     });
 
-    expect(migrated?.schemaVersion).toBe(6);
+    expect(migrated?.schemaVersion).toBe(7);
     expect(migrated?.project.typography?.presetId).toBe('legacy');
     expect(migrated?.project.chapters).toEqual(before.chapters);
     expect(migrated?.project.exportSettings.trimSize).toBe(before.exportSettings.trimSize);
@@ -145,6 +145,8 @@ describe('authoritative book typography', () => {
     expect(app).toContain("import('./components/BookTypographyModal')");
     expect(app).not.toMatch(/^import .*BookTypographyModal/m);
     expect(pwa).toContain("url.pathname.startsWith('/firebase/')");
-    expect(cloud).toContain('Cloud sync disabled');
+    expect(cloud).toContain('Firebase Cloud Sync');
+    expect(cloud).toContain('onUpload: () => Promise<string>');
+    expect(cloud).not.toContain('setTimeout');
   });
 });

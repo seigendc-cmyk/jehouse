@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Bookmark, Sparkles, Sliders, Image as ImageIcon, Check, Upload, UploadCloud, X } from 'lucide-react';
+import { Bookmark, Sparkles, Image as ImageIcon, Check, Upload, UploadCloud, X, RotateCcw, AlertTriangle } from 'lucide-react';
 import { CoverConfig } from '../types';
+import { PublishingGeometrySettings } from '../lib/publishingGeometry';
+import { classifyCoverSuitability, coverImageStyle, getCoverPrintRequirements, optimizeCoverArtwork, resetCoverImageAppearance, showCoverField } from '../lib/coverArtwork';
 
 interface CoverEditorProps {
   cover: CoverConfig;
   totalPages: number;
+  printSettings: PublishingGeometrySettings;
+  seriesLabel?: string;
   onUpdateCover: (updated: CoverConfig) => void;
   onOpenImageGallery?: () => void;
 }
@@ -20,62 +24,50 @@ const COLOR_PRESETS = [
 export const CoverEditor: React.FC<CoverEditorProps> = ({
   cover,
   totalPages,
+  printSettings,
+  seriesLabel,
   onUpdateCover,
   onOpenImageGallery,
 }) => {
   const [activeTab, setActiveTab] = useState<'design' | 'artwork' | 'spine'>('design');
   const [autoSaveNotice, setAutoSaveNotice] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Calculated spine thickness based on 0.06mm per page (standard 60lb cream paper)
   const calculatedSpineMm = Math.max(10, Math.round(totalPages * 0.065));
+  const currentPrintRequirement = getCoverPrintRequirements(printSettings);
+  const currentSuitability = cover.artworkAsset
+    ? classifyCoverSuitability(cover.artworkAsset.width, cover.artworkAsset.height, currentPrintRequirement.width, currentPrintRequirement.height)
+    : undefined;
 
-  const processAndSaveImage = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const rawDataUrl = evt.target?.result as string;
-      if (!rawDataUrl) return;
-
-      const img = new Image();
-      img.onload = () => {
-        const MAX_DIM = 1600;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
-          onUpdateCover({ ...cover, artworkUrl: optimizedDataUrl });
-        } else {
-          onUpdateCover({ ...cover, artworkUrl: rawDataUrl });
-        }
-
-        setAutoSaveNotice('✓ Cover image inserted & auto-saved to document');
-        setTimeout(() => setAutoSaveNotice(null), 4000);
-      };
-      img.onerror = () => {
-        onUpdateCover({ ...cover, artworkUrl: rawDataUrl });
-        setAutoSaveNotice('✓ Cover image inserted & auto-saved to document');
-        setTimeout(() => setAutoSaveNotice(null), 4000);
-      };
-      img.src = rawDataUrl;
-    };
-    reader.readAsDataURL(file);
+  const processAndSaveImage = async (file: File) => {
+    setIsProcessing(true);
+    setProcessingError(null);
+    try {
+      const { blob, artworkAsset } = await optimizeCoverArtwork(file, printSettings, {
+        quality: cover.imageQuality,
+        automaticResize: cover.optimizeArtworkAutomatically
+      });
+      const artworkUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      onUpdateCover({ ...cover, artworkUrl, artworkAsset, imageFormat: 'webp', imageQuality: artworkAsset.quality });
+      setAutoSaveNotice('Cover optimized as WebP and auto-saved');
+      setTimeout(() => setAutoSaveNotice(null), 4000);
+    } catch (error) {
+      setProcessingError(error instanceof Error ? error.message : 'Cover artwork could not be processed.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  const formatBytes = (bytes: number) => bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row h-full bg-zinc-100 dark:bg-zinc-950 overflow-hidden">
@@ -217,6 +209,11 @@ export const CoverEditor: React.FC<CoverEditorProps> = ({
                 <span>{autoSaveNotice}</span>
               </div>
             )}
+            {processingError && (
+              <div className="p-2.5 border border-rose-500/40 text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" /> {processingError}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="font-bold text-zinc-700 dark:text-zinc-300 block">Cover Illustration / Artwork</label>
@@ -242,11 +239,12 @@ export const CoverEditor: React.FC<CoverEditorProps> = ({
                 </div>
                 <label className="mt-1 px-3 py-1.5 bg-[#FF6B00] hover:bg-orange-600 text-black font-extrabold text-xs rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs">
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Choose Image File</span>
+                  <span>{isProcessing ? 'Optimizing…' : 'Choose Image File'}</span>
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    disabled={isProcessing}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -306,32 +304,88 @@ export const CoverEditor: React.FC<CoverEditorProps> = ({
                       />
                     </label>
 
-                    {cover.fullBleedImage && (
-                      <div className="pt-2 border-t border-orange-200/60 dark:border-orange-900/40 space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
-                          <span>Image Opacity / Tint</span>
-                          <span className="font-mono text-orange-600 dark:text-orange-400">{cover.imageOpacity ?? 90}%</span>
+                    <div className="pt-2 border-t border-orange-200/60 dark:border-orange-900/40 space-y-3">
+                      {([
+                        ['Image Brightness / Lightness', 'imageBrightness', 50, 160, 100],
+                        ['Image Opacity / Tint', 'imageOpacity', 40, 100, 90],
+                        ['Image Contrast', 'imageContrast', 70, 140, 100]
+                      ] as const).map(([label, key, min, max, fallback]) => (
+                        <div key={key} className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
+                            <span>{label}</span>
+                            <span className="font-mono text-orange-600 dark:text-orange-400">{cover[key] ?? fallback}%</span>
+                          </div>
+                          <input type="range" min={min} max={max} value={cover[key] ?? fallback}
+                            onChange={(e) => onUpdateCover({ ...cover, [key]: Number(e.target.value) })}
+                            className="w-full accent-orange-500 cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg" />
                         </div>
-                        <input
-                          type="range"
-                          min="40"
-                          max="100"
-                          value={cover.imageOpacity ?? 90}
-                          onChange={(e) => onUpdateCover({ ...cover, imageOpacity: Number(e.target.value) })}
-                          className="w-full accent-orange-500 cursor-pointer h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
-                        />
+                      ))}
+                      <button type="button" onClick={() => onUpdateCover(resetCoverImageAppearance(cover))}
+                        className="flex items-center gap-1.5 border border-zinc-300 dark:border-zinc-700 px-2 py-1.5 font-bold hover:border-orange-500">
+                        <RotateCcw className="w-3.5 h-3.5" /> Reset Image Appearance
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border border-zinc-200 dark:border-zinc-800 p-3 space-y-2">
+                    <div className="font-extrabold tracking-wider text-zinc-800 dark:text-zinc-200">IMAGE OPTIMISATION</div>
+                    <div className="flex justify-between"><span>Output Format</span><strong>WebP</strong></div>
+                    <label className="block space-y-1">
+                      <span className="flex justify-between"><span>Quality</span><strong>{cover.imageQuality ?? 88}%</strong></span>
+                      <input type="range" min="70" max="100" value={cover.imageQuality ?? 88}
+                        onChange={(e) => onUpdateCover({ ...cover, imageQuality: Number(e.target.value) })}
+                        className="w-full accent-orange-500" />
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={cover.optimizeArtworkAutomatically ?? true}
+                        onChange={(e) => onUpdateCover({ ...cover, optimizeArtworkAutomatically: e.target.checked })}
+                        className="accent-orange-500" />
+                      Optimize uploaded artwork automatically
+                    </label>
+                    {cover.artworkAsset && (
+                      <div className={`border-l-2 pl-2 ${currentSuitability === 'Low Resolution' ? 'border-amber-500 text-amber-700 dark:text-amber-400' : 'border-emerald-500 text-emerald-700 dark:text-emerald-400'}`}>
+                        <strong>{currentSuitability === 'Low Resolution' ? 'Low-resolution image' : 'Cover optimized'}</strong>
+                        <div className="text-[10px] mt-1">{cover.artworkAsset.originalFormat.replace('image/', '').toUpperCase()} → WebP · {formatBytes(cover.artworkAsset.originalSizeBytes)} → {formatBytes(cover.artworkAsset.optimizedSizeBytes)}</div>
+                        <div className="text-[10px]">{cover.artworkAsset.width} × {cover.artworkAsset.height}px · Quality {cover.artworkAsset.quality}% · {currentSuitability}</div>
+                        <div className="text-[10px] text-zinc-500">Recommended for {printSettings.trimSize} with bleed: {currentPrintRequirement.width} × {currentPrintRequirement.height}px</div>
                       </div>
                     )}
                   </div>
 
                   <button
-                    onClick={() => onUpdateCover({ ...cover, artworkUrl: '' })}
+                    onClick={() => onUpdateCover({ ...cover, artworkUrl: '', artworkAsset: undefined })}
                     className="text-xs text-rose-500 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer pt-1"
                   >
                     <X className="w-3.5 h-3.5" /> Clear Cover Artwork
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 space-y-2">
+              <div className="font-extrabold tracking-wider text-zinc-800 dark:text-zinc-200">COVER TYPOGRAPHY</div>
+              <label className="flex items-center justify-between font-bold">
+                <span>Show Book Details on Cover</span>
+                <input type="checkbox" checked={cover.showBookDetails ?? true}
+                  onChange={(e) => onUpdateCover({ ...cover, showBookDetails: e.target.checked })}
+                  className="accent-orange-500" />
+              </label>
+              <div className={`pl-3 border-l border-zinc-300 dark:border-zinc-700 space-y-1.5 ${cover.showBookDetails === false ? 'opacity-40 pointer-events-none' : ''}`}>
+                {([
+                  ['Book Title', 'showTitle', true],
+                  ['Subtitle', 'showSubtitle', true],
+                  ['Author Name', 'showAuthor', true],
+                  ['Series / Season', 'showSeries', false],
+                  ['Publisher / Imprint', 'showImprint', false]
+                ] as const).map(([label, key, fallback]) => (
+                  <label key={key} className="flex items-center justify-between">
+                    <span>{label}</span>
+                    <input type="checkbox" checked={cover[key] ?? fallback}
+                      onChange={(e) => onUpdateCover({ ...cover, [key]: e.target.checked })}
+                      className="accent-orange-500" />
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div>
@@ -389,22 +443,23 @@ export const CoverEditor: React.FC<CoverEditorProps> = ({
                 src={cover.artworkUrl} 
                 alt="Full Bleed Cover Background" 
                 className="absolute inset-0 w-full h-full object-cover transition-opacity"
-                style={{ opacity: (cover.imageOpacity ?? 90) / 100 }}
+                style={coverImageStyle(cover)}
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />
+              {cover.showBookDetails !== false && <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />}
             </>
           )}
 
           {/* Top Title & Subtitle */}
-          <div className="relative z-10">
-            <div className="text-2xl font-black tracking-wider uppercase border-b-2 pb-2 drop-shadow-md" style={{ borderColor: cover.accentColor }}>
+          {cover.showBookDetails !== false && <div className="relative z-10">
+            {showCoverField(cover, 'series') && seriesLabel && <div className="text-[10px] font-bold tracking-widest uppercase mb-2" style={{ color: cover.accentColor }}>{seriesLabel}</div>}
+            {showCoverField(cover, 'title') && <div className="text-2xl font-black tracking-wider uppercase border-b-2 pb-2 drop-shadow-md" style={{ borderColor: cover.accentColor }}>
               {cover.title || 'BOOK TITLE'}
-            </div>
-            <div className="text-xs font-serif italic mt-2 drop-shadow-sm" style={{ color: cover.accentColor }}>
+            </div>}
+            {showCoverField(cover, 'subtitle') && <div className="text-xs font-serif italic mt-2 drop-shadow-sm" style={{ color: cover.accentColor }}>
               {cover.subtitle}
-            </div>
-          </div>
+            </div>}
+          </div>}
 
           {/* Inset Artwork (when NOT full-bleed) */}
           {cover.artworkUrl && !cover.fullBleedImage && (
@@ -413,21 +468,21 @@ export const CoverEditor: React.FC<CoverEditorProps> = ({
                 src={cover.artworkUrl} 
                 alt="Cover Artwork" 
                 className="max-h-48 mx-auto rounded border-2 object-cover shadow-lg"
-                style={{ borderColor: cover.accentColor }}
+                style={{ borderColor: cover.accentColor, ...coverImageStyle(cover) }}
                 referrerPolicy="no-referrer"
               />
             </div>
           )}
 
           {/* Bottom Author & Publisher */}
-          <div className="relative z-10">
-            <div className="text-sm font-bold tracking-widest uppercase drop-shadow-sm">
+          {cover.showBookDetails !== false && <div className="relative z-10">
+            {showCoverField(cover, 'author') && <div className="text-sm font-bold tracking-widest uppercase drop-shadow-sm">
               {cover.author || 'AUTHOR NAME'}
-            </div>
-            <div className="text-[10px] tracking-widest opacity-80 mt-1 uppercase font-mono">
+            </div>}
+            {showCoverField(cover, 'imprint') && <div className="text-[10px] tracking-widest opacity-80 mt-1 uppercase font-mono">
               {cover.publisher}
-            </div>
-          </div>
+            </div>}
+          </div>}
         </div>
 
       </div>

@@ -351,7 +351,36 @@ export interface CoverConfig {
   artworkPrompt?: string;
   fullBleedImage?: boolean;
   imageOpacity?: number;
+  imageBrightness?: number;
+  imageContrast?: number;
+  showBookDetails?: boolean;
+  showTitle?: boolean;
+  showSubtitle?: boolean;
+  showAuthor?: boolean;
+  showSeries?: boolean;
+  showImprint?: boolean;
+  imageFormat?: 'webp';
+  imageQuality?: number;
+  optimizeArtworkAutomatically?: boolean;
+  artworkAsset?: CoverArtworkAssetInfo;
   layoutStyle: 'centered' | 'modern-minimal' | 'bold-editorial' | 'classic-frame';
+}
+
+export type CoverPrintSuitability = 'Excellent' | 'Good' | 'Low Resolution';
+
+export interface CoverArtworkAssetInfo {
+  originalName: string;
+  originalFormat: string;
+  originalSizeBytes: number;
+  optimizedSizeBytes: number;
+  width: number;
+  height: number;
+  requiredWidth: number;
+  requiredHeight: number;
+  quality: number;
+  format: 'webp';
+  suitability: CoverPrintSuitability;
+  resized: boolean;
 }
 
 export type TocStyle = 'dotted' | 'clean' | 'academic' | 'modern';
@@ -612,6 +641,11 @@ export interface ExportSettings {
   includeFootnotes: boolean;
   includeBibliography?: boolean;
   trimSize: TrimSize;
+  /** Canonical print geometry overrides; omitted values use publishing defaults. */
+  trimWidthInches?: number;
+  trimHeightInches?: number;
+  bleedInches?: number;
+  printDpi?: number;
   pageOrientation?: PageOrientation;
   fontPairing: FontPairing;
   googleSerifFont?: string;
