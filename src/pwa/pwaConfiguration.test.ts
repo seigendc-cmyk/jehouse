@@ -12,11 +12,17 @@ describe('PWA configuration', () => {
     new URL('./service-worker-template.js', import.meta.url),
     'utf8'
   );
+  const server = readFileSync(new URL('../../server.ts', import.meta.url), 'utf8');
 
   it('defines the required installable manifest and local icons', () => {
     expect(manifest.name).toBe('PressCraft Book Studio');
     expect(manifest.short_name).toBe('PressCraft');
     expect(manifest.display).toBe('standalone');
+    expect(manifest.id).toBe('/');
+    expect(manifest.scope).toBe('/');
+    expect(manifest.start_url).toBe('/');
+    expect(manifest.display_override).toContain('standalone');
+    expect(manifest.prefer_related_applications).toBe(false);
     expect(manifest.background_color).toBe('#EA580C');
     expect(manifest.icons.map(({ src }: { src: string }) => src)).toEqual([
       '/icons/presscraft-192.png',
@@ -48,8 +54,17 @@ describe('PWA configuration', () => {
   it('uses bounded local-image caching and navigation-only shell fallback', () => {
     expect(worker).toContain('MAX_RUNTIME_IMAGES = 32');
     expect(worker).toContain("request.mode === 'navigate'");
-    expect(worker).toContain("cache.match('/index.html')");
+    expect(worker).toContain("caches.match('/index.html')");
     expect(worker).toContain("request.destination === 'image'");
+    expect(worker).toContain('cached || Response.error()');
+    expect(worker).toContain('cached || fetch(request)');
+  });
+
+  it('serves the worker at root scope without stale HTTP caching', () => {
+    expect(server).toContain('app.get("/sw.js"');
+    expect(server).toContain('Service-Worker-Allowed');
+    expect(server).toContain('no-cache, no-store, must-revalidate');
+    expect(server).toContain('application/manifest+json');
   });
 
   it('removes only obsolete PressCraft shell caches and waits for update approval', () => {

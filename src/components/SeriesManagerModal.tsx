@@ -370,17 +370,17 @@ export const SeriesManagerModal: React.FC<SeriesManagerModalProps> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-white">{season.title}</span>
+                              <span className="text-sm font-bold !text-slate-100">{season.title}</span>
                               {season.releaseYear && (
                                 <span className="text-[10px] font-mono bg-[#2a2a2d] text-gray-300 px-2 py-0.5 rounded border border-[#333]">
                                   {season.releaseYear}
                                 </span>
                               )}
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs !text-slate-300">
                                 ({season.episodes.length} Episodes)
                               </span>
                             </div>
-                            {season.subtitle && <p className="text-xs text-gray-400 italic">{season.subtitle}</p>}
+                            {season.subtitle && <p className="text-xs !text-slate-300 italic">{season.subtitle}</p>}
                           </div>
                         </div>
 
@@ -390,13 +390,13 @@ export const SeriesManagerModal: React.FC<SeriesManagerModalProps> = ({
                               e.stopPropagation();
                               handleDeleteSeason(season.id);
                             }}
-                            className="p-1.5 rounded hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 cursor-pointer"
+                            className="p-1.5 rounded hover:bg-rose-500/20 !text-slate-300 hover:!text-rose-300 cursor-pointer"
                             title="Delete Season"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
 
-                          {isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+                          {isExpanded ? <ChevronDown className="w-5 h-5 !text-slate-300" /> : <ChevronRight className="w-5 h-5 !text-slate-300" />}
                         </div>
                       </div>
 
