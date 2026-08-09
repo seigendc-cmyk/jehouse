@@ -50,3 +50,22 @@ copilot-messages.log
 # System files
 .DS_Store
 .project/attachments/files/**
+# Local environment and secrets
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Temporary QA and tooling
+.tmp-qa/
+.kilo/
+.vscode/
+
+# Runtime logs
+firebase-debug.log
+production-server.log
+*.log
